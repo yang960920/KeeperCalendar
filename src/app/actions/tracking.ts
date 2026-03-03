@@ -53,8 +53,12 @@ export async function getTrackingData() {
         }));
 
         return { success: true, data: { tasks: formattedTasks, logs: formattedLogs } };
-    } catch (error) {
-        console.error("Error fetching tracking data:", error);
-        return { success: false, error: "데이터를 불러오는 중 서버 오류가 발생했습니다." };
+    } catch (error: any) {
+        console.error("============= TRACKING DATA ERROR =============");
+        console.error(error);
+        console.error(error?.message);
+        console.error(error?.stack);
+        console.error("===============================================");
+        return { success: false, error: "데이터를 불러오는 중 서버 오류가 발생했습니다: " + (error?.message || "알 수 없는 오류") };
     }
 }
