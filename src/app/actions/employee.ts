@@ -1,16 +1,7 @@
 "use server";
 
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-
-// 싱글톤 패턴으로 PrismaClient 생성
-const globalForPrisma = globalThis as unknown as {
-    prisma: PrismaClient | undefined;
-};
-
-export const prisma = globalForPrisma.prisma ?? new PrismaClient();
-
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
 /**
  * 모든 사원 목록을 가져옵니다.

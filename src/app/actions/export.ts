@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "./employee";
+import { prisma } from "@/lib/prisma";
 
 export async function getExportData() {
     try {
