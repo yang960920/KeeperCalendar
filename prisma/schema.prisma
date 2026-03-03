@@ -1,0 +1,113 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// 부서 (옵션: 사원은 특정 부서에 속할 수 있음)
+model Department {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  users     User[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// 사용자 (사원 및 관리자)
+model User {
+  id           String      @id // Login ID (예: '홍길동')
+  name         String
+  password     String      // 비밀번호 (기본: 생년월일 6자리)
+  role         Role        @default(PARTICIPANT)
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+  tasks        Task[]      @relation("TaskAssignee")
+  projects     Project[]   @relation("ProjectCreator")
+  activityLogs ActivityLog[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+enum Role {
+  CREATOR
+  PARTICIPANT
+}
+
+// 프로젝트
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  category    String   // 프로젝트 카테고리 (색상 등 식별용)
+  creatorId   String
+  creator     User     @relation("ProjectCreator", fields: [creatorId], references: [id])
+  startDate   DateTime
+  endDate     DateTime
+  tasks       Task[]
+  activityLogs ActivityLog[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// 태스크
+model Task {
+  id          String       @id @default(cuid())
+  title       String
+  description String?
+  status      TaskStatus   @default(TODO)
+  priority    TaskPriority @default(MEDIUM)
+  projectId   String
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assigneeId  String?
+  assignee    User?        @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  dueDate     DateTime?
+  attachments Attachment[]
+  activityLogs ActivityLog[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+// 태스크 첨부파일
+model Attachment {
+  id        String   @id @default(cuid())
+  name      String
+  url       String
+  size      Int
+  type      String
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+// 활동 로그 (프로젝트/태스크 수정 내역)
+model ActivityLog {
+  id          String   @id @default(cuid())
+  action      String   // 예: "CREATED_TASK", "UPDATED_PROJECT_STATUS"
+  entityType  String   // 예: "TASK", "PROJECT"
+  entityId    String   // 연결된 개체 ID
+  details     String?  // 변경 내용에 대한 세부 설명 (JSON 또는 텍스트)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  projectId   String?  // 프로젝트와 연관된 활동인 경우 접근 용이성 제공
+  project     Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  taskId      String?
+  task        Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+}

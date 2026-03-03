@@ -38,8 +38,3 @@ export const useAuthStore = create<AuthState>()(
     )
 );
 
-// 하드코딩된 유저 정보 (추후 DB 연동 예정)
-export const HARDCODED_USERS = {
-    "김권찬": { id: "김권찬", name: "김권찬", password: "910812", role: "CREATOR" as Role },
-    "양현준": { id: "양현준", name: "양현준", password: "960920", role: "PARTICIPANT" as Role },
-};

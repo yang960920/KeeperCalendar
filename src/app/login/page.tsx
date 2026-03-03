@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuthStore, HARDCODED_USERS } from "@/store/useAuthStore";
+import { useAuthStore } from "@/store/useAuthStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,21 +14,11 @@ export default function LoginPage() {
     const [id, setId] = useState("");
     const [password, setPassword] = useState("");
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        const userObj = HARDCODED_USERS[id as keyof typeof HARDCODED_USERS];
 
-        if (userObj && userObj.password === password) {
-            login({
-                id: userObj.id,
-                name: userObj.name,
-                role: userObj.role,
-            });
-            // 메인 페이지로 이동
-            router.push("/");
-        } else {
-            alert("아이디 또는 비밀번호가 일치하지 않습니다. 등록된 계정으로 로그인해주세요.");
-        }
+        // TODO: Update to use real API endpoint instead of hardcoded users
+        alert("데이터베이스 연동 작업 진행 중입니다.");
     };
 
     return (
