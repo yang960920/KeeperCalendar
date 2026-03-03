@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, use } from "react";
+import { useState, use, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
-import { useAuthStore, HARDCODED_USERS } from "@/store/useAuthStore";
+import { useAuthStore } from "@/store/useAuthStore";
 import { useProjectStore } from "@/store/useProjectStore";
 import { useTaskStore } from "@/store/useTaskStore";
 import { useStore } from "@/hooks/useStore";
@@ -18,6 +18,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { getEmployees } from "@/app/actions/employee";
 
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const router = useRouter();
@@ -29,6 +30,17 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     const tasks = useStore(useTaskStore, (state) => state.tasks) || [];
 
     const [selectedTask, setSelectedTask] = useState<any | null>(null);
+    const [users, setUsers] = useState<any[]>([]);
+
+    useEffect(() => {
+        async function fetchUsers() {
+            const res = await getEmployees();
+            if (res.success && res.data) {
+                setUsers(res.data);
+            }
+        }
+        fetchUsers();
+    }, []);
 
     const currentDate = new Date();
     const [selectedYear, setSelectedYear] = useState(String(Math.max(2026, currentDate.getFullYear())));
@@ -71,7 +83,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                         </div>
                         <div className="text-sm text-muted-foreground flex items-center gap-4">
                             <span>생성자: {project.creatorId}</span>
-                            <span>참여 인원: {project.participantIds.map(id => HARDCODED_USERS[id as keyof typeof HARDCODED_USERS]?.name).join(', ')}</span>
+                            <span>참여 인원: {project.participantIds.map(id => {
+                                const found = users.find(u => u.id === id);
+                                return found ? found.name : id;
+                            }).join(', ')}</span>
                         </div>
                     </div>
 

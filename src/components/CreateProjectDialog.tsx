@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus } from "lucide-react";
 import { useProjectStore } from "@/store/useProjectStore";
-import { useAuthStore, HARDCODED_USERS } from "@/store/useAuthStore";
+import { useAuthStore } from "@/store/useAuthStore";
 import {
     Dialog,
     DialogContent,
@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { getEmployees } from "@/app/actions/employee";
 
 export const CreateProjectDialog = () => {
     const user = useAuthStore((state) => state.user);
@@ -21,12 +22,23 @@ export const CreateProjectDialog = () => {
     const [open, setOpen] = useState(false);
     const [title, setTitle] = useState("");
     const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
+    const [users, setUsers] = useState<any[]>([]);
+
+    useEffect(() => {
+        async function fetchUsers() {
+            const res = await getEmployees();
+            if (res.success && res.data) {
+                setUsers(res.data);
+            }
+        }
+        fetchUsers();
+    }, []);
 
     // Only creators can create projects
     if (user?.role !== "CREATOR") return null;
 
-    // 참가자로 선택 가능한 유저 목록 (여기선 자기 자신 제외한 하드코딩된 유저들)
-    const availableUsers = Object.values(HARDCODED_USERS).filter(u => u.id !== user.id);
+    // 참가자로 선택 가능한 유저 목록 (자기 자신 제외)
+    const availableUsers = users.filter(u => u.id !== user.id);
 
     const handleToggleParticipant = (userId: string) => {
         setSelectedParticipants(prev =>

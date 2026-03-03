@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { Plus } from "lucide-react";
 import { useTaskStore } from "@/store/useTaskStore";
-import { HARDCODED_USERS } from "@/store/useAuthStore";
 import {
     Dialog,
     DialogContent,
@@ -23,6 +22,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { getEmployees } from "@/app/actions/employee";
 
 interface ProjectTaskFormProps {
     projectId: string;
@@ -32,11 +32,19 @@ interface ProjectTaskFormProps {
 export const ProjectTaskForm = ({ projectId, participants }: ProjectTaskFormProps) => {
     const addTask = useTaskStore((state) => state.addTask);
     const [open, setOpen] = useState(false);
-
     const [date, setDate] = useState("");
+    const [users, setUsers] = useState<any[]>([]);
 
     useEffect(() => {
         setDate(format(new Date(), "yyyy-MM-dd"));
+        // 참가자 이름 매핑을 위해 전체 유저 목록 로드
+        async function fetchUsers() {
+            const res = await getEmployees();
+            if (res.success && res.data) {
+                setUsers(res.data);
+            }
+        }
+        fetchUsers();
     }, []);
 
     const [title, setTitle] = useState("");
@@ -110,11 +118,14 @@ export const ProjectTaskForm = ({ projectId, participants }: ProjectTaskFormProp
                                 <SelectValue placeholder="참여 팀원 중 선택" />
                             </SelectTrigger>
                             <SelectContent>
-                                {participants.map(pId => (
-                                    <SelectItem key={pId} value={pId}>
-                                        {HARDCODED_USERS[pId as keyof typeof HARDCODED_USERS]?.name}
-                                    </SelectItem>
-                                ))}
+                                {participants.map(pId => {
+                                    const userObj = users.find(u => u.id === pId);
+                                    return (
+                                        <SelectItem key={pId} value={pId}>
+                                            {userObj ? userObj.name : pId}
+                                        </SelectItem>
+                                    );
+                                })}
                             </SelectContent>
                         </Select>
                     </div>
