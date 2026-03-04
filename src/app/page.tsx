@@ -26,7 +26,7 @@ export default function Home() {
   // 상태에서 Tasks를 받아와서 현재 월의 통계로 넘김
   const tasks = useStore(useTaskStore, (state) => state.tasks) || [];
   const targetPrefix = `${selectedYear}-${selectedMonth.padStart(2, "0")}`;
-  const currentMonthTasks = tasks.filter(t => t.date.startsWith(targetPrefix) && !t.projectId);
+  const currentMonthTasks = tasks.filter(t => t.date.startsWith(targetPrefix));
 
   return (
     <div className="min-h-screen bg-background text-foreground pb-20">

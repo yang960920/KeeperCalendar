@@ -40,7 +40,7 @@ export const calculateScore = (rate: number): number => {
 export const getDailyStats = (tasks: Task[]): Record<string, DailyStat> => {
     const stats: Record<string, DailyStat> = {};
 
-    tasks.filter(t => !t.projectId).forEach((task) => {
+    tasks.forEach((task) => {
         if (!stats[task.date]) {
             stats[task.date] = {
                 date: task.date,
@@ -77,7 +77,7 @@ export const getMonthlyStats = (tasks: Task[], year?: string): MonthlyStat[] => 
         filteredTasks = tasks.filter((t) => t.date.startsWith(year));
     }
 
-    filteredTasks.filter(t => !t.projectId).forEach((task) => {
+    filteredTasks.forEach((task) => {
         const month = task.date.substring(0, 7); // 'YYYY-MM'
         if (!stats[month]) {
             stats[month] = {
@@ -113,7 +113,7 @@ export const getCategoryStats = (tasks: Task[], year?: string, month?: string): 
         filteredTasks = tasks.filter(t => t.date.startsWith(year));
     }
 
-    filteredTasks.filter(t => !t.projectId).forEach((task) => {
+    filteredTasks.forEach((task) => {
         if (!stats[task.category]) {
             stats[task.category] = {
                 category: task.category,
