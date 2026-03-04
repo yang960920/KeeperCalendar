@@ -1,14 +1,26 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import { getExportData } from "@/app/actions/export";
+import { getDepartments } from "@/app/actions/employee";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function AdminAchievementPage() {
     const [isExporting, setIsExporting] = useState(false);
     const [departmentFilter, setDepartmentFilter] = useState<string>("all");
+    const [departments, setDepartments] = useState<any[]>([]);
+
+    useEffect(() => {
+        async function loadDepartments() {
+            const res = await getDepartments();
+            if (res.success && res.data) {
+                setDepartments(res.data);
+            }
+        }
+        loadDepartments();
+    }, []);
 
     // 현재 기준 연/월 (기본값)
     const currentYear = String(new Date().getFullYear());
@@ -67,10 +79,11 @@ export default function AdminAchievementPage() {
                         </SelectTrigger>
                         <SelectContent className="bg-zinc-800 border-zinc-700 text-white">
                             <SelectItem value="all">전체 부서</SelectItem>
-                            <SelectItem value="CEO">대표이사</SelectItem>
-                            <SelectItem value="경영지원">경영지원본부</SelectItem>
-                            <SelectItem value="R&D">R&D센터</SelectItem>
-                            <SelectItem value="사업총괄">사업총괄본부</SelectItem>
+                            {departments.map((dep) => (
+                                <SelectItem key={dep.id} value={dep.name}>
+                                    {dep.name}
+                                </SelectItem>
+                            ))}
                         </SelectContent>
                     </Select>
 
