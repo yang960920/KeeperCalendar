@@ -1,28 +1,18 @@
 "use client";
 
 import React, { useState } from "react";
-import { MonthlySummaryWidget } from "@/components/MonthlySummaryWidget";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import { getExportData } from "@/app/actions/export";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function AdminAchievementPage() {
     const [isExporting, setIsExporting] = useState(false);
+    const [departmentFilter, setDepartmentFilter] = useState<string>("all");
 
     // 현재 기준 연/월 (기본값)
     const currentYear = String(new Date().getFullYear());
     const currentMonth = String(new Date().getMonth() + 1).padStart(2, "0");
-
-    // 임시 더미 데이터 (추후 DB 연동 시 교체 예정)
-    const mockTasks = Array.from({ length: 30 }, (_, i) => ({
-        id: `mock-${i}`,
-        date: `2024-03-${String(i + 1).padStart(2, "0")}`,
-        title: `Dummy Task ${i + 1}`,
-        category: "개발",
-        planned: 10,
-        done: Math.floor(Math.random() * 11),
-        weight: 1,
-    }));
 
     const handleExport = async () => {
         try {
@@ -70,19 +60,30 @@ export default function AdminAchievementPage() {
                     <h1 className="text-3xl font-bold tracking-tight text-white mb-2">부서별 달성률 (Department Achievement)</h1>
                     <p className="text-zinc-400">전체 부서의 월별 목표 달성률과 주요 통계를 확인합니다.</p>
                 </div>
-                <Button
-                    onClick={handleExport}
-                    disabled={isExporting}
-                    variant="outline"
-                    className="border-zinc-700 bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white"
-                >
-                    <Download className="w-4 h-4 mr-2" />
-                    {isExporting ? "추출 중..." : "엑셀 다운로드 (CSV)"}
-                </Button>
-            </div>
+                <div className="flex items-center gap-4">
+                    <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+                        <SelectTrigger className="w-[180px] bg-zinc-800 border-zinc-700 text-white">
+                            <SelectValue placeholder="부서 선택" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-zinc-800 border-zinc-700 text-white">
+                            <SelectItem value="all">전체 부서</SelectItem>
+                            <SelectItem value="CEO">대표이사</SelectItem>
+                            <SelectItem value="경영지원">경영지원본부</SelectItem>
+                            <SelectItem value="R&D">R&D센터</SelectItem>
+                            <SelectItem value="사업총괄">사업총괄본부</SelectItem>
+                        </SelectContent>
+                    </Select>
 
-            <div className="bg-zinc-900/40 p-6 border border-zinc-800 rounded-xl">
-                <MonthlySummaryWidget tasks={mockTasks} year={currentYear} month={currentMonth} />
+                    <Button
+                        onClick={handleExport}
+                        disabled={isExporting}
+                        variant="outline"
+                        className="border-zinc-700 bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white"
+                    >
+                        <Download className="w-4 h-4 mr-2" />
+                        {isExporting ? "추출 중..." : "엑셀 다운로드 (CSV)"}
+                    </Button>
+                </div>
             </div>
 
             {/* 추가적인 부서별 막대그래프나 선형 그래프가 들어갈 공간 */}

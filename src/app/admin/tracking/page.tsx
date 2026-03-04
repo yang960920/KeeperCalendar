@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getTrackingData } from "@/app/actions/tracking";
 
 export default function AdminTrackingPage() {
@@ -35,13 +36,15 @@ export default function AdminTrackingPage() {
         loadData();
     }, []);
 
-    // 검색어 필터링
+    // 검색어 및 부서 필터링
     const [searchTerm, setSearchTerm] = useState("");
-    const filteredTasks = tasks.filter(t =>
-        t.user.includes(searchTerm) ||
-        t.title.includes(searchTerm) ||
-        t.department.includes(searchTerm)
-    );
+    const [departmentFilter, setDepartmentFilter] = useState("all");
+
+    const filteredTasks = tasks.filter(t => {
+        const matchesSearch = t.user.includes(searchTerm) || t.title.includes(searchTerm) || t.department.includes(searchTerm);
+        const matchesDepartment = departmentFilter === "all" || t.department === departmentFilter;
+        return matchesSearch && matchesDepartment;
+    });
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
@@ -57,14 +60,28 @@ export default function AdminTrackingPage() {
                 <div className="xl:col-span-2 space-y-4 bg-zinc-900/40 p-6 border border-zinc-800 rounded-xl">
                     <div className="flex justify-between items-center mb-4">
                         <h2 className="text-xl font-semibold text-white">현황 상세 (개인별/부서별)</h2>
-                        <div className="relative w-64">
-                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-zinc-500" />
-                            <Input
-                                placeholder="사용자 이름, 태스크 검색..."
-                                className="pl-9 bg-zinc-800 border-zinc-700 text-sm text-white focus-visible:ring-indigo-500"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
+                        <div className="flex gap-2">
+                            <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+                                <SelectTrigger className="w-[140px] bg-zinc-800 border-zinc-700 text-white">
+                                    <SelectValue placeholder="부서 선택" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-zinc-800 border-zinc-700 text-white">
+                                    <SelectItem value="all">전체 부서</SelectItem>
+                                    <SelectItem value="CEO">대표이사</SelectItem>
+                                    <SelectItem value="경영지원">경영지원본부</SelectItem>
+                                    <SelectItem value="R&D">R&D센터</SelectItem>
+                                    <SelectItem value="사업총괄">사업총괄본부</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <div className="relative w-64">
+                                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-zinc-500" />
+                                <Input
+                                    placeholder="사용자 이름, 태스크 검색..."
+                                    className="pl-9 bg-zinc-800 border-zinc-700 text-sm text-white focus-visible:ring-indigo-500"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                />
+                            </div>
                         </div>
                     </div>
 
