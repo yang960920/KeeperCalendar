@@ -19,7 +19,7 @@ export interface Task {
 
 interface TaskState {
     tasks: Task[];
-    addTask: (task: Omit<Task, 'id'>) => void;
+    addTask: (task: Omit<Task, 'id'> & { id?: string }) => void;
     updateTask: (id: string, updatedTask: Partial<Task>) => void;
     deleteTask: (id: string) => void;
 }
@@ -32,7 +32,7 @@ export const useTaskStore = create<TaskState>()(
                 set((state) => ({
                     tasks: [
                         ...state.tasks,
-                        { ...task, id: crypto.randomUUID() },
+                        { ...task, id: task.id || crypto.randomUUID() },
                     ],
                 })),
             updateTask: (id, updatedTask) =>

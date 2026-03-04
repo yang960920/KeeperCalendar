@@ -11,7 +11,7 @@ export interface Project {
 
 interface ProjectState {
     projects: Project[];
-    addProject: (project: Omit<Project, 'id' | 'createdAt'>) => void;
+    addProject: (project: Omit<Project, 'id' | 'createdAt'> & { id?: string, createdAt?: string }) => void;
     updateProject: (id: string, updatedProject: Partial<Project>) => void;
     deleteProject: (id: string) => void;
 }
@@ -25,8 +25,8 @@ export const useProjectStore = create<ProjectState>()(
                     projects: [
                         {
                             ...project,
-                            id: crypto.randomUUID(),
-                            createdAt: new Date().toISOString(),
+                            id: project.id || crypto.randomUUID(),
+                            createdAt: project.createdAt || new Date().toISOString(),
                         },
                         ...state.projects,
                     ],

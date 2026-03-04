@@ -4,7 +4,10 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useTaskStore } from "@/store/useTaskStore";
+import { useProjectStore } from "@/store/useProjectStore";
 import { loginUser } from "@/app/actions/employee";
+import { getInitialData } from "@/app/actions/init";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,6 +32,14 @@ export default function LoginPage() {
                     name: res.data.name,
                     role: res.data.role as any, // "CREATOR" | "PARTICIPANT"
                 });
+
+                // 강제 DB 동기화 (Hydration)
+                const initRes = await getInitialData(res.data.id);
+                if (initRes.success) {
+                    useProjectStore.setState({ projects: initRes.projects });
+                    useTaskStore.setState({ tasks: initRes.tasks });
+                }
+
                 router.push("/");
             } else {
                 alert(res.error || "로그인에 실패했습니다.");
