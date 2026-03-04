@@ -24,12 +24,28 @@ export async function getEmployees() {
 }
 
 /**
+ * 모든 부서 목록을 가져옵니다.
+ */
+export async function getDepartments() {
+    try {
+        const deps = await prisma.department.findMany({
+            orderBy: { name: 'asc' }
+        });
+        return { success: true, data: deps };
+    } catch (error) {
+        console.error("Error fetching departments:", error);
+        return { success: false, error: "부서 목록을 불러오는 중 오류가 발생했습니다." };
+    }
+}
+
+/**
  * 새로운 사원을 등록합니다.
  */
 export async function createEmployee(data: {
     name: string;
     birthDate: string;
     role: "CREATOR" | "PARTICIPANT" | "NONE";
+    departmentId?: string;
 }) {
     try {
         // ID 중복 체킹
@@ -47,6 +63,7 @@ export async function createEmployee(data: {
                 name: data.name,
                 password: data.birthDate,
                 role: data.role === "NONE" ? "PARTICIPANT" : data.role,
+                departmentId: data.departmentId === "none" ? null : data.departmentId,
             },
         });
 
@@ -55,6 +72,47 @@ export async function createEmployee(data: {
     } catch (error) {
         console.error("Error creating employee:", error);
         return { success: false, error: "사원 등록 중 서버 오류가 발생했습니다." };
+    }
+}
+
+/**
+ * 사원 정보를 수정합니다.
+ */
+export async function updateEmployee(id: string, data: {
+    role?: "CREATOR" | "PARTICIPANT";
+    departmentId?: string | null;
+}) {
+    try {
+        const updatedUser = await prisma.user.update({
+            where: { id },
+            data: {
+                ...(data.role && { role: data.role }),
+                ...(data.departmentId !== undefined && {
+                    departmentId: data.departmentId === "none" ? null : data.departmentId
+                }),
+            }
+        });
+        revalidatePath("/admin/employees");
+        return { success: true, data: updatedUser };
+    } catch (error) {
+        console.error("Error updating employee:", error);
+        return { success: false, error: "사원 정보 수정 중 오류가 발생했습니다." };
+    }
+}
+
+/**
+ * 사원을 삭제합니다.
+ */
+export async function deleteEmployee(id: string) {
+    try {
+        await prisma.user.delete({
+            where: { id }
+        });
+        revalidatePath("/admin/employees");
+        return { success: true };
+    } catch (error) {
+        console.error("Error deleting employee:", error);
+        return { success: false, error: "사원 삭제 중 오류가 발생했습니다. 할당된 업무나 프로젝트가 있는지 확인하세요." };
     }
 }
 /**

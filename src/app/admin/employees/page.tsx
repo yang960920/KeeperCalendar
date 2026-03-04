@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
     Table,
     TableBody,
@@ -14,33 +15,40 @@ import {
     TableRow
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { createEmployee, getEmployees } from "@/app/actions/employee";
+import { createEmployee, getEmployees, getDepartments } from "@/app/actions/employee";
+import { EditEmployeeDialog } from "@/components/admin/EditEmployeeDialog";
 
 export default function AdminEmployeesPage() {
     // 폼 상태
     const [name, setName] = useState("");
     const [birthDate, setBirthDate] = useState("");
+    const [departmentId, setDepartmentId] = useState<string>("none");
     const [isCreator, setIsCreator] = useState(false);
     const [isParticipant, setIsParticipant] = useState(false);
 
     // 데이터 상태
     const [users, setUsers] = useState<any[]>([]);
+    const [departments, setDepartments] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
-    // 유저 로드
-    const loadUsers = async () => {
+    const loadData = async () => {
         setLoading(true);
-        const result = await getEmployees();
-        if (result.success && result.data) {
-            setUsers(result.data);
-        } else {
-            alert(result.error);
+        const [usersRes, depsRes] = await Promise.all([
+            getEmployees(),
+            getDepartments()
+        ]);
+
+        if (usersRes.success && usersRes.data) {
+            setUsers(usersRes.data);
+        }
+        if (depsRes.success && depsRes.data) {
+            setDepartments(depsRes.data);
         }
         setLoading(false);
     };
 
     useEffect(() => {
-        loadUsers();
+        loadData();
     }, []);
 
     const handleCreatorChange = (checked: boolean) => {
@@ -76,6 +84,7 @@ export default function AdminEmployeesPage() {
             name,
             birthDate,
             role,
+            departmentId: departmentId === "none" ? undefined : departmentId,
         });
 
         if (result.success) {
@@ -83,17 +92,18 @@ export default function AdminEmployeesPage() {
             // 초기화
             setName("");
             setBirthDate("");
+            setDepartmentId("none");
             setIsCreator(false);
             setIsParticipant(false);
             // 목록 새로고침
-            loadUsers();
+            loadData();
         } else {
             alert(`등록 실패: ${result.error}`);
         }
     };
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-500">
+        <div className="space-y-8 animate-in fade-in duration-500 pb-12">
             <div className="flex justify-between items-center bg-zinc-900/50 p-6 rounded-xl border border-zinc-800 backdrop-blur-sm">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight text-white mb-2">사원 명부 및 권한 관리</h1>
@@ -101,10 +111,10 @@ export default function AdminEmployeesPage() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="flex flex-col xl:flex-row gap-6">
 
                 {/* 1/3 영역: 사원 추가 폼 */}
-                <div className="bg-zinc-900/40 p-6 border border-zinc-800 rounded-xl h-fit">
+                <div className="xl:w-1/3 bg-zinc-900/40 p-6 border border-zinc-800 rounded-xl h-fit w-full">
                     <h2 className="text-xl font-semibold text-white mb-6 flex border-b border-zinc-800 pb-4">
                         신규 사원 등록
                     </h2>
@@ -120,6 +130,21 @@ export default function AdminEmployeesPage() {
                                 placeholder="예: 홍길동"
                                 className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500"
                             />
+                        </div>
+
+                        <div className="space-y-3">
+                            <Label htmlFor="department" className="text-zinc-300">소속 부서</Label>
+                            <Select value={departmentId} onValueChange={setDepartmentId}>
+                                <SelectTrigger className="w-full bg-zinc-800 border-zinc-700 text-white">
+                                    <SelectValue placeholder="부서 선택" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-zinc-800 border-zinc-700 text-white">
+                                    <SelectItem value="none">소속 없음</SelectItem>
+                                    {departments.map(dep => (
+                                        <SelectItem key={dep.id} value={dep.id}>{dep.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
 
                         <div className="space-y-3">
@@ -175,19 +200,19 @@ export default function AdminEmployeesPage() {
                 </div>
 
                 {/* 2/3 영역: 사원 명부 */}
-                <div className="lg:col-span-2 bg-zinc-900/40 p-6 border border-zinc-800 rounded-xl">
+                <div className="flex-1 w-full bg-zinc-900/40 p-6 border border-zinc-800 rounded-xl overflow-x-auto">
                     <h2 className="text-xl font-semibold text-white mb-6 flex border-b border-zinc-800 pb-4">
                         전체 사원 명부
                     </h2>
 
-                    <div className="rounded-md border border-zinc-800 overflow-hidden">
+                    <div className="rounded-md border border-zinc-800 overflow-hidden min-w-[600px]">
                         <Table>
                             <TableHeader className="bg-zinc-800/50">
                                 <TableRow className="border-zinc-800 hover:bg-transparent">
-                                    <TableHead className="text-zinc-400">이름 (ID)</TableHead>
-                                    <TableHead className="text-zinc-400">부서</TableHead>
-                                    <TableHead className="text-zinc-400">권한 (역할)</TableHead>
-                                    <TableHead className="text-zinc-400 text-right">관리</TableHead>
+                                    <TableHead className="text-zinc-400 w-[150px]">이름 (ID)</TableHead>
+                                    <TableHead className="text-zinc-400 w-[180px]">부서</TableHead>
+                                    <TableHead className="text-zinc-400 flex-1">권한 (역할)</TableHead>
+                                    <TableHead className="text-zinc-400 text-right w-[100px]">관리</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -214,9 +239,11 @@ export default function AdminEmployeesPage() {
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white hover:bg-zinc-700 h-8 text-xs">
-                                                수정
-                                            </Button>
+                                            <EditEmployeeDialog
+                                                user={user}
+                                                departments={departments}
+                                                onUpdated={loadData}
+                                            />
                                         </TableCell>
                                     </TableRow>
                                 ))}
