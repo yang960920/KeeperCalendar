@@ -5,13 +5,23 @@ import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import { getExportData } from "@/app/actions/export";
 import { getDepartments } from "@/app/actions/employee";
+import { getAchievementData } from "@/app/actions/achievement";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DeptMonthlyChart } from "@/components/admin/DeptMonthlyChart";
+import { DeptComparisonChart } from "@/components/admin/DeptComparisonChart";
 
 export default function AdminAchievementPage() {
     const [isExporting, setIsExporting] = useState(false);
     const [departmentFilter, setDepartmentFilter] = useState<string>("all");
     const [departments, setDepartments] = useState<any[]>([]);
 
+    // 차트 데이터
+    const [monthlyStats, setMonthlyStats] = useState<any[]>([]);
+    const [departmentStats, setDepartmentStats] = useState<any[]>([]);
+    const [memberStats, setMemberStats] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    // 부서 목록 로드
     useEffect(() => {
         async function loadDepartments() {
             const res = await getDepartments();
@@ -22,9 +32,20 @@ export default function AdminAchievementPage() {
         loadDepartments();
     }, []);
 
-    // 현재 기준 연/월 (기본값)
-    const currentYear = String(new Date().getFullYear());
-    const currentMonth = String(new Date().getMonth() + 1).padStart(2, "0");
+    // 차트 데이터 로드 (부서 필터 변경 시 갱신)
+    useEffect(() => {
+        async function loadChartData() {
+            setLoading(true);
+            const res = await getAchievementData(departmentFilter);
+            if (res.success && res.data) {
+                setMonthlyStats(res.data.monthlyStats);
+                setDepartmentStats(res.data.departmentStats);
+                setMemberStats(res.data.memberStats);
+            }
+            setLoading(false);
+        }
+        loadChartData();
+    }, [departmentFilter]);
 
     const handleExport = async () => {
         try {
@@ -36,15 +57,11 @@ export default function AdminAchievementPage() {
                 return;
             }
 
-            // CSV 데이터 변환 (헤더 + 내용)
             const headers = Object.keys(result.data[0] || {}).join(",");
             const rows = result.data.map((row: any) =>
                 Object.values(row).map(val => `"${val}"`).join(",")
             );
-
             const csvContent = [headers, ...rows].join("\n");
-
-            // BOM 추가 (Excel 한글 깨짐 방지)
             const bom = "\uFEFF";
             const blob = new Blob([bom + csvContent], { type: "text/csv;charset=utf-8;" });
             const url = URL.createObjectURL(blob);
@@ -56,7 +73,6 @@ export default function AdminAchievementPage() {
             link.click();
             document.body.removeChild(link);
             URL.revokeObjectURL(url);
-
         } catch (error) {
             console.error("Export error:", error);
             alert("다운로드 중 오류가 발생했습니다.");
@@ -64,6 +80,9 @@ export default function AdminAchievementPage() {
             setIsExporting(false);
         }
     };
+
+    // 우측 차트: 전체 부서 모드 → 부서별 비교, 특정 부서 모드 → 인원별 비교
+    const comparisonData = departmentFilter === "all" ? departmentStats : memberStats;
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
@@ -99,15 +118,34 @@ export default function AdminAchievementPage() {
                 </div>
             </div>
 
-            {/* 추가적인 부서별 막대그래프나 선형 그래프가 들어갈 공간 */}
+            {/* 차트 영역 */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-zinc-900/40 p-6 border border-zinc-800 rounded-xl min-h-[400px] flex items-center justify-center">
-                    <p className="text-zinc-500">월별 비교 차트 렌더링 영역 (Recharts)</p>
+                <div className="bg-zinc-900/40 p-6 border border-zinc-800 rounded-xl min-h-[400px]">
+                    {loading ? (
+                        <div className="w-full h-full flex items-center justify-center text-zinc-500">
+                            <div className="flex items-center gap-2">
+                                <div className="w-4 h-4 border-2 border-zinc-500 border-t-transparent rounded-full animate-spin" />
+                                데이터 로딩 중...
+                            </div>
+                        </div>
+                    ) : (
+                        <DeptMonthlyChart data={monthlyStats} departmentFilter={departmentFilter} />
+                    )}
                 </div>
-                <div className="bg-zinc-900/40 p-6 border border-zinc-800 rounded-xl min-h-[400px] flex items-center justify-center">
-                    <p className="text-zinc-500">부서별 비교 차트 렌더링 영역 (Recharts)</p>
+                <div className="bg-zinc-900/40 p-6 border border-zinc-800 rounded-xl min-h-[400px]">
+                    {loading ? (
+                        <div className="w-full h-full flex items-center justify-center text-zinc-500">
+                            <div className="flex items-center gap-2">
+                                <div className="w-4 h-4 border-2 border-zinc-500 border-t-transparent rounded-full animate-spin" />
+                                데이터 로딩 중...
+                            </div>
+                        </div>
+                    ) : (
+                        <DeptComparisonChart data={comparisonData} departmentFilter={departmentFilter} />
+                    )}
                 </div>
             </div>
         </div>
     );
 }
+
