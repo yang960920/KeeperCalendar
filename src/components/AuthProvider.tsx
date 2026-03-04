@@ -3,20 +3,18 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/useAuthStore";
-import { useStore } from "@/hooks/useStore";
 import { DBInitializer } from "@/components/DBInitializer";
 
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const pathname = usePathname();
 
-    // Auth Store 연결 (Hydration 에러 방지를 위한 useStore 커스텀 훅 사용)
-    const isAuthenticated = useStore(useAuthStore, (state) => state.isAuthenticated);
-    const hasHydrated = useStore(useAuthStore, (state) => state._hasHydrated);
+    // Auth Store 직접 연결 (useStore 대신 직접 구독하여 hydration 타이밍 확보)
+    const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+    const hasHydrated = useAuthStore((state) => state._hasHydrated);
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
-        useAuthStore.persist.rehydrate();
         setMounted(true);
     }, []);
 
@@ -29,10 +27,10 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         if (isAuthenticated === false && pathname !== "/login" && !pathname.startsWith("/admin")) {
             router.push("/login");
         }
-    }, [isAuthenticated, pathname, router, mounted]);
+    }, [isAuthenticated, hasHydrated, pathname, router, mounted]);
 
-    // 마운트되기 전 렌더링 방지 (깜빡임 완화용)
-    if (!mounted) {
+    // 마운트 + Hydration 완료 전까지 렌더링 방지 (깜빡임 및 빈 화면 완화)
+    if (!mounted || !hasHydrated) {
         return null;
     }
 
