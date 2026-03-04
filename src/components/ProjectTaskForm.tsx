@@ -33,10 +33,13 @@ export const ProjectTaskForm = ({ projectId, participants }: ProjectTaskFormProp
     const addTask = useTaskStore((state) => state.addTask);
     const [open, setOpen] = useState(false);
     const [date, setDate] = useState("");
+    const [endDate, setEndDate] = useState("");
     const [users, setUsers] = useState<any[]>([]);
 
     useEffect(() => {
-        setDate(format(new Date(), "yyyy-MM-dd"));
+        const today = format(new Date(), "yyyy-MM-dd");
+        setDate(today);
+        setEndDate(today);
         // 참가자 이름 매핑을 위해 전체 유저 목록 로드
         async function fetchUsers() {
             const res = await getEmployees();
@@ -71,6 +74,7 @@ export const ProjectTaskForm = ({ projectId, participants }: ProjectTaskFormProp
 
         addTask({
             date,
+            endDate,
             title,
             content,
             category,
@@ -100,15 +104,28 @@ export const ProjectTaskForm = ({ projectId, participants }: ProjectTaskFormProp
                     <DialogTitle>프로젝트 업무(Task) 할당</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="grid gap-4 py-4">
-                    <div className="grid gap-2">
-                        <Label htmlFor="date">날짜 (YYYY-MM-DD)</Label>
-                        <Input
-                            id="date"
-                            type="date"
-                            value={date}
-                            onChange={(e) => setDate(e.target.value)}
-                            required
-                        />
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="date">시작일</Label>
+                            <Input
+                                id="date"
+                                type="date"
+                                value={date}
+                                onChange={(e) => setDate(e.target.value)}
+                                required
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="endDate">종료일 (마감일)</Label>
+                            <Input
+                                id="endDate"
+                                type="date"
+                                value={endDate}
+                                min={date}
+                                onChange={(e) => setEndDate(e.target.value)}
+                                required
+                            />
+                        </div>
                     </div>
 
                     <div className="grid gap-2">

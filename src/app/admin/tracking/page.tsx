@@ -15,22 +15,33 @@ import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getTrackingData } from "@/app/actions/tracking";
+import { getDepartments } from "@/app/actions/employee";
 
 export default function AdminTrackingPage() {
     const [tasks, setTasks] = useState<any[]>([]);
     const [logs, setLogs] = useState<any[]>([]);
+    const [departments, setDepartments] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         async function loadData() {
             setLoading(true);
-            const result = await getTrackingData();
-            if (result.success && result.data) {
-                setTasks(result.data.tasks);
-                setLogs(result.data.logs);
+            const [trackingRes, depsRes] = await Promise.all([
+                getTrackingData(),
+                getDepartments()
+            ]);
+
+            if (trackingRes.success && trackingRes.data) {
+                setTasks(trackingRes.data.tasks);
+                setLogs(trackingRes.data.logs);
             } else {
-                console.error(result.error);
+                console.error(trackingRes.error);
             }
+
+            if (depsRes.success && depsRes.data) {
+                setDepartments(depsRes.data);
+            }
+
             setLoading(false);
         }
         loadData();
@@ -67,10 +78,11 @@ export default function AdminTrackingPage() {
                                 </SelectTrigger>
                                 <SelectContent className="bg-zinc-800 border-zinc-700 text-white">
                                     <SelectItem value="all">전체 부서</SelectItem>
-                                    <SelectItem value="CEO">대표이사</SelectItem>
-                                    <SelectItem value="경영지원">경영지원본부</SelectItem>
-                                    <SelectItem value="R&D">R&D센터</SelectItem>
-                                    <SelectItem value="사업총괄">사업총괄본부</SelectItem>
+                                    {departments.map((dep) => (
+                                        <SelectItem key={dep.id} value={dep.name}>
+                                            {dep.name}
+                                        </SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                             <div className="relative w-64">
@@ -89,34 +101,53 @@ export default function AdminTrackingPage() {
                         <Table>
                             <TableHeader className="bg-zinc-800/50">
                                 <TableRow className="border-zinc-800 hover:bg-transparent">
-                                    <TableHead className="text-zinc-400">담당자</TableHead>
-                                    <TableHead className="text-zinc-400">부서</TableHead>
-                                    <TableHead className="text-zinc-400">진행업무</TableHead>
-                                    <TableHead className="text-zinc-400">상태</TableHead>
+                                    <TableHead className="text-zinc-400 min-w-[80px]">담당자</TableHead>
+                                    <TableHead className="text-zinc-400 min-w-[100px] border-r border-zinc-800">부서</TableHead>
+                                    <TableHead className="text-zinc-400 w-[250px]">진행업무</TableHead>
+                                    <TableHead className="text-zinc-400 border-r border-zinc-800 w-[120px]">상태 및 기한</TableHead>
+                                    <TableHead className="text-zinc-400 w-[140px]">지연 관리</TableHead>
                                     <TableHead className="text-zinc-400">달성률</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {loading && (
                                     <TableRow>
-                                        <TableCell colSpan={5} className="text-center text-zinc-500 p-4">데이터를 불러오는 중입니다...</TableCell>
+                                        <TableCell colSpan={6} className="text-center text-zinc-500 p-4">데이터를 불러오는 중입니다...</TableCell>
                                     </TableRow>
                                 )}
                                 {!loading && filteredTasks.length === 0 && (
                                     <TableRow>
-                                        <TableCell colSpan={5} className="text-center text-zinc-500 p-4">조건에 맞는 검색 결과가 없습니다.</TableCell>
+                                        <TableCell colSpan={6} className="text-center text-zinc-500 p-4">조건에 맞는 검색 결과가 없습니다.</TableCell>
                                     </TableRow>
                                 )}
                                 {!loading && filteredTasks.map((task) => (
                                     <TableRow key={task.id} className="border-zinc-800 hover:bg-zinc-800/50 transition-colors">
                                         <TableCell className="font-medium text-white">{task.user}</TableCell>
-                                        <TableCell className="text-zinc-300">{task.department}</TableCell>
-                                        <TableCell className="text-zinc-300 truncate max-w-[200px]">{task.title}</TableCell>
+                                        <TableCell className="text-zinc-300 border-r border-zinc-800/50">{task.department}</TableCell>
+                                        <TableCell className="text-zinc-300 truncate max-w-[250px]">{task.title}</TableCell>
+                                        <TableCell className="border-r border-zinc-800/50">
+                                            <div className="flex flex-col gap-1 items-start">
+                                                <Badge variant={task.status === "완료" ? "default" : "secondary"}
+                                                    className={`text-[10px] ${task.status === "완료" ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30" : "bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/30"}`}>
+                                                    {task.status}
+                                                </Badge>
+                                                <span className="text-[11px] text-zinc-400">{task.dueDate}</span>
+                                            </div>
+                                        </TableCell>
                                         <TableCell>
-                                            <Badge variant={task.status === "완료" ? "default" : "secondary"}
-                                                className={task.status === "완료" ? "bg-emerald-500/20 text-emerald-400" : "bg-indigo-500/20 text-indigo-400"}>
-                                                {task.status}
-                                            </Badge>
+                                            {task.delayStatus === "지연중" ? (
+                                                <Badge variant="destructive" className="bg-red-500/20 text-red-500 border border-red-500/50 hover:bg-red-500/30">
+                                                    🚨 {task.delayDays}일 지연중
+                                                </Badge>
+                                            ) : task.delayStatus === "지연완료" ? (
+                                                <Badge variant="outline" className="bg-orange-500/20 text-orange-400 border-orange-500/50 hover:bg-orange-500/30">
+                                                    ⚠️ {task.delayDays}일 지연완료
+                                                </Badge>
+                                            ) : (
+                                                <Badge variant="outline" className="bg-zinc-800/50 text-zinc-500 border-zinc-700 font-normal">
+                                                    ✔ 정상/미도래
+                                                </Badge>
+                                            )}
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-2 text-zinc-300">

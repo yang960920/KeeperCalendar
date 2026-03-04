@@ -13,6 +13,8 @@ export interface Task {
     weight: number;
     projectId?: string; // 소속 프로젝트 ID (없으면 개인 업무 일지)
     assigneeId?: string; // 담당자 ID (ex: "양현준")
+    endDate?: string; // "YYYY-MM-DD"
+    completedAt?: string; // ISO DateTime string
 }
 
 interface TaskState {

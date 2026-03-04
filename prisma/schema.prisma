@@ -67,7 +67,9 @@ model Task {
   project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   assigneeId  String?
   assignee    User?        @relation("TaskAssignee", fields: [assigneeId], references: [id])
-  dueDate     DateTime?
+  dueDate     DateTime?    // 기존 필드 유지
+  endDate     DateTime?    // 추가: 업무 지정 기한 (종료일)
+  completedAt DateTime?    // 추가: 실제 완료 처리된 시간
   attachments Attachment[]
   activityLogs ActivityLog[]
   createdAt   DateTime     @default(now())

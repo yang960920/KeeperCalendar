@@ -8,6 +8,8 @@ import {
     format,
     isSameMonth,
     isToday,
+    startOfDay,
+    isAfter,
 } from "date-fns";
 import { Task, useTaskStore } from "@/store/useTaskStore";
 
@@ -46,17 +48,29 @@ export const CalendarGrid = ({ year, month, tasks, onTaskClick, userRole }: Cale
 
     const weekDays = ["일", "월", "화", "수", "목", "금", "토"];
 
-    // Task grouping by date
+    // Task grouping by date (Multi-day support)
     const tasksByDate = tasks.reduce((acc, task) => {
-        if (!acc[task.date]) {
-            acc[task.date] = [];
+        const tStart = startOfDay(new Date(task.date));
+        const tEnd = startOfDay(new Date(task.endDate || task.date));
+
+        // 날짜가 역전된 경우 방어 로직
+        if (isAfter(tStart, tEnd)) {
+            const dateStr = format(tStart, "yyyy-MM-dd");
+            if (!acc[dateStr]) acc[dateStr] = [];
+            acc[dateStr].push(task);
+            return acc;
         }
-        acc[task.date].push(task);
+
+        const intervalDays = eachDayOfInterval({ start: tStart, end: tEnd });
+        intervalDays.forEach(day => {
+            const dateStr = format(day, "yyyy-MM-dd");
+            if (!acc[dateStr]) acc[dateStr] = [];
+            acc[dateStr].push(task);
+        });
+
         return acc;
     }, {} as Record<string, Task[]>);
 
-    // Toggle logic: done 카운트와 planned 기반으로 작동
-    // 체크를 하면 done = planned 로 업데이트하고, 해제하면 done = 0 으로 만듦 (사용자 코멘트 반영 로직)
     const handleToggleTask = (e: React.MouseEvent, task: Task) => {
         e.stopPropagation(); // 팝업 안 열리게 전파 멈춤
 
@@ -65,6 +79,7 @@ export const CalendarGrid = ({ year, month, tasks, onTaskClick, userRole }: Cale
 
         updateTask(task.id, {
             done: isCompleted ? 0 : task.planned,
+            completedAt: isCompleted ? undefined : new Date().toISOString(), // 완료 시간 기록/해제
         });
     };
 
@@ -110,50 +125,74 @@ export const CalendarGrid = ({ year, month, tasks, onTaskClick, userRole }: Cale
                             <div className="flex flex-col gap-1.5 overflow-y-auto max-h-[140px] hide-scrollbar">
                                 {dayTasks.map((task) => {
                                     const isCompleted = task.done >= task.planned;
-                                    const colorClass = categoryColors[task.category] || "bg-muted text-foreground border-border";
+
+                                    // Gantt & Status calculations
+                                    const isStart = dateKey === task.date;
+                                    const isEnd = dateKey === (task.endDate || task.date);
+
+                                    const today = startOfDay(new Date());
+                                    const taskEnd = startOfDay(new Date(task.endDate || task.date));
+                                    const isOverdue = !isCompleted && isAfter(today, taskEnd);
+                                    const isLateCompletion = isCompleted && task.completedAt && isAfter(startOfDay(new Date(task.completedAt)), taskEnd);
+
+                                    let colorClass = categoryColors[task.category] || "bg-muted text-foreground border-border";
+                                    if (isOverdue) {
+                                        colorClass = "bg-red-100/80 text-red-900 border-red-500 border-[1.5px] dark:bg-red-900/40 dark:text-red-100";
+                                    }
+
+                                    const ganttClasses =
+                                        isStart && isEnd ? "rounded-md mx-1" :
+                                            isStart && !isEnd ? "rounded-l-md rounded-r-none ml-1 -mr-2 pr-2 border-r-0 z-10" :
+                                                !isStart && isEnd ? "rounded-r-md rounded-l-none mr-1 -ml-2 pl-2 border-l-0 z-10" :
+                                                    "rounded-none -mx-2 px-2 border-l-0 border-r-0 z-0";
 
                                     return (
                                         <div
                                             key={task.id}
                                             onClick={() => onTaskClick(task)}
                                             className={`
-                                                flex items-start gap-2 p-1.5 rounded-md border text-xs cursor-pointer hover:opacity-80 transition-opacity
+                                                flex items-start gap-2 p-1.5 h-[48px] overflow-hidden border text-xs cursor-pointer hover:opacity-80 transition-opacity
                                                 ${colorClass}
                                                 ${isCompleted ? "opacity-60 grayscale-[50%]" : ""}
+                                                ${ganttClasses}
                                             `}
                                         >
-                                            {/* 체크박스 커스텀 */}
-                                            <div
-                                                onClick={(e) => handleToggleTask(e, task)}
-                                                className={`
-                                                    shrink-0 w-3.5 h-3.5 mt-0.5 rounded-[3px] border flex items-center justify-center transition-colors
-                                                    ${isCompleted ? "bg-foreground text-background border-foreground" : "bg-background border-muted-foreground"}
-                                                `}
-                                            >
-                                                {isCompleted && (
-                                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                                                        <polyline points="20 6 9 17 4 12"></polyline>
-                                                    </svg>
-                                                )}
-                                            </div>
+                                            {isStart ? (
+                                                <>
+                                                    {/* 체크박스 커스텀 */}
+                                                    <div
+                                                        onClick={(e) => handleToggleTask(e, task)}
+                                                        className={`
+                                                            shrink-0 w-3.5 h-3.5 mt-0.5 rounded-[3px] border flex items-center justify-center transition-colors
+                                                            ${isCompleted ? "bg-foreground text-background border-foreground" : "bg-background border-muted-foreground"}
+                                                        `}
+                                                    >
+                                                        {isCompleted && (
+                                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                                                <polyline points="20 6 9 17 4 12"></polyline>
+                                                            </svg>
+                                                        )}
+                                                    </div>
 
-                                            {/* Task 텍스트 */}
-                                            <div className="flex flex-col min-w-0 flex-1">
-                                                <div className="flex items-center gap-1">
-                                                    <span className="font-semibold shrink-0 text-[10px] opacity-70">
-                                                        {task.category}
-                                                    </span>
-                                                    <span className={`font-medium truncate ${isCompleted ? 'line-through opacity-70' : ''}`}>
-                                                        {task.title}
-                                                    </span>
-                                                </div>
-                                            </div>
-
-                                            {/* 할당된 팀원 이니셜 뱃지 */}
-                                            {task.assigneeId && (
-                                                <div className="shrink-0 w-5 h-5 rounded-full bg-muted-foreground/20 flex items-center justify-center text-[9px] font-bold text-foreground">
-                                                    {task.assigneeId.charAt(0)}
-                                                </div>
+                                                    {/* Task 텍스트 & 뱃지 */}
+                                                    <div className="flex flex-col min-w-0 flex-1 -mt-0.5">
+                                                        <div className="flex items-center gap-1">
+                                                            <span className="font-semibold shrink-0 text-[10px] opacity-70">
+                                                                {task.category}
+                                                            </span>
+                                                            <span className={`font-medium truncate ${isCompleted ? 'line-through opacity-70' : ''}`}>
+                                                                {task.title}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                                                            {isOverdue && <span className="text-[9px] bg-red-500/20 text-red-600 dark:text-red-400 px-1 rounded font-bold animate-pulse inline-flex items-center">🚨 지연됨</span>}
+                                                            {isLateCompletion && <span className="text-[9px] bg-orange-500/20 text-orange-600 dark:text-orange-400 px-1 rounded font-bold inline-flex items-center">⚠️ 지연완료</span>}
+                                                            {task.assigneeId && <span className="text-[9px] bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 px-1 rounded font-medium truncate max-w-[60px]">👤 {task.assigneeId}</span>}
+                                                        </div>
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <div className="opacity-0 w-full h-full pointer-events-none select-none">&nbsp;</div>
                                             )}
                                         </div>
                                     );

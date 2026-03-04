@@ -28,9 +28,12 @@ export const TaskForm = () => {
     const [open, setOpen] = useState(false);
 
     const [date, setDate] = useState("");
+    const [endDate, setEndDate] = useState("");
 
     useEffect(() => {
-        setDate(format(new Date(), "yyyy-MM-dd"));
+        const today = format(new Date(), "yyyy-MM-dd");
+        setDate(today);
+        setEndDate(today);
     }, []);
 
     const [title, setTitle] = useState("");
@@ -63,6 +66,7 @@ export const TaskForm = () => {
 
         addTask({
             date,
+            endDate,
             title,
             content,
             fileUrl,
@@ -92,15 +96,28 @@ export const TaskForm = () => {
                     <DialogTitle>새 업무(Task) 등록</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="grid gap-4 py-4">
-                    <div className="grid gap-2">
-                        <Label htmlFor="date">날짜 (YYYY-MM-DD)</Label>
-                        <Input
-                            id="date"
-                            type="date"
-                            value={date}
-                            onChange={(e) => setDate(e.target.value)}
-                            required
-                        />
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="date">시작일</Label>
+                            <Input
+                                id="date"
+                                type="date"
+                                value={date}
+                                onChange={(e) => setDate(e.target.value)}
+                                required
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="endDate">종료일 (마감일)</Label>
+                            <Input
+                                id="endDate"
+                                type="date"
+                                value={endDate}
+                                min={date} // 종료일은 시작일보다 빠를 수 없음
+                                onChange={(e) => setEndDate(e.target.value)}
+                                required
+                            />
+                        </div>
                     </div>
                     <div className="grid gap-2">
                         <Label htmlFor="title">업무명</Label>

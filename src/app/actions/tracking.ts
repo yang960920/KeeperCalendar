@@ -33,6 +33,30 @@ export async function getTrackingData() {
             if (t.status === 'DONE') progress = 100;
             else if (t.status === 'IN_PROGRESS') progress = 50;
 
+            let delayStatus = '정상';
+            let delayDays = 0;
+
+            if (t.endDate) {
+                const end = new Date(t.endDate);
+                const today = new Date();
+                const completed = t.completedAt ? new Date(t.completedAt) : null;
+
+                // 시간을 무시하고 자정 기준으로 날짜만 비교하기 위한 처리 (단순화)
+                end.setHours(23, 59, 59, 999);
+
+                if (t.status !== 'DONE' || !completed) {
+                    if (today > end) {
+                        delayStatus = '지연중';
+                        delayDays = Math.floor((today.getTime() - end.getTime()) / (1000 * 60 * 60 * 24));
+                    }
+                } else if (completed) {
+                    if (completed > end) {
+                        delayStatus = '지연완료';
+                        delayDays = Math.floor((completed.getTime() - end.getTime()) / (1000 * 60 * 60 * 24));
+                    }
+                }
+            }
+
             return {
                 id: t.id,
                 user: t.assignee?.name || '미할당',
@@ -40,6 +64,9 @@ export async function getTrackingData() {
                 title: t.title,
                 status: t.status === 'DONE' ? '완료' : t.status === 'IN_PROGRESS' ? '진행 중' : '대기',
                 progress,
+                dueDate: t.endDate ? t.endDate.toISOString().slice(0, 10) : '기한 없음',
+                delayStatus,
+                delayDays,
                 lastUpdated: t.updatedAt.toISOString().slice(0, 16).replace('T', ' ')
             };
         });
