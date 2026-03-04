@@ -12,6 +12,7 @@ import {
     isAfter,
 } from "date-fns";
 import { Task, useTaskStore } from "@/store/useTaskStore";
+import { updateTaskStatus } from "@/app/actions/task";
 
 interface CalendarGridProps {
     year: string;
@@ -71,16 +72,34 @@ export const CalendarGrid = ({ year, month, tasks, onTaskClick, userRole }: Cale
         return acc;
     }, {} as Record<string, Task[]>);
 
-    const handleToggleTask = (e: React.MouseEvent, task: Task) => {
+    const handleToggleTask = async (e: React.MouseEvent, task: Task) => {
         e.stopPropagation(); // 팝업 안 열리게 전파 멈춤
 
         // 이미 완료된(done >= planned) 상태인지 확인
         const isCompleted = task.done >= task.planned;
+        const newDone = isCompleted ? 0 : task.planned;
+        const isNowCompleted = !isCompleted;
 
-        updateTask(task.id, {
-            done: isCompleted ? 0 : task.planned,
-            completedAt: isCompleted ? undefined : new Date().toISOString(), // 완료 시간 기록/해제
-        });
+        try {
+            // DB Server Action
+            const result = await updateTaskStatus(task.id, {
+                done: newDone,
+                isCompleted: isNowCompleted,
+            });
+
+            if (result.success) {
+                // DB 성공 시에만 로컬 상태 반영
+                updateTask(task.id, {
+                    done: newDone,
+                    completedAt: isNowCompleted ? new Date().toISOString() : undefined,
+                });
+            } else {
+                alert("업무 상태 업데이트 실패");
+            }
+        } catch (error) {
+            console.error(error);
+            alert("상태 수정 중 오류가 발생했습니다.");
+        }
     };
 
     return (

@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getEmployees } from "@/app/actions/employee";
+import { createProject } from "@/app/actions/project";
 
 export const CreateProjectDialog = () => {
     const user = useAuthStore((state) => state.user);
@@ -48,19 +49,38 @@ export const CreateProjectDialog = () => {
         );
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!title.trim()) return;
 
-        addProject({
-            title: title,
-            creatorId: user.id,
-            participantIds: selectedParticipants,
-        });
+        try {
+            // 1. DB에 저장 (Server Action)
+            const result = await createProject({
+                title,
+                creatorId: user.id,
+                participantIds: selectedParticipants,
+            });
 
-        setTitle("");
-        setSelectedParticipants([]);
-        setOpen(false);
+            if (result.success && result.data) {
+                // 2. Zustand 로컬 스토어 업데이트 (UI 즉각 반영)
+                addProject({
+                    id: result.data.id,
+                    title: result.data.name,
+                    creatorId: result.data.creatorId,
+                    participantIds: selectedParticipants,
+                    createdAt: result.data.createdAt.toISOString(),
+                } as any); // Type assertion for UI compatibility
+
+                setTitle("");
+                setSelectedParticipants([]);
+                setOpen(false);
+            } else {
+                alert(result.error || "프로젝트 생성 실패");
+            }
+        } catch (error) {
+            console.error(error);
+            alert("서버 오류가 발생했습니다.");
+        }
     };
 
     return (

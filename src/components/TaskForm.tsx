@@ -22,6 +22,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { createTask } from "@/app/actions/task";
 
 export const TaskForm = () => {
     const addTask = useTaskStore((state) => state.addTask);
@@ -53,7 +54,7 @@ export const TaskForm = () => {
         }
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         const plannedNum = parseFloat(planned);
@@ -64,24 +65,58 @@ export const TaskForm = () => {
             return;
         }
 
-        addTask({
-            date,
-            endDate,
-            title,
-            content,
-            fileUrl,
-            category,
-            planned: plannedNum,
-            done: doneNum,
-            weight: 1, // Default
-        });
+        try {
+            // DB 연동 (Server Action) - 개인 업무의 경우 assigneeId가 필수이므로 현재 사용자 ID 연동 필요
+            // *단축 처리: useAuthStore를 통해 현재 사용자 정보를 가져와서 assigneeId로 주입 필요!
+            const authStoreStr = localStorage.getItem("auth-storage");
+            let reqAssigneeId = undefined;
+            if (authStoreStr) {
+                try {
+                    const authState = JSON.parse(authStoreStr).state;
+                    if (authState && authState.user) reqAssigneeId = authState.user.id;
+                } catch (e) { }
+            }
 
-        // Reset and close
-        setTitle("");
-        setContent("");
-        setFileUrl("");
-        setDone("0");
-        setOpen(false);
+            const result = await createTask({
+                date,
+                endDate,
+                title,
+                content,
+                category,
+                planned: plannedNum,
+                assigneeId: reqAssigneeId,
+            });
+
+            if (result.success && result.data) {
+                // 로컬 스토어 업데이트
+                addTask({
+                    id: result.data.id,
+                    date,
+                    endDate,
+                    title,
+                    content,
+                    fileUrl,
+                    category,
+                    planned: plannedNum,
+                    done: doneNum,
+                    weight: 1, // Default
+                    projectId: result.data.projectId,
+                    assigneeId: result.data.assigneeId || undefined,
+                } as any);
+
+                // Reset and close
+                setTitle("");
+                setContent("");
+                setFileUrl("");
+                setDone("0");
+                setOpen(false);
+            } else {
+                alert(result.error || "업무 생성 실패");
+            }
+        } catch (error) {
+            console.error(error);
+            alert("서버 오류가 발생했습니다.");
+        }
     };
 
     return (

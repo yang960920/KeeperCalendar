@@ -28,9 +28,10 @@ model User {
   departmentId String?
   department   Department? @relation(fields: [departmentId], references: [id])
   resumeUrl    String?     // Vercel Blob 이력서/포트폴리오 다운로드 링크
-  tasks        Task[]      @relation("TaskAssignee")
-  projects     Project[]   @relation("ProjectCreator")
-  activityLogs ActivityLog[]
+  tasks               Task[]      @relation("TaskAssignee")
+  projects            Project[]   @relation("ProjectCreator")
+  participatedProjects Project[]  @relation("ProjectParticipants")
+  activityLogs        ActivityLog[]
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 }
@@ -42,18 +43,19 @@ enum Role {
 
 // 프로젝트
 model Project {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  category    String   // 프로젝트 카테고리 (색상 등 식별용)
-  creatorId   String
-  creator     User     @relation("ProjectCreator", fields: [creatorId], references: [id])
-  startDate   DateTime
-  endDate     DateTime
-  tasks       Task[]
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  category     String   // 프로젝트 카테고리 (색상 등 식별용)
+  creatorId    String
+  creator      User     @relation("ProjectCreator", fields: [creatorId], references: [id])
+  participants User[]   @relation("ProjectParticipants")
+  startDate    DateTime
+  endDate      DateTime
+  tasks        Task[]
   activityLogs ActivityLog[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 // 태스크

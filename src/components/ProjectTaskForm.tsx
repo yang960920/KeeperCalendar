@@ -23,6 +23,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { getEmployees } from "@/app/actions/employee";
+import { createTask } from "@/app/actions/task";
 
 interface ProjectTaskFormProps {
     projectId: string;
@@ -57,7 +58,7 @@ export const ProjectTaskForm = ({ projectId, participants }: ProjectTaskFormProp
     // 초기 생성 시 프로젝트 업무는 담당자가 완료하기 전까지 done=0
     const [assigneeId, setAssigneeId] = useState<string>("");
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         if (!assigneeId) {
@@ -72,24 +73,47 @@ export const ProjectTaskForm = ({ projectId, participants }: ProjectTaskFormProp
             return;
         }
 
-        addTask({
-            date,
-            endDate,
-            title,
-            content,
-            category,
-            planned: plannedNum,
-            done: 0,
-            weight: 1,
-            projectId,
-            assigneeId,
-        });
+        try {
+            // DB 연동 (Server Action)
+            const result = await createTask({
+                date,
+                endDate,
+                title,
+                content,
+                category,
+                planned: plannedNum,
+                projectId,
+                assigneeId,
+            });
 
-        // Reset and close
-        setTitle("");
-        setContent("");
-        setAssigneeId("");
-        setOpen(false);
+            if (result.success && result.data) {
+                // 로컬 스토어 업데이트
+                addTask({
+                    id: result.data.id,
+                    date,
+                    endDate,
+                    title,
+                    content,
+                    category,
+                    planned: plannedNum,
+                    done: 0,
+                    weight: 1,
+                    projectId,
+                    assigneeId,
+                } as any);
+
+                // Reset and close
+                setTitle("");
+                setContent("");
+                setAssigneeId("");
+                setOpen(false);
+            } else {
+                alert(result.error || "업무 생성 실패");
+            }
+        } catch (error) {
+            console.error(error);
+            alert("서버 오류가 발생했습니다.");
+        }
     };
 
     return (

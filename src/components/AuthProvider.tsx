@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useStore } from "@/hooks/useStore";
+import { DBInitializer } from "@/components/DBInitializer";
 
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
     const router = useRouter();
@@ -33,5 +34,10 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         return null;
     }
 
-    return <>{children}</>;
+    return (
+        <>
+            <DBInitializer />
+            {children}
+        </>
+    );
 }
