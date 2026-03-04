@@ -39,6 +39,30 @@ export async function getDepartments() {
 }
 
 /**
+ * [TEMP/ADMIN] 기본 부서를 초기 세팅합니다.
+ * (UI가 없으므로 임시로 호출할 수 있는 서버 액션)
+ */
+export async function seedDepartments() {
+    try {
+        const departments = ['대표이사 (CEO)', '경영지원본부', 'R&D센터', '사업총괄본부'];
+
+        for (const name of departments) {
+            await prisma.department.upsert({
+                where: { name },
+                update: {},
+                create: { name },
+            });
+        }
+
+        revalidatePath("/admin/employees");
+        return { success: true, message: "부서 시딩 완료" };
+    } catch (error) {
+        console.error("Error seeding departments:", error);
+        return { success: false, error: "부서 시딩 실패" };
+    }
+}
+
+/**
  * 새로운 사원을 등록합니다.
  */
 export async function createEmployee(data: {
