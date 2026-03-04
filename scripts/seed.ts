@@ -1,7 +1,7 @@
 import { prisma } from '../src/lib/prisma'
 
 async function main() {
-    const departments = ['대표이사 (CEO)', '경영지원본부', 'R&D센터', '사업총괄본부'];
+    const departments = ['대표이사 (CEO)', '경영지원본부', 'R&D센터', '사업총괄본부', '도료사업부'];
 
     for (const name of departments) {
         await prisma.department.upsert({

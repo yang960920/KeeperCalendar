@@ -130,7 +130,16 @@ export const TaskForm = () => {
                             onChange={handleFileChange}
                             className="text-sm cursor-pointer"
                         />
-                        {fileUrl && <p className="text-xs text-muted-foreground mt-1">✓ 파일이 첨부되었습니다.</p>}
+                        {fileUrl && (
+                            <a
+                                href={fileUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-blue-500 hover:text-blue-400 underline truncate max-w-full block mt-1"
+                            >
+                                📎 첨부파일 다운로드 / 보기
+                            </a>
+                        )}
                     </div>
                     <div className="grid gap-2">
                         <Label htmlFor="category">카테고리</Label>
