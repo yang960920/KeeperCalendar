@@ -58,6 +58,21 @@ export async function createTask(data: {
             }
         });
 
+        // 활동 로그 기록
+        if (data.assigneeId) {
+            await prisma.activityLog.create({
+                data: {
+                    action: "업무 생성",
+                    entityType: "TASK",
+                    entityId: newTask.id,
+                    details: `"${data.title}" 업무를 생성했습니다. (기간: ${data.date} ~ ${data.endDate})`,
+                    userId: data.assigneeId,
+                    projectId: targetProjectId,
+                    taskId: newTask.id,
+                }
+            });
+        }
+
         revalidatePath("/");
         revalidatePath("/admin/tracking");
 
@@ -77,6 +92,23 @@ export async function updateTaskStatus(taskId: string, data: { done: number, isC
                 completedAt: data.isCompleted ? new Date() : null,
             }
         });
+
+        // 활동 로그 기록
+        if (updated.assigneeId) {
+            await prisma.activityLog.create({
+                data: {
+                    action: data.isCompleted ? "업무 완료" : "업무 상태 변경",
+                    entityType: "TASK",
+                    entityId: taskId,
+                    details: data.isCompleted
+                        ? `"${updated.title}" 업무를 완료 처리했습니다.`
+                        : `"${updated.title}" 업무 상태를 진행 중으로 변경했습니다.`,
+                    userId: updated.assigneeId,
+                    projectId: updated.projectId,
+                    taskId: taskId,
+                }
+            });
+        }
 
         revalidatePath("/");
         revalidatePath("/admin/tracking");

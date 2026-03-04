@@ -26,6 +26,18 @@ export async function createProject(data: {
             }
         });
 
+        // 활동 로그 기록
+        await prisma.activityLog.create({
+            data: {
+                action: "프로젝트 생성",
+                entityType: "PROJECT",
+                entityId: newProject.id,
+                details: `"${data.title}" 프로젝트를 생성했습니다. (참여자: ${data.participantIds.length}명)`,
+                userId: data.creatorId,
+                projectId: newProject.id,
+            }
+        });
+
         return { success: true, data: newProject };
     } catch (error: any) {
         console.error("Failed to create project:", error);
