@@ -15,7 +15,7 @@ import {
     TableRow
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { createEmployee, getEmployees, getDepartments, seedDepartments } from "@/app/actions/employee";
+import { createEmployee, getEmployees, getDepartments } from "@/app/actions/employee";
 import { EditEmployeeDialog } from "@/components/admin/EditEmployeeDialog";
 
 export default function AdminEmployeesPage() {
@@ -106,14 +106,7 @@ export default function AdminEmployeesPage() {
         <div className="space-y-8 animate-in fade-in duration-500 pb-12">
             <div className="flex justify-between items-center bg-zinc-900/50 p-6 rounded-xl border border-zinc-800 backdrop-blur-sm">
                 <div>
-                    <h1
-                        className="text-3xl font-bold tracking-tight text-white mb-2 cursor-pointer"
-                        onClick={async () => {
-                            const res = await seedDepartments();
-                            alert(res.message || res.error);
-                            loadData();
-                        }}
-                    >
+                    <h1 className="text-3xl font-bold tracking-tight text-white mb-2">
                         사원 명부 및 권한 관리
                     </h1>
                     <p className="text-zinc-400">시스템을 사용할 사원을 추가하고 역할을 부여합니다.</p>
