@@ -119,3 +119,47 @@ export async function updateTaskStatus(taskId: string, data: { done: number, isC
         return { success: false, error: "상태 업데이트 실패" };
     }
 }
+
+export async function deleteTask(taskId: string, userId?: string) {
+    try {
+        // 삭제 전에 업무 정보를 가져와서 로그에 기록
+        const task = await prisma.task.findUnique({
+            where: { id: taskId },
+            include: { assignee: true }
+        });
+
+        if (!task) {
+            return { success: false, error: "해당 업무를 찾을 수 없습니다." };
+        }
+
+        // 활동 로그 기록 (삭제 전에 기록 — 삭제 후에는 taskId 참조 불가)
+        const logUserId = userId || task.assigneeId;
+        if (logUserId) {
+            await prisma.activityLog.create({
+                data: {
+                    action: "업무 삭제",
+                    entityType: "TASK",
+                    entityId: taskId,
+                    details: `"${task.title}" 업무를 삭제했습니다.`,
+                    userId: logUserId,
+                    projectId: task.projectId,
+                    // taskId는 CASCADE로 삭제되므로 null 처리
+                    taskId: null,
+                }
+            });
+        }
+
+        // DB에서 삭제
+        await prisma.task.delete({
+            where: { id: taskId }
+        });
+
+        revalidatePath("/");
+        revalidatePath("/admin/tracking");
+
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to delete task:", error);
+        return { success: false, error: "업무 삭제에 실패했습니다." };
+    }
+}

@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { Task, useTaskStore } from "@/store/useTaskStore";
+import { useAuthStore } from "@/store/useAuthStore";
+import { deleteTask as deleteTaskAction } from "@/app/actions/task";
 import {
     Dialog,
     DialogContent,
@@ -30,7 +32,8 @@ interface EditTaskDialogProps {
 
 export const EditTaskDialog = ({ open, onOpenChange, task, readonly = false }: EditTaskDialogProps) => {
     const updateTask = useTaskStore((state) => state.updateTask);
-    const deleteTask = useTaskStore((state) => state.deleteTask);
+    const deleteTaskLocal = useTaskStore((state) => state.deleteTask);
+    const user = useAuthStore((state) => state.user);
 
     const [date, setDate] = useState("");
     const [title, setTitle] = useState("");
@@ -97,11 +100,18 @@ export const EditTaskDialog = ({ open, onOpenChange, task, readonly = false }: E
         onOpenChange(false);
     };
 
-    const handleDelete = () => {
+    const handleDelete = async () => {
         if (!task) return;
         if (window.confirm("정말 이 업무를 삭제하시겠습니까?")) {
-            deleteTask(task.id);
-            onOpenChange(false);
+            // DB에서 먼저 삭제
+            const res = await deleteTaskAction(task.id, user?.id);
+            if (res.success) {
+                // 로컬 Zustand에서도 삭제
+                deleteTaskLocal(task.id);
+                onOpenChange(false);
+            } else {
+                alert(res.error || "삭제에 실패했습니다.");
+            }
         }
     };
 
