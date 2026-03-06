@@ -15,6 +15,13 @@ export async function getAchievementData(departmentFilter: string = "all") {
             ? { assignee: { department: { name: departmentFilter } } }
             : {};
 
+        // Task 모델의 priority를 planned 수치로 변환
+        const priorityToPlanned = (priority: string) => {
+            if (priority === "HIGH") return 3;
+            if (priority === "MEDIUM") return 2;
+            return 1;
+        };
+
         // 모든 Task (필터 적용)
         const tasks = await prisma.task.findMany({
             where: {
@@ -48,40 +55,54 @@ export async function getAchievementData(departmentFilter: string = "all") {
             .sort((a, b) => a.month.localeCompare(b.month));
 
         // ── 2. 부서별 통계 (전체 부서 모드) ──
-        const deptMap: Record<string, { total: number; done: number }> = {};
+        const deptMap: Record<string, { total: number; done: number; contribution: number; totalPlanned: number }> = {};
         tasks.forEach(t => {
             const deptName = t.assignee?.department?.name || "미지정";
-            if (!deptMap[deptName]) deptMap[deptName] = { total: 0, done: 0 };
+            const planned = priorityToPlanned(t.priority);
+            if (!deptMap[deptName]) deptMap[deptName] = { total: 0, done: 0, contribution: 0, totalPlanned: 0 };
             deptMap[deptName].total += 1;
-            if (t.status === "DONE") deptMap[deptName].done += 1;
+            deptMap[deptName].totalPlanned += planned;
+            if (t.status === "DONE") {
+                deptMap[deptName].done += 1;
+                deptMap[deptName].contribution += planned;
+            }
         });
 
         const departmentStats = Object.entries(deptMap)
-            .map(([name, { total, done }]) => ({
+            .map(([name, { total, done, contribution, totalPlanned }]) => ({
                 name,
                 total,
                 done,
                 rate: total > 0 ? Math.round((done / total) * 100) : 0,
+                contribution,
+                totalPlanned,
             }))
             .sort((a, b) => b.rate - a.rate);
 
         // ── 3. 개인별 통계 (특정 부서 선택 시) ──
-        const memberMap: Record<string, { total: number; done: number }> = {};
+        const memberMap: Record<string, { total: number; done: number; contribution: number; totalPlanned: number }> = {};
         tasks.forEach(t => {
             const name = t.assignee?.name || "미할당";
-            if (!memberMap[name]) memberMap[name] = { total: 0, done: 0 };
+            const planned = priorityToPlanned(t.priority);
+            if (!memberMap[name]) memberMap[name] = { total: 0, done: 0, contribution: 0, totalPlanned: 0 };
             memberMap[name].total += 1;
-            if (t.status === "DONE") memberMap[name].done += 1;
+            memberMap[name].totalPlanned += planned;
+            if (t.status === "DONE") {
+                memberMap[name].done += 1;
+                memberMap[name].contribution += planned;
+            }
         });
 
         const memberStats = Object.entries(memberMap)
-            .map(([name, { total, done }]) => ({
+            .map(([name, { total, done, contribution, totalPlanned }]) => ({
                 name,
                 total,
                 done,
                 rate: total > 0 ? Math.round((done / total) * 100) : 0,
+                contribution,
+                totalPlanned,
             }))
-            .sort((a, b) => b.rate - a.rate);
+            .sort((a, b) => b.contribution - a.contribution);
 
         return {
             success: true,

@@ -9,6 +9,7 @@ import { getAchievementData } from "@/app/actions/achievement";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DeptMonthlyChart } from "@/components/admin/DeptMonthlyChart";
 import { DeptComparisonChart } from "@/components/admin/DeptComparisonChart";
+import { MemberContributionTable } from "@/components/admin/MemberContributionTable";
 
 export default function AdminAchievementPage() {
     const [isExporting, setIsExporting] = useState(false);
@@ -144,6 +145,23 @@ export default function AdminAchievementPage() {
                         <DeptComparisonChart data={comparisonData} departmentFilter={departmentFilter} />
                     )}
                 </div>
+            </div>
+
+            {/* 복합 성과표 */}
+            <div className="bg-zinc-900/40 p-6 border border-zinc-800 rounded-xl">
+                {loading ? (
+                    <div className="w-full flex items-center justify-center text-zinc-500 py-12">
+                        <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 border-2 border-zinc-500 border-t-transparent rounded-full animate-spin" />
+                            데이터 로딩 중...
+                        </div>
+                    </div>
+                ) : (
+                    <MemberContributionTable
+                        data={departmentFilter === "all" ? memberStats : memberStats}
+                        departmentFilter={departmentFilter}
+                    />
+                )}
             </div>
         </div>
     );
