@@ -23,6 +23,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { createTask } from "@/app/actions/task";
+import { SubTaskInput } from "@/components/SubTaskInput";
 
 export const TaskForm = () => {
     const addTask = useTaskStore((state) => state.addTask);
@@ -43,6 +44,7 @@ export const TaskForm = () => {
     const [planned, setPlanned] = useState<string>("1");
     const [done, setDone] = useState<string>("0");
     const [fileUrl, setFileUrl] = useState<string>("");
+    const [subTasks, setSubTasks] = useState<{ title: string }[]>([]);
 
     // 파일 첨부 핸들러 (임시로 브라우저 메모리에 로컬 Blob URL 생성)
     // 추후 서버 S3, Blob 스토리지 업로드 로직으로 교체 필요
@@ -85,6 +87,7 @@ export const TaskForm = () => {
                 category,
                 planned: plannedNum,
                 assigneeId: reqAssigneeId,
+                subTasks: subTasks.length > 0 ? subTasks : undefined,
             });
 
             if (result.success && result.data) {
@@ -102,6 +105,12 @@ export const TaskForm = () => {
                     weight: 1, // Default
                     projectId: result.data.projectId,
                     assigneeId: result.data.assigneeId || undefined,
+                    subTasks: (result.data as any).subTasks?.map((st: any) => ({
+                        id: st.id,
+                        title: st.title,
+                        isCompleted: st.isCompleted,
+                        completedAt: st.completedAt || undefined,
+                    })) || [],
                 } as any);
 
                 // Reset and close
@@ -109,6 +118,7 @@ export const TaskForm = () => {
                 setContent("");
                 setFileUrl("");
                 setDone("0");
+                setSubTasks([]);
                 setOpen(false);
             } else {
                 alert(result.error || "업무 생성 실패");
@@ -235,6 +245,14 @@ export const TaskForm = () => {
                             />
                         </div>
                     </div>
+
+                    {/* 하위 업무 입력 (개인 업무) */}
+                    <SubTaskInput
+                        subTasks={subTasks}
+                        onAdd={(title) => setSubTasks(prev => [...prev, { title }])}
+                        onRemove={(index) => setSubTasks(prev => prev.filter((_, i) => i !== index))}
+                    />
+
                     <Button type="submit" className="mt-4">
                         업무 일지 저장하기
                     </Button>

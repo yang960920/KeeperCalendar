@@ -19,6 +19,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { getEmployees } from "@/app/actions/employee";
+import { ProjectProgressWidget } from "@/components/ProjectProgressWidget";
 
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const router = useRouter();
@@ -115,6 +116,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                     </div>
                 </div>
             </header>
+
+            {/* 프로젝트 진행도 위젯 */}
+            <ProjectProgressWidget projectId={projectId} tasks={projectMonthTasks} />
 
             <main className="flex-1">
                 {/* 캘린더 그리드 영역 */}

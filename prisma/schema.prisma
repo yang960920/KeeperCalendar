@@ -72,10 +72,23 @@ model Task {
   dueDate     DateTime?    // 기존 필드 유지
   endDate     DateTime?    // 추가: 업무 지정 기한 (종료일)
   completedAt DateTime?    // 추가: 실제 완료 처리된 시간
-  attachments Attachment[]
+  attachments  Attachment[]
   activityLogs ActivityLog[]
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  subTasks     SubTask[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+}
+
+// 하위 업무 (체크리스트 형태)
+model SubTask {
+  id          String    @id @default(cuid())
+  title       String
+  isCompleted Boolean   @default(false)
+  taskId      String
+  task        Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
 enum TaskStatus {

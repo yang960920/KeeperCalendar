@@ -1,6 +1,13 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+export interface SubTask {
+    id: string;
+    title: string;
+    isCompleted: boolean;
+    completedAt?: string;
+}
+
 export interface Task {
     id: string;
     date: string; // "YYYY-MM-DD"
@@ -15,6 +22,7 @@ export interface Task {
     assigneeId?: string; // 담당자 ID (ex: "양현준")
     endDate?: string; // "YYYY-MM-DD"
     completedAt?: string; // ISO DateTime string
+    subTasks?: SubTask[];
 }
 
 interface TaskState {
@@ -22,6 +30,11 @@ interface TaskState {
     addTask: (task: Omit<Task, 'id'> & { id?: string }) => void;
     updateTask: (id: string, updatedTask: Partial<Task>) => void;
     deleteTask: (id: string) => void;
+    // SubTask 로컬 상태 업데이트
+    addSubTaskLocal: (taskId: string, subTask: SubTask) => void;
+    toggleSubTaskLocal: (taskId: string, subTaskId: string) => void;
+    deleteSubTaskLocal: (taskId: string, subTaskId: string) => void;
+    updateSubTaskLocal: (taskId: string, subTaskId: string, title: string) => void;
 }
 
 export const useTaskStore = create<TaskState>()(
@@ -44,6 +57,50 @@ export const useTaskStore = create<TaskState>()(
             deleteTask: (id) =>
                 set((state) => ({
                     tasks: state.tasks.filter((t) => t.id !== id),
+                })),
+            addSubTaskLocal: (taskId, subTask) =>
+                set((state) => ({
+                    tasks: state.tasks.map((t) =>
+                        t.id === taskId
+                            ? { ...t, subTasks: [...(t.subTasks || []), subTask] }
+                            : t
+                    ),
+                })),
+            toggleSubTaskLocal: (taskId, subTaskId) =>
+                set((state) => ({
+                    tasks: state.tasks.map((t) =>
+                        t.id === taskId
+                            ? {
+                                ...t,
+                                subTasks: (t.subTasks || []).map((st) =>
+                                    st.id === subTaskId
+                                        ? { ...st, isCompleted: !st.isCompleted, completedAt: !st.isCompleted ? new Date().toISOString() : undefined }
+                                        : st
+                                ),
+                            }
+                            : t
+                    ),
+                })),
+            deleteSubTaskLocal: (taskId, subTaskId) =>
+                set((state) => ({
+                    tasks: state.tasks.map((t) =>
+                        t.id === taskId
+                            ? { ...t, subTasks: (t.subTasks || []).filter((st) => st.id !== subTaskId) }
+                            : t
+                    ),
+                })),
+            updateSubTaskLocal: (taskId, subTaskId, title) =>
+                set((state) => ({
+                    tasks: state.tasks.map((t) =>
+                        t.id === taskId
+                            ? {
+                                ...t,
+                                subTasks: (t.subTasks || []).map((st) =>
+                                    st.id === subTaskId ? { ...st, title } : st
+                                ),
+                            }
+                            : t
+                    ),
                 })),
         }),
         {

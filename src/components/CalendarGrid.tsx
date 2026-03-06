@@ -208,6 +208,20 @@ export const CalendarGrid = ({ year, month, tasks, onTaskClick, userRole }: Cale
                                                             {isLateCompletion && <span className="text-[9px] bg-orange-500/20 text-orange-600 dark:text-orange-400 px-1 rounded font-bold inline-flex items-center">⚠️ 지연완료</span>}
                                                             {task.assigneeId && <span className="text-[9px] bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 px-1 rounded font-medium truncate max-w-[60px]">👤 {task.assigneeId}</span>}
                                                         </div>
+                                                        {/* 미니 프로그레스 바 (하위 업무가 있는 경우) */}
+                                                        {task.subTasks && task.subTasks.length > 0 && (() => {
+                                                            const completed = task.subTasks!.filter(st => st.isCompleted).length;
+                                                            const total = task.subTasks!.length;
+                                                            const pct = Math.round((completed / total) * 100);
+                                                            return (
+                                                                <div className="w-full mt-0.5 flex items-center gap-1">
+                                                                    <div className="flex-1 h-1 bg-black/10 dark:bg-white/10 rounded-full overflow-hidden">
+                                                                        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: pct === 100 ? '#22c55e' : '#3b82f6' }} />
+                                                                    </div>
+                                                                    <span className="text-[8px] opacity-60">{completed}/{total}</span>
+                                                                </div>
+                                                            );
+                                                        })()}
                                                     </div>
                                                 </>
                                             ) : (

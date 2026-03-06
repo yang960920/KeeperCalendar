@@ -30,6 +30,7 @@ export async function getInitialData(userId: string) {
             },
             include: {
                 project: true,
+                subTasks: { orderBy: { createdAt: 'asc' } },
             }
         });
 
@@ -55,6 +56,12 @@ export async function getInitialData(userId: string) {
             projectId: t.projectId,
             assigneeId: t.assigneeId || undefined,
             completedAt: t.completedAt ? t.completedAt.toISOString() : undefined,
+            subTasks: t.subTasks.map(st => ({
+                id: st.id,
+                title: st.title,
+                isCompleted: st.isCompleted,
+                completedAt: st.completedAt ? st.completedAt.toISOString() : undefined,
+            })),
         }));
 
         return { success: true, projects: formattedProjects, tasks: formattedTasks };

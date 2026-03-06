@@ -42,6 +42,7 @@ export async function createTask(data: {
     assigneeId?: string;
     date: string;
     endDate: string;
+    subTasks?: { title: string }[];
 }) {
     // 1. 소속 프로젝트가 없는 경우 (개인 업무 캘린더 작성 시) 빈 개인용 프로젝트를 찾아 연결
     // (현재 스키마 구조상 Task는 항상 Project에 속해야 함 - projectId 필수)
@@ -85,7 +86,11 @@ export async function createTask(data: {
                 assigneeId: data.assigneeId,
                 dueDate: new Date(data.date), // 시작일 역할로 사용
                 endDate: new Date(data.endDate),
-            }
+                subTasks: data.subTasks && data.subTasks.length > 0
+                    ? { create: data.subTasks.map(st => ({ title: st.title })) }
+                    : undefined,
+            },
+            include: { subTasks: true },
         });
 
         // 활동 로그 기록 (별도 try/catch로 메인 로직에 영향 없음)
@@ -184,5 +189,113 @@ export async function deleteTask(taskId: string, userId?: string) {
     } catch (error) {
         console.error("Failed to delete task:", error);
         return { success: false, error: "업무 삭제에 실패했습니다." };
+    }
+}
+
+// ====== SubTask CRUD ======
+
+/**
+ * 상위 Task의 상태를 SubTask 완료율 기반으로 자동 갱신합니다.
+ */
+async function recalcTaskStatus(taskId: string) {
+    const allSubTasks = await prisma.subTask.findMany({ where: { taskId } });
+    if (allSubTasks.length === 0) return;
+
+    const completedCount = allSubTasks.filter(st => st.isCompleted).length;
+    const totalCount = allSubTasks.length;
+
+    let newStatus: "TODO" | "IN_PROGRESS" | "DONE" = "TODO";
+    let completedAt: Date | null = null;
+
+    if (completedCount === totalCount) {
+        newStatus = "DONE";
+        completedAt = new Date();
+    } else if (completedCount > 0) {
+        newStatus = "IN_PROGRESS";
+    }
+
+    await prisma.task.update({
+        where: { id: taskId },
+        data: { status: newStatus, completedAt },
+    });
+}
+
+export async function addSubTask(taskId: string, title: string) {
+    try {
+        const subTask = await prisma.subTask.create({
+            data: { taskId, title },
+        });
+
+        revalidatePath("/");
+        revalidatePath("/admin/tracking");
+
+        return { success: true, data: subTask };
+    } catch (error) {
+        console.error("Failed to add sub-task:", error);
+        return { success: false, error: "하위 업무 추가에 실패했습니다." };
+    }
+}
+
+export async function updateSubTask(subTaskId: string, title: string) {
+    try {
+        const subTask = await prisma.subTask.update({
+            where: { id: subTaskId },
+            data: { title },
+        });
+
+        revalidatePath("/");
+        return { success: true, data: subTask };
+    } catch (error) {
+        console.error("Failed to update sub-task:", error);
+        return { success: false, error: "하위 업무 수정에 실패했습니다." };
+    }
+}
+
+export async function toggleSubTask(subTaskId: string) {
+    try {
+        const current = await prisma.subTask.findUnique({ where: { id: subTaskId } });
+        if (!current) return { success: false, error: "하위 업무를 찾을 수 없습니다." };
+
+        const newCompleted = !current.isCompleted;
+        const subTask = await prisma.subTask.update({
+            where: { id: subTaskId },
+            data: {
+                isCompleted: newCompleted,
+                completedAt: newCompleted ? new Date() : null,
+            },
+        });
+
+        // 상위 Task 상태 자동 갱신
+        await recalcTaskStatus(current.taskId);
+
+        revalidatePath("/");
+        revalidatePath("/admin/tracking");
+
+        return { success: true, data: subTask };
+    } catch (error) {
+        console.error("Failed to toggle sub-task:", error);
+        return { success: false, error: "하위 업무 상태 변경에 실패했습니다." };
+    }
+}
+
+export async function deleteSubTask(subTaskId: string) {
+    try {
+        const current = await prisma.subTask.findUnique({ where: { id: subTaskId } });
+        if (!current) return { success: false, error: "하위 업무를 찾을 수 없습니다." };
+
+        const taskId = current.taskId;
+
+        await prisma.subTask.delete({ where: { id: subTaskId } });
+
+        // 상위 Task 상태 재계산
+        await recalcTaskStatus(taskId);
+
+        revalidatePath("/");
+        revalidatePath("/admin/tracking");
+
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to delete sub-task:", error);
+        return { success: false, error: "하위 업무 삭제에 실패했습니다." };
     }
 }

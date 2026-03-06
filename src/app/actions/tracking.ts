@@ -10,6 +10,7 @@ export async function getTrackingData() {
                     include: { department: true }
                 },
                 project: true,
+                subTasks: true,
             },
             orderBy: {
                 updatedAt: 'desc'
@@ -27,11 +28,16 @@ export async function getTrackingData() {
             take: 30 // 최근 로그 30개
         });
 
-        // 진행률 계산 로직. 기존의 planned/done 필드가 없어 status로 일괄 환산하거나 커스텀하게 만들어야 함.
+        // 진행률 계산 로직: SubTask 기반 우선, 없으면 status 기반
         const formattedTasks = tasks.map(t => {
             let progress = 0;
-            if (t.status === 'DONE') progress = 100;
-            else if (t.status === 'IN_PROGRESS') progress = 50;
+            if (t.subTasks && t.subTasks.length > 0) {
+                const completed = t.subTasks.filter(st => st.isCompleted).length;
+                progress = Math.round((completed / t.subTasks.length) * 100);
+            } else {
+                if (t.status === 'DONE') progress = 100;
+                else if (t.status === 'IN_PROGRESS') progress = 50;
+            }
 
             let delayStatus = '정상';
             let delayDays = 0;

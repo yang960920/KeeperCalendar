@@ -4,7 +4,8 @@ import React, { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { Task, useTaskStore } from "@/store/useTaskStore";
 import { useAuthStore } from "@/store/useAuthStore";
-import { deleteTask as deleteTaskAction } from "@/app/actions/task";
+import { deleteTask as deleteTaskAction, addSubTask, toggleSubTask, deleteSubTask, updateSubTask } from "@/app/actions/task";
+import { SubTaskList } from "@/components/SubTaskList";
 import {
     Dialog,
     DialogContent,
@@ -33,6 +34,10 @@ interface EditTaskDialogProps {
 export const EditTaskDialog = ({ open, onOpenChange, task, readonly = false }: EditTaskDialogProps) => {
     const updateTask = useTaskStore((state) => state.updateTask);
     const deleteTaskLocal = useTaskStore((state) => state.deleteTask);
+    const addSubTaskLocal = useTaskStore((state) => state.addSubTaskLocal);
+    const toggleSubTaskLocalFn = useTaskStore((state) => state.toggleSubTaskLocal);
+    const deleteSubTaskLocalFn = useTaskStore((state) => state.deleteSubTaskLocal);
+    const updateSubTaskLocalFn = useTaskStore((state) => state.updateSubTaskLocal);
     const user = useAuthStore((state) => state.user);
 
     const [date, setDate] = useState("");
@@ -217,6 +222,40 @@ export const EditTaskDialog = ({ open, onOpenChange, task, readonly = false }: E
                             />
                         </div>
                     </div>
+
+                    {/* 하위 업무 체크리스트 */}
+                    {task && (
+                        <div className="border-t pt-4">
+                            <SubTaskList
+                                taskId={task.id}
+                                subTasks={task.subTasks || []}
+                                readonly={readonly}
+                                onToggle={async (subTaskId) => {
+                                    toggleSubTaskLocalFn(task.id, subTaskId);
+                                    await toggleSubTask(subTaskId);
+                                }}
+                                onAdd={async (title) => {
+                                    const res = await addSubTask(task.id, title);
+                                    if (res.success && res.data) {
+                                        addSubTaskLocal(task.id, {
+                                            id: res.data.id,
+                                            title: res.data.title,
+                                            isCompleted: res.data.isCompleted,
+                                            completedAt: res.data.completedAt?.toISOString(),
+                                        });
+                                    }
+                                }}
+                                onDelete={async (subTaskId) => {
+                                    deleteSubTaskLocalFn(task.id, subTaskId);
+                                    await deleteSubTask(subTaskId);
+                                }}
+                                onUpdate={async (subTaskId, title) => {
+                                    updateSubTaskLocalFn(task.id, subTaskId, title);
+                                    await updateSubTask(subTaskId, title);
+                                }}
+                            />
+                        </div>
+                    )}
 
                     <div className="flex gap-2 mt-4">
                         {!readonly && (
