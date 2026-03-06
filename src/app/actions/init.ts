@@ -60,8 +60,12 @@ export async function getInitialData(userId: string) {
             subTasks: t.subTasks.map(st => ({
                 id: st.id,
                 title: st.title,
+                description: st.description || undefined,
                 isCompleted: st.isCompleted,
                 completedAt: st.completedAt ? st.completedAt.toISOString() : undefined,
+                assigneeId: st.assigneeId || undefined,
+                dueDate: st.dueDate ? st.dueDate.toISOString().split('T')[0] : undefined,
+                endDate: st.endDate ? st.endDate.toISOString().split('T')[0] : undefined,
             })),
         }));
 

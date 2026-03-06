@@ -19,7 +19,9 @@ interface CalendarGridProps {
     month: string;
     tasks: Task[];
     onTaskClick: (task: Task) => void;
-    userRole?: "CREATOR" | "PARTICIPANT"; // 프로젝트용 권한
+    userRole?: "CREATOR" | "PARTICIPANT";
+    currentUserId?: string;
+    projectCreatorId?: string;
 }
 
 // 카테고리별 테마 색상 맵 (레퍼런스 이미지 스타일 참고)
@@ -32,7 +34,7 @@ const categoryColors: Record<string, string> = {
     자기계발: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-200 border-yellow-200 dark:border-yellow-800",
 };
 
-export const CalendarGrid = ({ year, month, tasks, onTaskClick, userRole }: CalendarGridProps) => {
+export const CalendarGrid = ({ year, month, tasks, onTaskClick, userRole, currentUserId, projectCreatorId }: CalendarGridProps) => {
     const updateTask = useTaskStore((state) => state.updateTask);
 
     // Date calculations
@@ -73,7 +75,15 @@ export const CalendarGrid = ({ year, month, tasks, onTaskClick, userRole }: Cale
     }, {} as Record<string, Task[]>);
 
     const handleToggleTask = async (e: React.MouseEvent, task: Task) => {
-        e.stopPropagation(); // 팝업 안 열리게 전파 멈춤
+        e.stopPropagation();
+
+        // 담당자 또는 프로젝트 생성자만 업무 완료 토글 가능
+        const isAssignee = currentUserId && task.assigneeId === currentUserId;
+        const isCreator = currentUserId && projectCreatorId === currentUserId;
+        if (!isAssignee && !isCreator) {
+            alert("본인에게 할당된 업무만 완료 처리할 수 있습니다.");
+            return;
+        }
 
         // 이미 완료된(done >= planned) 상태인지 확인
         const isCompleted = task.done >= task.planned;

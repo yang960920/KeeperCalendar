@@ -31,6 +31,7 @@ model User {
   tasks               Task[]      @relation("TaskAssignee")
   projects            Project[]   @relation("ProjectCreator")
   participatedProjects Project[]  @relation("ProjectParticipants")
+  assignedSubTasks    SubTask[]   @relation("SubTaskAssignee")
   activityLogs        ActivityLog[]
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
@@ -83,9 +84,14 @@ model Task {
 model SubTask {
   id          String    @id @default(cuid())
   title       String
+  description String?
   isCompleted Boolean   @default(false)
   taskId      String
   task        Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  assigneeId  String?
+  assignee    User?     @relation("SubTaskAssignee", fields: [assigneeId], references: [id])
+  dueDate     DateTime?
+  endDate     DateTime?
   completedAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt

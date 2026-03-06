@@ -220,10 +220,23 @@ async function recalcTaskStatus(taskId: string) {
     });
 }
 
-export async function addSubTask(taskId: string, title: string) {
+export async function addSubTask(taskId: string, data: {
+    title: string;
+    description?: string;
+    assigneeId?: string;
+    dueDate?: string;
+    endDate?: string;
+}) {
     try {
         const subTask = await prisma.subTask.create({
-            data: { taskId, title },
+            data: {
+                taskId,
+                title: data.title,
+                description: data.description || null,
+                assigneeId: data.assigneeId || null,
+                dueDate: data.dueDate ? new Date(data.dueDate) : null,
+                endDate: data.endDate ? new Date(data.endDate) : null,
+            },
         });
 
         revalidatePath("/");
@@ -236,11 +249,24 @@ export async function addSubTask(taskId: string, title: string) {
     }
 }
 
-export async function updateSubTask(subTaskId: string, title: string) {
+export async function updateSubTask(subTaskId: string, data: {
+    title?: string;
+    description?: string;
+    assigneeId?: string;
+    dueDate?: string;
+    endDate?: string;
+}) {
     try {
+        const updateData: any = {};
+        if (data.title !== undefined) updateData.title = data.title;
+        if (data.description !== undefined) updateData.description = data.description || null;
+        if (data.assigneeId !== undefined) updateData.assigneeId = data.assigneeId || null;
+        if (data.dueDate !== undefined) updateData.dueDate = data.dueDate ? new Date(data.dueDate) : null;
+        if (data.endDate !== undefined) updateData.endDate = data.endDate ? new Date(data.endDate) : null;
+
         const subTask = await prisma.subTask.update({
             where: { id: subTaskId },
-            data: { title },
+            data: updateData,
         });
 
         revalidatePath("/");

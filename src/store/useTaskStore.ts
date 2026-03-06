@@ -4,8 +4,12 @@ import { persist } from 'zustand/middleware';
 export interface SubTask {
     id: string;
     title: string;
+    description?: string;
     isCompleted: boolean;
     completedAt?: string;
+    assigneeId?: string;
+    dueDate?: string;
+    endDate?: string;
 }
 
 export interface Task {

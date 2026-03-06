@@ -67,8 +67,11 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     // 이 프로젝트에 속한 전체 월별 업무
     const projectMonthTasks = tasks.filter(t => t.date.startsWith(targetPrefix) && t.projectId === projectId);
 
-    // 만약 "참여자(PARTICIPANT)"라면, 본인에게 할당된 업무만 보인다. (생성자는 전체를 본다)
-    const visibleTasks = user?.role === "CREATOR"
+    // 프로젝트 생성자인지 여부로 판단 (전역 role이 아닌 프로젝트별)
+    const isProjectCreator = user?.id === project.creatorId;
+
+    // 프로젝트 생성자는 전체 업무를 보고, 참여자는 자신에게 할당된 업무만 보인다.
+    const visibleTasks = isProjectCreator
         ? projectMonthTasks
         : projectMonthTasks.filter(t => t.assigneeId === user?.id);
 
@@ -149,6 +152,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                         tasks={visibleTasks}
                         onTaskClick={(t) => setSelectedTask(t)}
                         userRole={user?.role}
+                        currentUserId={user?.id}
+                        projectCreatorId={project.creatorId}
                     />
                 </div>
             </main>
@@ -168,7 +173,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                     task={selectedTask}
                     open={!!selectedTask}
                     onOpenChange={(open) => !open && setSelectedTask(null)}
-                    readonly={user?.role !== "CREATOR"} // 작성자 외에는 읽기/파일첨부만 가능 (체크박스는 캘린더에서 완수)
+                    readonly={!isProjectCreator} // 작성자 외에는 읽기/파일첨부만 가능 (체크박스는 캘린더에서 완수)
                 />
             )}
         </div>
