@@ -25,11 +25,13 @@ export async function getInitialData(userId: string) {
             where: {
                 OR: [
                     { assigneeId: userId },
+                    { assignees: { some: { id: userId } } },  // 복수 담당자
                     { projectId: { in: projectIds } }
                 ]
             },
             include: {
                 project: true,
+                assignees: true,  // 복수 담당자 포함
                 subTasks: { orderBy: { createdAt: 'asc' } },
             }
         });
@@ -56,12 +58,14 @@ export async function getInitialData(userId: string) {
             weight: 1,
             projectId: t.projectId,
             assigneeId: t.assigneeId || undefined,
+            assigneeIds: t.assignees ? t.assignees.map((u: any) => u.id) : (t.assigneeId ? [t.assigneeId] : []),
             completedAt: t.completedAt ? t.completedAt.toISOString() : undefined,
             subTasks: t.subTasks.map(st => ({
                 id: st.id,
                 title: st.title,
                 description: st.description || undefined,
                 isCompleted: st.isCompleted,
+                status: (st as any).status || 'TODO',  // Phase 3
                 completedAt: st.completedAt ? st.completedAt.toISOString() : undefined,
                 assigneeId: st.assigneeId || undefined,
                 dueDate: st.dueDate ? st.dueDate.toISOString().split('T')[0] : undefined,

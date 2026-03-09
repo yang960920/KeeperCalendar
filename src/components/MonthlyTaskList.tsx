@@ -43,8 +43,9 @@ export const MonthlyTaskList = ({ year, month }: MonthlyTaskListProps) => {
             // 프로젝트 업무일 경우 권한 확인
             if (!currentUser) return false;
 
-            // 2. 내가 할당받은 업무인지 확인
+            // 2. 내가 할당받은 업무인지 확인 (복수 담당자 지원)
             if (task.assigneeId === currentUser.id) return true;
+            if (task.assigneeIds && task.assigneeIds.includes(currentUser.id)) return true;
 
             // 3. 내가 만든 프로젝트의 업무인지 확인 (생성자 교차 연동)
             const parentProject = projects.find((p: any) => p.id === task.projectId);

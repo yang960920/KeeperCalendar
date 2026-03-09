@@ -73,7 +73,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     // 프로젝트 생성자는 전체 업무를 보고, 참여자는 자신에게 할당된 업무만 보인다.
     const visibleTasks = isProjectCreator
         ? projectMonthTasks
-        : projectMonthTasks.filter(t => t.assigneeId === user?.id);
+        : projectMonthTasks.filter(t =>
+            t.assigneeId === user?.id ||
+            (t.assigneeIds && t.assigneeIds.includes(user?.id || ''))
+        );
 
     // 종료일 경과 확인
     const isOverdue = project.endDate && new Date(project.endDate) < new Date();

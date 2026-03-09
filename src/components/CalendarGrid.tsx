@@ -78,7 +78,10 @@ export const CalendarGrid = ({ year, month, tasks, onTaskClick, userRole, curren
         e.stopPropagation();
 
         // 담당자 또는 프로젝트 생성자만 업무 완료 토글 가능
-        const isAssignee = currentUserId && task.assigneeId === currentUserId;
+        const isAssignee = currentUserId && (
+            task.assigneeId === currentUserId ||
+            (task.assigneeIds && task.assigneeIds.includes(currentUserId))
+        );
         const isCreator = currentUserId && projectCreatorId === currentUserId;
         if (!isAssignee && !isCreator) {
             alert("본인에게 할당된 업무만 완료 처리할 수 있습니다.");
@@ -216,7 +219,12 @@ export const CalendarGrid = ({ year, month, tasks, onTaskClick, userRole, curren
                                                         <div className="flex items-center gap-1 mt-0.5 flex-wrap">
                                                             {isOverdue && <span className="text-[9px] bg-red-500/20 text-red-600 dark:text-red-400 px-1 rounded font-bold animate-pulse inline-flex items-center">🚨 지연됨</span>}
                                                             {isLateCompletion && <span className="text-[9px] bg-orange-500/20 text-orange-600 dark:text-orange-400 px-1 rounded font-bold inline-flex items-center">⚠️ 지연완료</span>}
-                                                            {task.assigneeId && <span className="text-[9px] bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 px-1 rounded font-medium truncate max-w-[60px]">👤 {task.assigneeId}</span>}
+                                                            {task.assigneeIds && task.assigneeIds.length > 0
+                                                                ? task.assigneeIds.map((aId, idx) => (
+                                                                    <span key={idx} className="text-[9px] bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 px-1 rounded font-medium truncate max-w-[60px]">👤 {aId}</span>
+                                                                ))
+                                                                : task.assigneeId && <span className="text-[9px] bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 px-1 rounded font-medium truncate max-w-[60px]">👤 {task.assigneeId}</span>
+                                                            }
                                                         </div>
                                                         {/* 미니 프로그레스 바 (하위 업무가 있는 경우) */}
                                                         {task.subTasks && task.subTasks.length > 0 && (() => {

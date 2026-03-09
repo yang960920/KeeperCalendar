@@ -40,6 +40,7 @@ export async function createTask(data: {
     planned: number;
     projectId?: string;
     assigneeId?: string;
+    assigneeIds?: string[];  // 복수 담당자
     date: string;
     endDate: string;
     subTasks?: { title: string }[];
@@ -84,14 +85,20 @@ export async function createTask(data: {
                 priority: "MEDIUM",
                 planned: data.planned,
                 projectId: targetProjectId,
-                assigneeId: data.assigneeId,
+                assigneeId: data.assigneeId || (data.assigneeIds && data.assigneeIds.length > 0 ? data.assigneeIds[0] : undefined),
+                // 복수 담당자 (다대다)
+                assignees: data.assigneeIds && data.assigneeIds.length > 0
+                    ? { connect: data.assigneeIds.map(id => ({ id })) }
+                    : data.assigneeId
+                        ? { connect: [{ id: data.assigneeId }] }
+                        : undefined,
                 dueDate: new Date(data.date),
                 endDate: new Date(data.endDate),
                 subTasks: data.subTasks && data.subTasks.length > 0
                     ? { create: data.subTasks.map(st => ({ title: st.title })) }
                     : undefined,
             },
-            include: { subTasks: true },
+            include: { subTasks: true, assignees: true },
         });
 
         // 활동 로그 기록 (별도 try/catch로 메인 로직에 영향 없음)
@@ -124,11 +131,13 @@ export async function updateTaskStatus(taskId: string, data: { done: number, isC
             data: {
                 status: data.isCompleted ? "DONE" : "IN_PROGRESS",
                 completedAt: data.isCompleted ? new Date() : null,
-            }
+            },
+            include: { assignees: true },
         });
 
         // 활동 로그 기록 (별도 try/catch로 메인 로직에 영향 없음)
-        if (updated.assigneeId) {
+        const logUser = updated.assigneeId || (updated.assignees.length > 0 ? updated.assignees[0].id : null);
+        if (logUser) {
             await logActivity({
                 action: data.isCompleted ? "업무 완료" : "업무 상태 변경",
                 entityType: "TASK",
@@ -136,7 +145,7 @@ export async function updateTaskStatus(taskId: string, data: { done: number, isC
                 details: data.isCompleted
                     ? `"${updated.title}" 업무를 완료 처리했습니다.`
                     : `"${updated.title}" 업무 상태를 진행 중으로 변경했습니다.`,
-                userId: updated.assigneeId,
+                userId: logUser,
                 projectId: updated.projectId,
                 taskId: taskId,
             });
@@ -289,6 +298,7 @@ export async function toggleSubTask(subTaskId: string) {
             data: {
                 isCompleted: newCompleted,
                 completedAt: newCompleted ? new Date() : null,
+                status: newCompleted ? "DONE" : "TODO",  // Phase 3: status 동기화
             },
         });
 

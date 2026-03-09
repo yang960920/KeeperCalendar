@@ -29,9 +29,11 @@ model User {
   department   Department? @relation(fields: [departmentId], references: [id])
   resumeUrl    String?     // Vercel Blob 이력서/포트폴리오 다운로드 링크
   tasks               Task[]      @relation("TaskAssignee")
+  assignedTasks       Task[]      @relation("TaskAssignees")  // 다대다 (복수 담당자)
   projects            Project[]   @relation("ProjectCreator")
   participatedProjects Project[]  @relation("ProjectParticipants")
   assignedSubTasks    SubTask[]   @relation("SubTaskAssignee")
+  subTaskComments     SubTaskComment[]
   activityLogs        ActivityLog[]
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
@@ -71,6 +73,7 @@ model Task {
   project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   assigneeId  String?
   assignee    User?        @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  assignees   User[]       @relation("TaskAssignees")  // 복수 담당자 (다대다)
   dueDate     DateTime?    // 기존 필드 유지
   endDate     DateTime?    // 추가: 업무 지정 기한 (종료일)
   completedAt DateTime?    // 추가: 실제 완료 처리된 시간
@@ -83,19 +86,21 @@ model Task {
 
 // 하위 업무 (체크리스트 형태)
 model SubTask {
-  id          String    @id @default(cuid())
+  id          String        @id @default(cuid())
   title       String
   description String?
-  isCompleted Boolean   @default(false)
+  isCompleted Boolean       @default(false)
+  status      SubTaskStatus @default(TODO)  // Phase 3: 3단계 상태
   taskId      String
-  task        Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  task        Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
   assigneeId  String?
-  assignee    User?     @relation("SubTaskAssignee", fields: [assigneeId], references: [id])
+  assignee    User?         @relation("SubTaskAssignee", fields: [assigneeId], references: [id])
+  comments    SubTaskComment[]
   dueDate     DateTime?
   endDate     DateTime?
   completedAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 }
 
 enum TaskStatus {
@@ -110,6 +115,13 @@ enum TaskPriority {
   HIGH
 }
 
+// Phase 3: 하위업무 상태
+enum SubTaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
 // 태스크 첨부파일
 model Attachment {
   id        String   @id @default(cuid())
@@ -119,6 +131,17 @@ model Attachment {
   type      String
   taskId    String
   task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+// Phase 4: 하위업무 코멘트
+model SubTaskComment {
+  id        String   @id @default(cuid())
+  content   String
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  subTaskId String
+  subTask   SubTask  @relation(fields: [subTaskId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
 }
 

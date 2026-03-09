@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { format } from "date-fns";
-import { Plus, AlertTriangle } from "lucide-react";
+import { Plus, AlertTriangle, Check } from "lucide-react";
 import { useTaskStore } from "@/store/useTaskStore";
 import {
     Dialog,
@@ -57,7 +57,7 @@ export const ProjectTaskForm = ({ projectId, participants, projectEndDate }: Pro
     const [category, setCategory] = useState("기획");
     const [planned, setPlanned] = useState<string>("1");
     // 초기 생성 시 프로젝트 업무는 담당자가 완료하기 전까지 done=0
-    const [assigneeId, setAssigneeId] = useState<string>("");
+    const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
 
     // 업무 종료일이 프로젝트 종료일을 초과하는지 확인
     const isTaskEndDateOverProject = () => {
@@ -68,8 +68,8 @@ export const ProjectTaskForm = ({ projectId, participants, projectEndDate }: Pro
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (!assigneeId) {
-            alert("업무를 수행할 담당자를 선택해주세요.");
+        if (assigneeIds.length === 0) {
+            alert("업무를 수행할 담당자를 최소 1명 선택해주세요.");
             return;
         }
 
@@ -99,7 +99,7 @@ export const ProjectTaskForm = ({ projectId, participants, projectEndDate }: Pro
                 category,
                 planned: plannedNum,
                 projectId,
-                assigneeId,
+                assigneeIds,
             });
 
             if (result.success && result.data) {
@@ -115,13 +115,14 @@ export const ProjectTaskForm = ({ projectId, participants, projectEndDate }: Pro
                     done: 0,
                     weight: 1,
                     projectId,
-                    assigneeId,
+                    assigneeId: assigneeIds[0],
+                    assigneeIds,
                 } as any);
 
                 // Reset and close
                 setTitle("");
                 setContent("");
-                setAssigneeId("");
+                setAssigneeIds([]);
                 setOpen(false);
             } else {
                 alert(result.error || "업무 생성 실패");
@@ -181,22 +182,55 @@ export const ProjectTaskForm = ({ projectId, participants, projectEndDate }: Pro
                     )}
 
                     <div className="grid gap-2">
-                        <Label htmlFor="assignee">담당자 배정 (필수)</Label>
-                        <Select value={assigneeId} onValueChange={setAssigneeId}>
-                            <SelectTrigger id="assignee">
-                                <SelectValue placeholder="참여 팀원 중 선택" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {participants.map(pId => {
-                                    const userObj = users.find(u => u.id === pId);
-                                    return (
-                                        <SelectItem key={pId} value={pId}>
-                                            {userObj ? userObj.name : pId}
-                                        </SelectItem>
-                                    );
-                                })}
-                            </SelectContent>
-                        </Select>
+                        <Label>담당자 배정 (복수 선택 가능, 필수)</Label>
+                        <div className="border rounded-md p-3 max-h-[160px] overflow-y-auto space-y-1">
+                            {participants.length === 0 && (
+                                <p className="text-xs text-muted-foreground">프로젝트에 참여 중인 팀원이 없습니다.</p>
+                            )}
+                            {participants.map(pId => {
+                                const userObj = users.find(u => u.id === pId);
+                                const isChecked = assigneeIds.includes(pId);
+                                return (
+                                    <label
+                                        key={pId}
+                                        className={`flex items-center gap-2 p-2 rounded-md cursor-pointer transition-colors ${isChecked
+                                                ? "bg-primary/10 border border-primary/30"
+                                                : "hover:bg-muted/50"
+                                            }`}
+                                    >
+                                        <div
+                                            className={`flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-colors ${isChecked
+                                                    ? "bg-primary border-primary text-primary-foreground"
+                                                    : "border-muted-foreground/30"
+                                                }`}
+                                        >
+                                            {isChecked && <Check className="h-3 w-3" />}
+                                        </div>
+                                        <input
+                                            type="checkbox"
+                                            className="sr-only"
+                                            checked={isChecked}
+                                            onChange={() => {
+                                                setAssigneeIds(prev =>
+                                                    isChecked
+                                                        ? prev.filter(id => id !== pId)
+                                                        : [...prev, pId]
+                                                );
+                                            }}
+                                        />
+                                        <span className="text-sm">{userObj ? userObj.name : pId}</span>
+                                    </label>
+                                );
+                            })}
+                        </div>
+                        {assigneeIds.length > 0 && (
+                            <p className="text-xs text-muted-foreground">
+                                선택됨: {assigneeIds.map(id => {
+                                    const u = users.find(usr => usr.id === id);
+                                    return u ? u.name : id;
+                                }).join(', ')}
+                            </p>
+                        )}
                     </div>
 
                     <div className="grid gap-2">

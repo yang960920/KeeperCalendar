@@ -6,6 +6,7 @@ export interface SubTask {
     title: string;
     description?: string;
     isCompleted: boolean;
+    status?: 'TODO' | 'IN_PROGRESS' | 'DONE';  // Phase 3: 3단계 상태
     completedAt?: string;
     assigneeId?: string;
     dueDate?: string;
@@ -23,7 +24,8 @@ export interface Task {
     done: number;
     weight: number;
     projectId?: string; // 소속 프로젝트 ID (없으면 개인 업무 일지)
-    assigneeId?: string; // 담당자 ID (ex: "양현준")
+    assigneeId?: string; // 기존 1:N 호환 유지
+    assigneeIds?: string[]; // 복수 담당자 (다대다)
     endDate?: string; // "YYYY-MM-DD"
     completedAt?: string; // ISO DateTime string
     subTasks?: SubTask[];
