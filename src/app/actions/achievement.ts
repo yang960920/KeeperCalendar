@@ -7,6 +7,8 @@ import { prisma } from "@/lib/prisma";
  * - monthlyStats: 월별 달성률 (전체 또는 특정 부서)
  * - departmentStats: 부서별 달성률 비교 (전체 부서 모드)
  * - memberStats: 특정 부서 선택 시 소속 직원별 달성률
+ * 
+ * 복수 담당자(assignees)가 있는 업무는 모든 담당자에게 균등 배분됩니다.
  */
 export async function getAchievementData(departmentFilter: string = "all") {
     try {
@@ -15,7 +17,7 @@ export async function getAchievementData(departmentFilter: string = "all") {
             ? { assignee: { department: { name: departmentFilter } } }
             : {};
 
-        // 모든 Task (필터 적용)
+        // 모든 Task (필터 적용) — assignees(복수) 포함
         const tasks = await prisma.task.findMany({
             where: {
                 ...departmentWhere,
@@ -24,14 +26,17 @@ export async function getAchievementData(departmentFilter: string = "all") {
             include: {
                 assignee: {
                     include: { department: true }
-                }
+                },
+                assignees: {
+                    include: { department: true }
+                },
             }
         });
 
         // ── 1. 월별 통계 ──
         const monthlyMap: Record<string, { total: number; done: number }> = {};
         tasks.forEach(t => {
-            const month = (t.dueDate || t.createdAt).toISOString().slice(0, 7); // YYYY-MM
+            const month = (t.dueDate || t.createdAt).toISOString().slice(0, 7);
             if (!monthlyMap[month]) monthlyMap[month] = { total: 0, done: 0 };
             monthlyMap[month].total += 1;
             if (t.status === "DONE") monthlyMap[month].done += 1;
@@ -48,16 +53,42 @@ export async function getAchievementData(departmentFilter: string = "all") {
             .sort((a, b) => a.month.localeCompare(b.month));
 
         // ── 2. 부서별 통계 (전체 부서 모드) ──
+        // ── 3. 개인별 통계 (특정 부서 선택 시) ──
+        // 복수 담당자를 모두 순회하여 각자에게 공헌도를 배분
         const deptMap: Record<string, { total: number; done: number; contribution: number; totalPlanned: number }> = {};
+        const memberMap: Record<string, { total: number; done: number; contribution: number; totalPlanned: number }> = {};
+
         tasks.forEach(t => {
-            const deptName = t.assignee?.department?.name || "미지정";
-            if (!deptMap[deptName]) deptMap[deptName] = { total: 0, done: 0, contribution: 0, totalPlanned: 0 };
-            deptMap[deptName].total += 1;
-            deptMap[deptName].totalPlanned += (t.planned || 1);
-            if (t.status === "DONE") {
-                deptMap[deptName].done += 1;
-                deptMap[deptName].contribution += (t.contributionScore || 0);
-            }
+            // 실제 담당자 목록 결정 (assignees가 있으면 복수, 없으면 assignee 단수)
+            const assigneeList = t.assignees && t.assignees.length > 0
+                ? t.assignees
+                : t.assignee ? [t.assignee] : [];
+
+            if (assigneeList.length === 0) return;
+
+            // 각 담당자에게 균등 배분
+            assigneeList.forEach(user => {
+                const deptName = user.department?.name || "미지정";
+                const memberName = user.name || "미할당";
+
+                // 부서별
+                if (!deptMap[deptName]) deptMap[deptName] = { total: 0, done: 0, contribution: 0, totalPlanned: 0 };
+                deptMap[deptName].total += 1;
+                deptMap[deptName].totalPlanned += (t.planned || 1);
+                if (t.status === "DONE") {
+                    deptMap[deptName].done += 1;
+                    deptMap[deptName].contribution += (t.contributionScore || 0);
+                }
+
+                // 개인별
+                if (!memberMap[memberName]) memberMap[memberName] = { total: 0, done: 0, contribution: 0, totalPlanned: 0 };
+                memberMap[memberName].total += 1;
+                memberMap[memberName].totalPlanned += (t.planned || 1);
+                if (t.status === "DONE") {
+                    memberMap[memberName].done += 1;
+                    memberMap[memberName].contribution += (t.contributionScore || 0);
+                }
+            });
         });
 
         const departmentStats = Object.entries(deptMap)
@@ -70,19 +101,6 @@ export async function getAchievementData(departmentFilter: string = "all") {
                 totalPlanned,
             }))
             .sort((a, b) => b.rate - a.rate);
-
-        // ── 3. 개인별 통계 (특정 부서 선택 시) ──
-        const memberMap: Record<string, { total: number; done: number; contribution: number; totalPlanned: number }> = {};
-        tasks.forEach(t => {
-            const name = t.assignee?.name || "미할당";
-            if (!memberMap[name]) memberMap[name] = { total: 0, done: 0, contribution: 0, totalPlanned: 0 };
-            memberMap[name].total += 1;
-            memberMap[name].totalPlanned += (t.planned || 1);
-            if (t.status === "DONE") {
-                memberMap[name].done += 1;
-                memberMap[name].contribution += (t.contributionScore || 0);
-            }
-        });
 
         const memberStats = Object.entries(memberMap)
             .map(([name, { total, done, contribution, totalPlanned }]) => ({
