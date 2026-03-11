@@ -35,6 +35,8 @@ model User {
   assignedSubTasks    SubTask[]   @relation("SubTaskAssignee")
   subTaskComments     SubTaskComment[]
   activityLogs        ActivityLog[]
+  givenReviews        PeerReview[] @relation("PeerReviewer")   // 내가 한 평가
+  receivedReviews     PeerReview[] @relation("PeerReviewee")   // 내가 받은 평가
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 }
@@ -56,6 +58,7 @@ model Project {
   startDate    DateTime
   endDate      DateTime
   tasks        Task[]
+  peerReviews  PeerReview[]
   activityLogs ActivityLog[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -68,7 +71,7 @@ model Task {
   description String?
   status      TaskStatus   @default(TODO)
   priority    TaskPriority @default(MEDIUM)
-  planned     Float        @default(1)   // 생성자가 부여하는 업무량 (목표량)
+  planned     Float        @default(1)   // 기본값 1 (레거시 필드, 공헌도는 contributionScore 사용)
   projectId   String
   project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   assigneeId  String?
@@ -78,6 +81,8 @@ model Task {
   endDate     DateTime?    // 추가: 업무 지정 기한 (종료일)
   completedAt DateTime?    // 추가: 실제 완료 처리된 시간
   contributionScore Float? // 자동 산출 공헌도 (완료 시 계산, 관리자 전용)
+  isUrgent         Boolean        @default(false)  // 긴급 요청 여부
+  urgencyStatus    UrgencyStatus  @default(NONE)   // 긴급 승인 상태
   attachments  Attachment[]
   activityLogs ActivityLog[]
   subTasks     SubTask[]
@@ -114,6 +119,15 @@ enum TaskPriority {
   LOW
   MEDIUM
   HIGH
+}
+
+// 긴급 승인 상태
+enum UrgencyStatus {
+  NONE              // 긴급 요청 없음
+  PENDING_CREATOR   // PARTICIPANT 요청 → CREATOR 검수 대기
+  PENDING_ADMIN     // CREATOR 승인 또는 CREATOR 직접 요청 → Admin 승인 대기
+  APPROVED          // Admin 수락
+  REJECTED          // 거절됨
 }
 
 // Phase 3: 하위업무 상태
@@ -160,4 +174,19 @@ model ActivityLog {
   taskId      String?
   task        Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())
+}
+
+// 피어 리뷰 (프로젝트 종료 후 상호 평가)
+model PeerReview {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  reviewerId  String
+  reviewer    User     @relation("PeerReviewer", fields: [reviewerId], references: [id])
+  revieweeId  String
+  reviewee    User     @relation("PeerReviewee", fields: [revieweeId], references: [id])
+  score       Int      // 별점 1~5
+  createdAt   DateTime @default(now())
+
+  @@unique([projectId, reviewerId, revieweeId])
 }

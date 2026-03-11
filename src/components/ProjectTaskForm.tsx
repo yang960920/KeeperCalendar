@@ -28,10 +28,11 @@ import { createTask } from "@/app/actions/task";
 interface ProjectTaskFormProps {
     projectId: string;
     participants: string[];
-    projectEndDate?: string; // 프로젝트 종료일 (ISO)
+    projectEndDate?: string;
+    userRole?: "CREATOR" | "PARTICIPANT";
 }
 
-export const ProjectTaskForm = ({ projectId, participants, projectEndDate }: ProjectTaskFormProps) => {
+export const ProjectTaskForm = ({ projectId, participants, projectEndDate, userRole }: ProjectTaskFormProps) => {
     const addTask = useTaskStore((state) => state.addTask);
     const [open, setOpen] = useState(false);
     const [date, setDate] = useState("");
@@ -58,6 +59,7 @@ export const ProjectTaskForm = ({ projectId, participants, projectEndDate }: Pro
 
     // 초기 생성 시 프로젝트 업무는 담당자가 완료하기 전까지 done=0
     const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
+    const [isUrgent, setIsUrgent] = useState(false);
 
     // 업무 종료일이 프로젝트 종료일을 초과하는지 확인
     const isTaskEndDateOverProject = () => {
@@ -93,6 +95,10 @@ export const ProjectTaskForm = ({ projectId, participants, projectEndDate }: Pro
                 planned: 1,
                 projectId,
                 assigneeIds,
+                isUrgent,
+                urgencyStatus: isUrgent
+                    ? (userRole === "CREATOR" ? "PENDING_ADMIN" as const : "PENDING_CREATOR" as const)
+                    : "NONE" as const,
             });
 
             if (result.success && result.data) {
@@ -264,7 +270,24 @@ export const ProjectTaskForm = ({ projectId, participants, projectEndDate }: Pro
                         </Select>
                     </div>
 
-
+                    {/* 긴급 업무 토글 */}
+                    <div className="flex items-center gap-3 p-3 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                        <input
+                            type="checkbox"
+                            id="project-urgent-toggle"
+                            checked={isUrgent}
+                            onChange={(e) => setIsUrgent(e.target.checked)}
+                            className="w-4 h-4 accent-red-500"
+                        />
+                        <Label htmlFor="project-urgent-toggle" className="flex items-center gap-1.5 cursor-pointer text-sm">
+                            <span>🚨</span> 긴급 업무 요청
+                        </Label>
+                        {isUrgent && (
+                            <span className="text-xs text-red-400 ml-auto">
+                                {userRole === "CREATOR" ? "관리자 승인 필요" : "부서장 검수 → 관리자 승인 필요"}
+                            </span>
+                        )}
+                    </div>
 
                     <Button type="submit" className="mt-4">
                         팀원에게 업무 할당하기

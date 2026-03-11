@@ -45,6 +45,8 @@ export async function createTask(data: {
     date: string;
     endDate: string;
     subTasks?: { title: string }[];
+    isUrgent?: boolean;
+    urgencyStatus?: "NONE" | "PENDING_CREATOR" | "PENDING_ADMIN";
 }) {
     // 1. 소속 프로젝트가 없는 경우 (개인 업무 캘린더 작성 시) 빈 개인용 프로젝트를 찾아 연결
     // (현재 스키마 구조상 Task는 항상 Project에 속해야 함 - projectId 필수)
@@ -98,6 +100,8 @@ export async function createTask(data: {
                 subTasks: data.subTasks && data.subTasks.length > 0
                     ? { create: data.subTasks.map(st => ({ title: st.title })) }
                     : undefined,
+                isUrgent: data.isUrgent || false,
+                urgencyStatus: data.urgencyStatus || "NONE",
             },
             include: { subTasks: true, assignees: true },
         });
@@ -132,8 +136,14 @@ export async function updateTaskStatus(taskId: string, data: { done: number, isC
         if (data.isCompleted) {
             const taskData = await prisma.task.findUnique({
                 where: { id: taskId },
-                include: { subTasks: true, assignees: true, project: true },
+                include: { subTasks: true, assignees: true, project: true, attachments: true },
             });
+
+            // 긴급 승인 업무 → 첨부파일 필수 검증
+            if (taskData?.urgencyStatus === "APPROVED" && (!taskData.attachments || taskData.attachments.length === 0)) {
+                return { success: false, error: "긴급 업무는 작업물 첨부가 필수입니다." };
+            }
+
             // 개인 업무(월별 일지)는 공헌도 산출 제외
             const isPersonalTask = taskData?.project?.name === "개인 업무";
             if (taskData && !isPersonalTask) {
@@ -143,6 +153,7 @@ export async function updateTaskStatus(taskId: string, data: { done: number, isC
                     completedAt: new Date(),
                     subTaskCount: taskData.subTasks.length,
                     assigneeCount: Math.max(taskData.assignees.length, 1),
+                    isUrgentApproved: taskData.urgencyStatus === "APPROVED",
                 });
             }
         }
@@ -257,6 +268,7 @@ async function recalcTaskStatus(taskId: string) {
                 completedAt: new Date(),
                 subTaskCount: totalCount,
                 assigneeCount: Math.max(taskData.assignees.length, 1),
+                isUrgentApproved: taskData.urgencyStatus === "APPROVED",
             });
         }
     } else if (completedCount > 0) {

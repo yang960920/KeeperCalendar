@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getTrackingData } from "@/app/actions/tracking";
 import { getDepartments } from "@/app/actions/employee";
+import UrgentRequestsTab from "@/components/admin/UrgentRequestsTab";
 
 export default function AdminTrackingPage() {
     const [tasks, setTasks] = useState<any[]>([]);
@@ -189,6 +190,11 @@ export default function AdminTrackingPage() {
                         ))}
                     </div>
                 </div>
+            </div>
+
+            {/* 긴급 요청 관리 */}
+            <div className="bg-zinc-900/40 p-6 border border-zinc-800 rounded-xl">
+                <UrgentRequestsTab />
             </div>
         </div>
     );

@@ -44,6 +44,7 @@ export const TaskForm = () => {
 
     const [fileUrl, setFileUrl] = useState<string>("");
     const [subTasks, setSubTasks] = useState<{ title: string }[]>([]);
+    const [isUrgent, setIsUrgent] = useState(false);
 
     // 파일 첨부 핸들러 (임시로 브라우저 메모리에 로컬 Blob URL 생성)
     // 추후 서버 S3, Blob 스토리지 업로드 로직으로 교체 필요
@@ -79,6 +80,8 @@ export const TaskForm = () => {
                 planned: 1,
                 assigneeId: reqAssigneeId,
                 subTasks: subTasks.length > 0 ? subTasks : undefined,
+                isUrgent,
+                urgencyStatus: isUrgent ? "PENDING_ADMIN" as const : "NONE" as const,
             });
 
             if (result.success && result.data) {
@@ -217,6 +220,23 @@ export const TaskForm = () => {
                         onAdd={(title) => setSubTasks(prev => [...prev, { title }])}
                         onRemove={(index) => setSubTasks(prev => prev.filter((_, i) => i !== index))}
                     />
+
+                    {/* 긴급 업무 토글 */}
+                    <div className="flex items-center gap-3 p-3 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                        <input
+                            type="checkbox"
+                            id="urgent-toggle"
+                            checked={isUrgent}
+                            onChange={(e) => setIsUrgent(e.target.checked)}
+                            className="w-4 h-4 accent-red-500"
+                        />
+                        <Label htmlFor="urgent-toggle" className="flex items-center gap-1.5 cursor-pointer text-sm">
+                            <span>🚨</span> 긴급 업무 요청
+                        </Label>
+                        {isUrgent && (
+                            <span className="text-xs text-red-400 ml-auto">관리자 승인 필요</span>
+                        )}
+                    </div>
 
                     <Button type="submit" className="mt-4">
                         업무 일지 저장하기

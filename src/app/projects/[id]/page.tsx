@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import { getEmployees } from "@/app/actions/employee";
 import { ProjectProgressWidget } from "@/components/ProjectProgressWidget";
+import PeerReviewDialog from "@/components/PeerReviewDialog";
 
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const router = useRouter();
@@ -161,14 +162,18 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 </div>
             </main>
 
-            {/* 역할(Role)에 따른 업무 생성 버튼: 생성자만 보임 */}
+            {/* 업무 생성 버튼: CREATOR만 업무 할당 가능 */}
             {user?.role === "CREATOR" && (
                 <ProjectTaskForm
                     projectId={projectId}
                     participants={project.participantIds}
                     projectEndDate={project.endDate}
+                    userRole={user?.role}
                 />
             )}
+
+            {/* 피어 리뷰 팝업 (프로젝트 종료 후 자동 감지) */}
+            {user && <PeerReviewDialog userId={user.id} />}
 
             {/* 수정 컴포넌트 마운트 */}
             {selectedTask && (

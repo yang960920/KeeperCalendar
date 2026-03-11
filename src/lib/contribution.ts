@@ -16,12 +16,15 @@ interface ContributionInput {
     subTaskCount: number;
     /** 담당자 수 (복수 담당자 포함) */
     assigneeCount: number;
+    /** 긴급 승인 여부 (Admin 승인 완료) */
+    isUrgentApproved?: boolean;
 }
 
 interface ContributionBreakdown {
     baseScore: number;
     complexityMultiplier: number;
     timelinessMultiplier: number;
+    urgencyMultiplier: number;
     assigneeCount: number;
     total: number;
 }
@@ -41,11 +44,16 @@ function diffDays(start: Date, end: Date): number {
  * 내부 관리용 — 직원에게 노출하지 않습니다.
  */
 export function getContributionBreakdown(input: ContributionInput): ContributionBreakdown {
-    // 1. 기간 기반 baseScore (priority 대체, 완전 자동)
+    // 1. 기간 기반 baseScore
     const durationDays = input.endDate
         ? diffDays(input.startDate, input.endDate)
         : 0;
-    const baseScore = durationDays <= 2 ? 10 : durationDays <= 7 ? 20 : 30;
+    let baseScore = durationDays <= 2 ? 10 : durationDays <= 7 ? 20 : 30;
+
+    // ⚡ 긴급 승인 업무: baseScore 최소 20점 보장
+    if (input.isUrgentApproved && baseScore < 20) {
+        baseScore = 20;
+    }
 
     // 2. 복잡도 가중치 (subTask 수 기반)
     const n = input.subTaskCount;
@@ -61,28 +69,31 @@ export function getContributionBreakdown(input: ContributionInput): Contribution
         else if (diff >= -3) timelinessMultiplier = 0.8;  // 1~3일 초과
         else timelinessMultiplier = 0.5;                   // 4일+ 초과
 
-        // ⚡ 소요율 상한선 (악용 방지)
-        // 실제 소요일 ÷ 설정 기간 < 30% → 조기완료 보너스 제한
+        // 소요율 상한선 (악용 방지)
         if (durationDays > 0 && timelinessMultiplier > 1.0) {
             const actualDays = diffDays(input.startDate, input.completedAt);
             const usageRatio = actualDays / durationDays;
             if (usageRatio < 0.3) {
-                timelinessMultiplier = 1.0; // 보너스 제한
+                timelinessMultiplier = 1.0;
             }
         }
     }
 
-    // 4. 담당자 균등 분배
+    // 4. 긴급 가중치
+    const urgencyMultiplier = input.isUrgentApproved ? 2.0 : 1.0;
+
+    // 5. 담당자 균등 분배
     const assigneeCount = Math.max(input.assigneeCount, 1);
 
     const total = Math.round(
-        (baseScore * complexityMultiplier * timelinessMultiplier) / assigneeCount
+        (baseScore * complexityMultiplier * timelinessMultiplier * urgencyMultiplier) / assigneeCount
     );
 
     return {
         baseScore,
         complexityMultiplier,
         timelinessMultiplier,
+        urgencyMultiplier,
         assigneeCount,
         total,
     };
