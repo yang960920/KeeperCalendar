@@ -31,9 +31,18 @@ interface EditTaskDialogProps {
     onOpenChange: (open: boolean) => void;
     task: Task | null;
     readonly?: boolean;
+    editMode?: 'full' | 'assignee' | 'readonly';  // full: 생성자, assignee: 담당자, readonly: 열람만
 }
 
-export const EditTaskDialog = ({ open, onOpenChange, task, readonly = false }: EditTaskDialogProps) => {
+export const EditTaskDialog = ({ open, onOpenChange, task, readonly = false, editMode }: EditTaskDialogProps) => {
+    // editMode가 명시되면 우선, 아니면 readonly prop 폴백
+    const mode = editMode || (readonly ? 'readonly' : 'full');
+    const isReadonly = mode === 'readonly';
+    const isAssignee = mode === 'assignee';
+    const canEditMeta = mode === 'full';  // 제목, 날짜, 카테고리 수정 가능
+    const canEditContent = mode !== 'readonly';  // 내용, 파일 수정 가능
+    const canDelete = mode === 'full';  // 삭제는 생성자만
+    const canManageSubTasks = mode !== 'readonly';  // 하위업무 관리
     const updateTask = useTaskStore((state) => state.updateTask);
     const deleteTaskLocal = useTaskStore((state) => state.deleteTask);
     const addSubTaskLocal = useTaskStore((state) => state.addSubTaskLocal);
@@ -80,12 +89,7 @@ export const EditTaskDialog = ({ open, onOpenChange, task, readonly = false }: E
         e.preventDefault();
         if (!task) return;
 
-        if (readonly) {
-            updateTask(task.id, {
-                content,
-                fileUrl,
-            });
-        } else {
+        if (canEditMeta) {
             updateTask(task.id, {
                 date,
                 title,
@@ -93,6 +97,11 @@ export const EditTaskDialog = ({ open, onOpenChange, task, readonly = false }: E
                 fileUrl,
                 category,
                 weight: 1,
+            });
+        } else if (canEditContent) {
+            updateTask(task.id, {
+                content,
+                fileUrl,
             });
         }
 
@@ -126,7 +135,7 @@ export const EditTaskDialog = ({ open, onOpenChange, task, readonly = false }: E
                     <div className={`overflow-y-auto transition-all duration-300 ${showSubTaskPanel ? "w-1/2 pr-4 border-r" : "w-full"
                         }`}>
                         <DialogHeader>
-                            <DialogTitle>{readonly ? "업무 기록열람 및 결과보고" : "업무 기록(Task) 수정"}</DialogTitle>
+                            <DialogTitle>{isReadonly ? "업무 기록열람" : isAssignee ? "업무 결과보고" : "업무 기록(Task) 수정"}</DialogTitle>
                         </DialogHeader>
                         <form onSubmit={handleSubmit} className="grid gap-4 py-4">
                             {/* 담당자 표시 */}
@@ -153,7 +162,7 @@ export const EditTaskDialog = ({ open, onOpenChange, task, readonly = false }: E
                                     value={date}
                                     onChange={(e) => setDate(e.target.value)}
                                     required
-                                    disabled={readonly}
+                                    disabled={!canEditMeta}
                                 />
                             </div>
                             <div className="grid gap-2">
@@ -164,16 +173,17 @@ export const EditTaskDialog = ({ open, onOpenChange, task, readonly = false }: E
                                     value={title}
                                     onChange={(e) => setTitle(e.target.value)}
                                     required
-                                    disabled={readonly}
+                                    disabled={!canEditMeta}
                                 />
                             </div>
                             <div className="grid gap-2">
                                 <Label htmlFor="edit-content">업무 상세 및 결과 내용</Label>
                                 <Textarea
                                     id="edit-content"
-                                    placeholder={readonly ? "업무 수행 결과를 작성해주세요..." : "상세한 업무 내용을 입력하세요..."}
+                                    placeholder={isReadonly ? "" : isAssignee ? "업무 수행 결과를 작성해주세요..." : "상세한 업무 내용을 입력하세요..."}
                                     value={content}
                                     onChange={(e) => setContent(e.target.value)}
+                                    disabled={isReadonly}
                                     rows={3}
                                 />
                             </div>
@@ -184,6 +194,7 @@ export const EditTaskDialog = ({ open, onOpenChange, task, readonly = false }: E
                                     type="file"
                                     onChange={handleFileChange}
                                     className="text-sm cursor-pointer"
+                                    disabled={isReadonly}
                                 />
                                 {fileUrl && (
                                     <a
@@ -198,7 +209,7 @@ export const EditTaskDialog = ({ open, onOpenChange, task, readonly = false }: E
                             </div>
                             <div className="grid gap-2">
                                 <Label htmlFor="edit-category">카테고리</Label>
-                                <Select value={category} onValueChange={setCategory} disabled={readonly}>
+                                <Select value={category} onValueChange={setCategory} disabled={!canEditMeta}>
                                     <SelectTrigger>
                                         <SelectValue placeholder="카테고리 선택" />
                                     </SelectTrigger>
@@ -234,14 +245,16 @@ export const EditTaskDialog = ({ open, onOpenChange, task, readonly = false }: E
                             )}
 
                             <div className="flex gap-2 mt-4">
-                                {!readonly && (
+                                {canDelete && (
                                     <Button type="button" variant="destructive" onClick={handleDelete} className="flex-1">
                                         삭제
                                     </Button>
                                 )}
-                                <Button type="submit" className="flex-1">
-                                    {readonly ? "파일/결과 저장" : "수정 저장"}
-                                </Button>
+                                {canEditContent && (
+                                    <Button type="submit" className="flex-1">
+                                        {canEditMeta ? "수정 저장" : "결과 저장"}
+                                    </Button>
+                                )}
                             </div>
                         </form>
                     </div>
@@ -252,7 +265,7 @@ export const EditTaskDialog = ({ open, onOpenChange, task, readonly = false }: E
                             <SubTaskPanel
                                 taskId={task.id}
                                 subTasks={task.subTasks || []}
-                                readonly={readonly}
+                                readonly={isReadonly}
                                 projectParticipants={projectParticipants}
                                 onClose={() => setShowSubTaskPanel(false)}
                                 onToggle={async (subTaskId) => {

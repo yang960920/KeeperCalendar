@@ -176,14 +176,23 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             {user && <PeerReviewDialog userId={user.id} />}
 
             {/* 수정 컴포넌트 마운트 */}
-            {selectedTask && (
-                <EditTaskDialog
-                    task={selectedTask}
-                    open={!!selectedTask}
-                    onOpenChange={(open) => !open && setSelectedTask(null)}
-                    readonly={!isProjectCreator} // 작성자 외에는 읽기/파일첨부만 가능 (체크박스는 캘린더에서 완수)
-                />
-            )}
+            {selectedTask && (() => {
+                // 편집 모드 결정: 생성자 → full, 담당 참여자 → assignee, 그 외 → readonly
+                const isAssignedToTask = user && (
+                    selectedTask.assigneeId === user.id ||
+                    (selectedTask.assigneeIds && selectedTask.assigneeIds.includes(user.id))
+                );
+                const taskEditMode = isProjectCreator ? 'full' : isAssignedToTask ? 'assignee' : 'readonly';
+
+                return (
+                    <EditTaskDialog
+                        task={selectedTask}
+                        open={!!selectedTask}
+                        onOpenChange={(open) => !open && setSelectedTask(null)}
+                        editMode={taskEditMode as 'full' | 'assignee' | 'readonly'}
+                    />
+                );
+            })()}
         </div>
     );
 }
