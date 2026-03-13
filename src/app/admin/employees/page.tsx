@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -134,21 +135,28 @@ export default function AdminEmployeesPage() {
         }
     };
 
-    // 필터링 및 정렬
-    const filteredUsers = users
+    // 필터링, 정렬 및 페이지네이션
+    const [empPage, setEmpPage] = useState(1);
+    const EMP_PAGE_SIZE = 10;
+
+    const filteredUsers = useMemo(() => users
         .filter(u => {
             if (!searchTerm) return true;
             return u.name.toLowerCase().includes(searchTerm.toLowerCase()) || u.id.toLowerCase().includes(searchTerm.toLowerCase());
         })
         .sort((a, b) => {
-            // 1차: 부서명 (오름차순, 없는 경우 맨 뒤)
             const depA = a.department?.name || "\uFFFF";
             const depB = b.department?.name || "\uFFFF";
             if (depA < depB) return -1;
             if (depA > depB) return 1;
-            // 2차: 이름 
             return a.name.localeCompare(b.name);
-        });
+        }), [users, searchTerm]);
+
+    const empTotalPages = Math.max(1, Math.ceil(filteredUsers.length / EMP_PAGE_SIZE));
+    const pagedUsers = filteredUsers.slice((empPage - 1) * EMP_PAGE_SIZE, empPage * EMP_PAGE_SIZE);
+
+    // 검색 변경 시 페이지 리셋
+    React.useEffect(() => { setEmpPage(1); }, [searchTerm]);
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500 pb-12">
@@ -305,7 +313,7 @@ export default function AdminEmployeesPage() {
                                         </TableCell>
                                     </TableRow>
                                 )}
-                                {!loading && filteredUsers.map((user) => (
+                                {!loading && pagedUsers.map((user) => (
                                     <TableRow key={user.id} className="border-zinc-800 hover:bg-zinc-800/50 transition-colors">
                                         <TableCell className="font-medium text-white">{user.name}</TableCell>
                                         <TableCell className="text-zinc-300">{user.department?.name || "-"}</TableCell>
@@ -338,6 +346,38 @@ export default function AdminEmployeesPage() {
                             </TableBody>
                         </Table>
                     </div>
+
+                    {/* 페이지네이션 */}
+                    {filteredUsers.length > EMP_PAGE_SIZE && (
+                        <div className="flex items-center justify-between mt-4 px-1">
+                            <span className="text-xs text-zinc-500">
+                                총 {filteredUsers.length}명 중 {(empPage - 1) * EMP_PAGE_SIZE + 1}-{Math.min(empPage * EMP_PAGE_SIZE, filteredUsers.length)}명
+                            </span>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 px-2 bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700"
+                                    onClick={() => setEmpPage(p => Math.max(1, p - 1))}
+                                    disabled={empPage === 1}
+                                >
+                                    <ChevronLeft className="h-3.5 w-3.5" />
+                                </Button>
+                                <span className="text-xs text-zinc-400 min-w-[60px] text-center">
+                                    {empPage} / {empTotalPages}
+                                </span>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 px-2 bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700"
+                                    onClick={() => setEmpPage(p => Math.min(empTotalPages, p + 1))}
+                                    disabled={empPage === empTotalPages}
+                                >
+                                    <ChevronRight className="h-3.5 w-3.5" />
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
             </div>
