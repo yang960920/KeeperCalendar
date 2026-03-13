@@ -38,14 +38,14 @@ export const ProjectProgressWidget = ({ projectId, tasks }: ProjectProgressWidge
         label: string; rate: number; total: number; done: number; left: number;
         badgeColor: string; valueColor: string; leftColor: string;
     }) => (
-        <div className="flex items-start justify-center md:justify-end gap-4 md:gap-10">
-            {/* Status */}
+        <div className="flex flex-col items-center gap-3 py-4">
+            {/* 라벨 + 퍼센트 + 프로그레스바 */}
             <div className="flex flex-col items-center">
                 <div className="bg-foreground text-background text-xs font-semibold px-4 py-1.5 rounded-md mb-2">
                     {label}
                 </div>
-                <div className="text-2xl font-bold mb-2">{rate}%</div>
-                <div className="relative w-28 h-1 bg-muted rounded-full flex items-center">
+                <div className="text-2xl font-bold mb-1">{rate}%</div>
+                <div className="relative w-32 h-1 bg-muted rounded-full flex items-center">
                     <div
                         className="absolute z-10 text-[10px] transform -translate-x-1/2 -translate-y-1/2 mt-1"
                         style={{ left: `${rate}%` }}
@@ -62,50 +62,41 @@ export const ProjectProgressWidget = ({ projectId, tasks }: ProjectProgressWidge
                 </div>
             </div>
 
-            {/* Total */}
-            <div className="flex flex-col items-center">
-                <div className="bg-foreground text-background text-xs font-semibold px-5 py-1.5 rounded-md mb-2">
-                    Total
+            {/* 수치들 가로 배치 */}
+            <div className="flex items-center gap-6 mt-1">
+                <div className="flex flex-col items-center">
+                    <div className="bg-foreground text-background text-[10px] font-semibold px-3 py-1 rounded mb-1">Total</div>
+                    <div className="text-xl font-bold">{total}</div>
                 </div>
-                <div className="text-2xl font-bold">{total}</div>
-            </div>
-
-            {/* Done */}
-            <div className="flex flex-col items-center">
-                <div className={`${badgeColor} text-black text-xs font-semibold px-5 py-1.5 rounded-md mb-2`}>
-                    Done
+                <div className="flex flex-col items-center">
+                    <div className={`${badgeColor} text-black text-[10px] font-semibold px-3 py-1 rounded mb-1`}>Done</div>
+                    <div className={`text-xl font-bold ${valueColor}`}>{done}</div>
                 </div>
-                <div className={`text-2xl font-bold ${valueColor}`}>{done}</div>
-            </div>
-
-            {/* Left */}
-            <div className="flex flex-col items-center">
-                <div className={`${leftColor} text-black text-xs font-semibold px-5 py-1.5 rounded-md mb-2`}>
-                    Left
+                <div className="flex flex-col items-center">
+                    <div className={`${leftColor} text-black text-[10px] font-semibold px-3 py-1 rounded mb-1`}>Left</div>
+                    <div className="text-xl font-bold text-muted-foreground">{left}</div>
                 </div>
-                <div className="text-2xl font-bold text-muted-foreground">{left}</div>
             </div>
         </div>
     );
 
     return (
-        <div className="w-full flex flex-col gap-4 py-5 px-4 md:px-8 border rounded-lg bg-card/50">
-            {/* Task 단위 */}
-            <ProgressRow
-                label="Task Status"
-                rate={taskStats.rate}
-                total={taskStats.total}
-                done={taskStats.done}
-                left={taskStats.left}
-                badgeColor="bg-[#a2c8f2]"
-                valueColor="text-[#6eaae5]"
-                leftColor="bg-[#eaf5b0]"
-            />
+        <div className="w-full border rounded-lg bg-card/50">
+            <div className={`grid ${subTaskStats.total > 0 ? "grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border/30" : "grid-cols-1"}`}>
+                {/* Task 단위 */}
+                <ProgressRow
+                    label="Task Status"
+                    rate={taskStats.rate}
+                    total={taskStats.total}
+                    done={taskStats.done}
+                    left={taskStats.left}
+                    badgeColor="bg-[#a2c8f2]"
+                    valueColor="text-[#6eaae5]"
+                    leftColor="bg-[#eaf5b0]"
+                />
 
-            {/* SubTask 단위 (SubTask가 있는 경우만) */}
-            {subTaskStats.total > 0 && (
-                <>
-                    <div className="border-t border-border/30" />
+                {/* SubTask 단위 */}
+                {subTaskStats.total > 0 && (
                     <ProgressRow
                         label="SubTask Progress"
                         rate={subTaskStats.rate}
@@ -116,8 +107,8 @@ export const ProjectProgressWidget = ({ projectId, tasks }: ProjectProgressWidge
                         valueColor="text-[#8b5cf6]"
                         leftColor="bg-[#fde68a]"
                     />
-                </>
-            )}
+                )}
+            </div>
         </div>
     );
 };
