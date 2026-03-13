@@ -99,7 +99,7 @@ function formatTasksForContext(tasks: TaskContext[]): string {
 }
 
 async function callWithRetry(prompt: string, retries = 3): Promise<string> {
-    const models = ["gemini-2.0-flash", "gemini-1.5-flash"];
+    const models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
 
     for (const modelName of models) {
         for (let attempt = 0; attempt < retries; attempt++) {
@@ -112,14 +112,12 @@ async function callWithRetry(prompt: string, retries = 3): Promise<string> {
                 console.error(`AI attempt ${attempt + 1}/${retries} (${modelName}) failed:`, status, error?.message?.substring(0, 100));
 
                 if (status === 429) {
-                    // Rate limit — wait and retry
-                    const waitMs = Math.min(3000 * Math.pow(2, attempt), 15000);
+                    const waitMs = Math.min(5000 * Math.pow(2, attempt), 30000);
                     console.log(`Rate limited. Waiting ${waitMs}ms...`);
                     await new Promise(r => setTimeout(r, waitMs));
                     continue;
                 }
 
-                // Non-retryable error for this model, try next model
                 break;
             }
         }
@@ -163,4 +161,3 @@ export async function askAI(
         };
     }
 }
-
