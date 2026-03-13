@@ -4,9 +4,10 @@ import { persist } from "zustand/middleware";
 export type Role = "CREATOR" | "PARTICIPANT";
 
 export interface User {
-    id: string; // The login ID (e.g. 김권찬)
+    id: string;
     name: string;
     role: Role;
+    profileImageUrl?: string;
 }
 
 interface AuthState {
@@ -14,6 +15,7 @@ interface AuthState {
     isAuthenticated: boolean;
     login: (userData: User) => void;
     logout: () => void;
+    setProfileImage: (url: string) => void;
     _hasHydrated: boolean;
     setHasHydrated: (state: boolean) => void;
 }
@@ -30,6 +32,10 @@ export const useAuthStore = create<AuthState>()(
                     user: userData,
                     isAuthenticated: true,
                 }),
+            setProfileImage: (url) =>
+                set((state) => ({
+                    user: state.user ? { ...state.user, profileImageUrl: url } : null,
+                })),
             logout: () =>
                 set({
                     user: null,

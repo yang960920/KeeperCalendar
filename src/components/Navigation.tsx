@@ -92,22 +92,25 @@ export const Navigation = () => {
     );
 };
 
-// 프로필 아바타 컴포넌트
+// 프로필 아바타 컴포넌트 — auth store에서 직접 읽음
 function ProfileAvatar({ userId }: { userId: string }) {
-    const [imageUrl, setImageUrl] = useState<string | null>(null);
+    const user = useStore(useAuthStore, (s) => s.user);
+    const setProfileImage = useAuthStore((s) => s.setProfileImage);
 
+    // 최초 마운트 시 DB에서 이미지 로드 (store에 없을 때만)
     useEffect(() => {
+        if (user?.profileImageUrl) return;
         getUserProfile(userId).then(res => {
             if (res.success && res.data?.profileImageUrl) {
-                setImageUrl(res.data.profileImageUrl);
+                setProfileImage(res.data.profileImageUrl);
             }
         });
-    }, [userId]);
+    }, [userId, user?.profileImageUrl, setProfileImage]);
 
-    if (imageUrl) {
+    if (user?.profileImageUrl) {
         return (
             <img
-                src={imageUrl}
+                src={user.profileImageUrl}
                 alt="프로필"
                 className="h-8 w-8 rounded-full object-cover ring-2 ring-primary/20"
             />

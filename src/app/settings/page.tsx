@@ -28,6 +28,7 @@ const HEATMAP_PALETTES: Record<string, { label: string; colors: string[] }> = {
 
 export default function SettingsPage() {
     const user = useStore(useAuthStore, (s) => s.user);
+    const setProfileImage = useAuthStore((s) => s.setProfileImage);
     const { theme, setTheme } = useTheme();
 
     // 프로필 상태
@@ -103,6 +104,7 @@ export default function SettingsPage() {
                 const blob = await response.json();
                 await updateProfileImage(user.id, blob.url);
                 setProfile((p: any) => ({ ...p, profileImageUrl: blob.url }));
+                setProfileImage(blob.url); // auth store 동기화 → 사이드바 즉시 반영
             } else {
                 alert("이미지 업로드에 실패했습니다.");
             }
