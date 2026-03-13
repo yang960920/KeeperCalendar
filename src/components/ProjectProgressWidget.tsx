@@ -38,14 +38,14 @@ export const ProjectProgressWidget = ({ projectId, tasks }: ProjectProgressWidge
         label: string; rate: number; total: number; done: number; left: number;
         badgeColor: string; valueColor: string; leftColor: string;
     }) => (
-        <div className="flex flex-col items-center gap-3 py-4">
-            {/* 라벨 + 퍼센트 + 프로그레스바 */}
-            <div className="flex flex-col items-center">
-                <div className="bg-foreground text-background text-xs font-semibold px-4 py-1.5 rounded-md mb-2">
+        <div className="flex items-center justify-center gap-4 lg:gap-6 py-5 px-4">
+            {/* Status + % + bar */}
+            <div className="flex flex-col items-center shrink-0">
+                <div className="bg-foreground text-background text-xs font-semibold px-3 py-1 rounded-md mb-1.5 whitespace-nowrap">
                     {label}
                 </div>
-                <div className="text-2xl font-bold mb-1">{rate}%</div>
-                <div className="relative w-32 h-1 bg-muted rounded-full flex items-center">
+                <div className="text-xl font-bold mb-1">{rate}%</div>
+                <div className="relative w-24 h-1 bg-muted rounded-full flex items-center">
                     <div
                         className="absolute z-10 text-[10px] transform -translate-x-1/2 -translate-y-1/2 mt-1"
                         style={{ left: `${rate}%` }}
@@ -62,20 +62,22 @@ export const ProjectProgressWidget = ({ projectId, tasks }: ProjectProgressWidge
                 </div>
             </div>
 
-            {/* 수치들 가로 배치 */}
-            <div className="flex items-center gap-6 mt-1">
-                <div className="flex flex-col items-center">
-                    <div className="bg-foreground text-background text-[10px] font-semibold px-3 py-1 rounded mb-1">Total</div>
-                    <div className="text-xl font-bold">{total}</div>
-                </div>
-                <div className="flex flex-col items-center">
-                    <div className={`${badgeColor} text-black text-[10px] font-semibold px-3 py-1 rounded mb-1`}>Done</div>
-                    <div className={`text-xl font-bold ${valueColor}`}>{done}</div>
-                </div>
-                <div className="flex flex-col items-center">
-                    <div className={`${leftColor} text-black text-[10px] font-semibold px-3 py-1 rounded mb-1`}>Left</div>
-                    <div className="text-xl font-bold text-muted-foreground">{left}</div>
-                </div>
+            {/* Total */}
+            <div className="flex flex-col items-center shrink-0">
+                <div className="bg-foreground text-background text-xs font-semibold px-4 py-1 rounded-md mb-1.5">Total</div>
+                <div className="text-xl font-bold">{total}</div>
+            </div>
+
+            {/* Done */}
+            <div className="flex flex-col items-center shrink-0">
+                <div className={`${badgeColor} text-black text-xs font-semibold px-4 py-1 rounded-md mb-1.5`}>Done</div>
+                <div className={`text-xl font-bold ${valueColor}`}>{done}</div>
+            </div>
+
+            {/* Left */}
+            <div className="flex flex-col items-center shrink-0">
+                <div className={`${leftColor} text-black text-xs font-semibold px-4 py-1 rounded-md mb-1.5`}>Left</div>
+                <div className="text-xl font-bold text-muted-foreground">{left}</div>
             </div>
         </div>
     );
