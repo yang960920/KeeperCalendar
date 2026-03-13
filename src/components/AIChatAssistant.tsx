@@ -159,12 +159,12 @@ export const AIChatAssistant = ({ projectId }: AIChatAssistantProps) => {
 
     return (
         <>
-            {/* FAB 버튼 - 왼쪽 하단 */}
+            {/* FAB 버튼 - 오른쪽 하단 (업무 생성 버튼 위) */}
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className={`fixed bottom-8 left-8 z-50 h-14 w-14 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 ${isOpen
-                        ? "bg-destructive text-destructive-foreground rotate-90 scale-90"
-                        : "bg-gradient-to-br from-violet-500 to-indigo-600 text-white hover:shadow-xl hover:scale-105"
+                className={`fixed bottom-24 right-8 z-50 h-12 w-12 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 ${isOpen
+                    ? "bg-destructive text-destructive-foreground rotate-90 scale-90"
+                    : "bg-gradient-to-br from-violet-500 to-indigo-600 text-white hover:shadow-xl hover:scale-105"
                     }`}
             >
                 {isOpen ? <X className="h-5 w-5" /> : <Bot className="h-6 w-6" />}
@@ -172,7 +172,7 @@ export const AIChatAssistant = ({ projectId }: AIChatAssistantProps) => {
 
             {/* 채팅 패널 */}
             {isOpen && (
-                <div className="fixed bottom-24 left-8 z-50 w-[400px] max-h-[600px] bg-background border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 fade-in duration-300">
+                <div className="fixed bottom-40 right-8 z-50 w-[400px] max-h-[550px] bg-background border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 fade-in duration-300">
                     {/* 헤더 */}
                     <div className="bg-gradient-to-r from-violet-500/10 to-indigo-500/10 border-b px-4 py-3 flex items-center gap-2">
                         <div className="h-8 w-8 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center">
@@ -180,7 +180,7 @@ export const AIChatAssistant = ({ projectId }: AIChatAssistantProps) => {
                         </div>
                         <div className="flex-1">
                             <h3 className="font-semibold text-sm">Keeper AI 어시스턴트</h3>
-                            <p className="text-[10px] text-muted-foreground">Gemini 2.0 Flash · 업무 데이터 기반</p>
+                            <p className="text-[10px] text-muted-foreground">Gemini 2.5 Flash · 업무 데이터 기반</p>
                         </div>
                         <button onClick={() => setIsOpen(false)} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
                             <X className="h-4 w-4 text-muted-foreground" />
@@ -192,8 +192,8 @@ export const AIChatAssistant = ({ projectId }: AIChatAssistantProps) => {
                         {messages.map((msg, idx) => (
                             <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                                 <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 ${msg.role === "user"
-                                        ? "bg-primary text-primary-foreground rounded-br-md"
-                                        : "bg-muted/70 text-foreground rounded-bl-md"
+                                    ? "bg-primary text-primary-foreground rounded-br-md"
+                                    : "bg-muted/70 text-foreground rounded-bl-md"
                                     }`}>
                                     {msg.role === "user" ? (
                                         <p className="text-sm">{msg.content}</p>
