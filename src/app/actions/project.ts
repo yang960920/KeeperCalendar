@@ -185,3 +185,90 @@ export async function getProjectEndDate(projectId: string) {
         return { success: false, error: "프로젝트 종료일 조회 실패" };
     }
 }
+
+export async function closeProject(data: {
+    projectId: string;
+    userId: string;
+    status: "COMPLETED" | "ON_HOLD" | "CANCELLED";
+    closeReason: string;
+    closeSummary: string;
+    closeReportUrl?: string;
+    closeReportName?: string;
+}) {
+    try {
+        const project = await prisma.project.findUnique({
+            where: { id: data.projectId },
+            include: { participants: true },
+        });
+        if (!project) {
+            return { success: false, error: "프로젝트를 찾을 수 없습니다." };
+        }
+        if (project.creatorId !== data.userId) {
+            return { success: false, error: "프로젝트 종료 권한이 없습니다. (생성자만 가능)" };
+        }
+        if (project.status !== "ACTIVE") {
+            return { success: false, error: "이미 종료된 프로젝트입니다." };
+        }
+
+        const updated = await prisma.project.update({
+            where: { id: data.projectId },
+            data: {
+                status: data.status,
+                closedAt: new Date(),
+                closeReason: data.closeReason,
+                closeSummary: data.closeSummary,
+                closeReportUrl: data.closeReportUrl || null,
+                closeReportName: data.closeReportName || null,
+            },
+            include: { participants: true },
+        });
+
+        // 활동 로그
+        try {
+            await prisma.activityLog.create({
+                data: {
+                    action: "프로젝트 종료",
+                    entityType: "PROJECT",
+                    entityId: data.projectId,
+                    details: `프로젝트를 종료했습니다. (사유: ${data.closeReason}, 상태: ${data.status}${data.closeReportName ? `, 보고서: ${data.closeReportName}` : ""})`,
+                    userId: data.userId,
+                    projectId: data.projectId,
+                }
+            });
+        } catch (logErr) {
+            console.error("[ActivityLog] 프로젝트 종료 로그 기록 실패:", logErr);
+        }
+
+        return { success: true, data: updated };
+    } catch (error: any) {
+        console.error("Failed to close project:", error);
+        return { success: false, error: "프로젝트 종료에 실패했습니다." };
+    }
+}
+
+export async function getProjectCloseInfo(projectId: string) {
+    try {
+        const project = await prisma.project.findUnique({
+            where: { id: projectId },
+            select: {
+                status: true,
+                closedAt: true,
+                closeReason: true,
+                closeSummary: true,
+                closeReportUrl: true,
+                closeReportName: true,
+            },
+        });
+        if (!project) return { success: false, error: "프로젝트를 찾을 수 없습니다." };
+        return {
+            success: true,
+            data: {
+                ...project,
+                closedAt: project.closedAt?.toISOString() || null,
+            },
+        };
+    } catch (error: any) {
+        console.error("Failed to get close info:", error);
+        return { success: false, error: "종료 정보 조회 실패" };
+    }
+}

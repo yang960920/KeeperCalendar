@@ -15,6 +15,7 @@ import { EditTaskDialog } from "@/components/EditTaskDialog";
 import { EditProjectDialog } from "@/components/EditProjectDialog";
 import { ManageParticipantsDialog } from "@/components/ManageParticipantsDialog";
 import { ProjectTaskListDialog } from "@/components/ProjectTaskListDialog";
+import { CloseProjectDialog, ClosedProjectBanner } from "@/components/CloseProjectDialog";
 import { AIChatAssistant } from "@/components/AIChatAssistant";
 import {
     Select,
@@ -72,6 +73,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
     // 프로젝트 생성자인지 여부로 판단 (전역 role이 아닌 프로젝트별)
     const isProjectCreator = user?.id === project.creatorId;
+    const isProjectClosed = project.status && project.status !== "ACTIVE";
 
     // 프로젝트 생성자는 전체 업무를 보고, 참여자는 자신에게 할당된 업무만 보인다.
     const visibleTasks = isProjectCreator
@@ -87,6 +89,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     return (
         <div className="min-h-screen bg-background text-foreground pb-20 p-8 max-w-7xl mx-auto flex flex-col h-full">
             <header className="mb-8 border-b pb-6">
+                {/* 종료된 프로젝트 배너 */}
+                <ClosedProjectBanner project={project} />
+
                 <Button variant="ghost" className="mb-4 pl-0" onClick={() => router.push("/projects")}>
                     <ChevronLeft className="h-4 w-4 mr-1" /> 목록으로 돌아가기
                 </Button>
@@ -117,6 +122,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                                 <EditProjectDialog project={project} userId={user.id} />
                                 <ManageParticipantsDialog project={project} userId={user.id} />
                                 <ProjectTaskListDialog projectId={projectId} />
+                                {!isProjectClosed && (
+                                    <CloseProjectDialog projectId={projectId} projectTitle={project.title} userId={user.id} />
+                                )}
                             </div>
                         )}
                     </div>

@@ -47,6 +47,12 @@ export async function getInitialData(userId: string) {
             participantIds: p.participants.map((u: any) => u.id),
             createdAt: p.createdAt.toISOString(),
             endDate: p.endDate.toISOString(),
+            status: (p as any).status || "ACTIVE",
+            closedAt: (p as any).closedAt?.toISOString() || undefined,
+            closeReason: (p as any).closeReason || undefined,
+            closeSummary: (p as any).closeSummary || undefined,
+            closeReportUrl: (p as any).closeReportUrl || undefined,
+            closeReportName: (p as any).closeReportName || undefined,
         }));
 
         const formattedTasks = tasks.map(t => ({

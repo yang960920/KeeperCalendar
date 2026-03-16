@@ -8,6 +8,12 @@ export interface Project {
     participantIds: string[]; // ["양현준", ...]
     createdAt: string;
     endDate: string; // 프로젝트 종료일 (ISO)
+    status?: string; // ACTIVE, COMPLETED, ON_HOLD, CANCELLED
+    closedAt?: string;
+    closeReason?: string;
+    closeSummary?: string;
+    closeReportUrl?: string;
+    closeReportName?: string;
 }
 
 interface ProjectState {

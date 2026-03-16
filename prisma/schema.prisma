@@ -63,6 +63,13 @@ model UserSettings {
   updatedAt       DateTime @updatedAt
 }
 
+enum ProjectStatus {
+  ACTIVE
+  COMPLETED
+  ON_HOLD
+  CANCELLED
+}
+
 // 프로젝트
 model Project {
   id           String   @id @default(cuid())
@@ -77,6 +84,12 @@ model Project {
   tasks        Task[]
   peerReviews  PeerReview[]
   activityLogs ActivityLog[]
+  status          ProjectStatus @default(ACTIVE)
+  closedAt        DateTime?
+  closeReason     String?       // 정상 완료, 조기 종료, 보류, 취소
+  closeSummary    String?       // 종료 요약
+  closeReportUrl  String?       // Vercel Blob 다운로드 URL
+  closeReportName String?       // 원본 파일명
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
