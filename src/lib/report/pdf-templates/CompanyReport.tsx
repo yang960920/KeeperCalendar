@@ -102,14 +102,14 @@ export const CompanyReport = ({ data, departments, period, insight }: CompanyRep
             <Text style={commonStyles.sectionTitle}>[Chart] 부서별 완료율</Text>
             {departments.map((dept, i) => (
                 <View key={i} style={{ flexDirection: "row", alignItems: "center", marginBottom: 6, gap: 6 }}>
-                    <Text style={{ fontSize: 8, width: 60 }}>{dept.name}</Text>
+                    <Text style={{ fontSize: 11, width: 70 }}>{dept.name}</Text>
                     <View style={[commonStyles.progressBarBg, { flex: 1 }]}>
                         <View style={[commonStyles.progressBarFill, {
                             width: `${dept.completionRate}%`,
                             backgroundColor: dept.completionRate >= 80 ? colors.success : dept.completionRate >= 50 ? colors.warning : colors.danger,
                         }]} />
                     </View>
-                    <Text style={{ fontSize: 8, width: 30, textAlign: "right" }}>{dept.completionRate}%</Text>
+                    <Text style={{ fontSize: 11, width: 36, textAlign: "right" }}>{dept.completionRate}%</Text>
                 </View>
             ))}
 

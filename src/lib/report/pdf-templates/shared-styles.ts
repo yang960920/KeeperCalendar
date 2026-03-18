@@ -40,7 +40,7 @@ export const colors = {
 export const commonStyles = StyleSheet.create({
     page: {
         fontFamily: 'NotoSansKR',
-        fontSize: 9,
+        fontSize: 13,
         paddingTop: 40,
         paddingBottom: 50,
         paddingHorizontal: 50,
@@ -53,16 +53,16 @@ export const commonStyles = StyleSheet.create({
         alignItems: 'center',
         borderBottomWidth: 2,
         borderBottomColor: colors.primary,
-        paddingBottom: 8,
-        marginBottom: 20,
+        paddingBottom: 10,
+        marginBottom: 24,
     },
     headerTitle: {
-        fontSize: 16,
+        fontSize: 22,
         fontWeight: 700,
         color: colors.primary,
     },
     headerSubtitle: {
-        fontSize: 8,
+        fontSize: 11,
         color: colors.gray500,
     },
     // 푸터
@@ -73,44 +73,44 @@ export const commonStyles = StyleSheet.create({
         right: 50,
         flexDirection: 'row',
         justifyContent: 'space-between',
-        fontSize: 7,
+        fontSize: 9,
         color: colors.gray400,
     },
     // KPI 카드
     kpiRow: {
         flexDirection: 'row',
         gap: 10,
-        marginBottom: 16,
+        marginBottom: 20,
     },
     kpiCard: {
         flex: 1,
         backgroundColor: colors.gray50,
         borderRadius: 6,
-        padding: 12,
+        padding: 14,
         borderWidth: 1,
         borderColor: colors.gray200,
     },
     kpiLabel: {
-        fontSize: 7,
+        fontSize: 10,
         color: colors.gray500,
         marginBottom: 4,
     },
     kpiValue: {
-        fontSize: 18,
+        fontSize: 26,
         fontWeight: 700,
         color: colors.gray800,
     },
     kpiDelta: {
-        fontSize: 7,
+        fontSize: 10,
         marginTop: 2,
     },
     // 섹션
     sectionTitle: {
-        fontSize: 12,
+        fontSize: 17,
         fontWeight: 700,
         color: colors.gray800,
-        marginBottom: 8,
-        marginTop: 16,
+        marginBottom: 10,
+        marginTop: 18,
     },
     // 테이블
     tableHeader: {
@@ -119,18 +119,18 @@ export const commonStyles = StyleSheet.create({
         borderTopWidth: 1,
         borderBottomWidth: 1,
         borderColor: colors.gray200,
-        paddingVertical: 6,
+        paddingVertical: 7,
         paddingHorizontal: 4,
     },
     tableRow: {
         flexDirection: 'row',
         borderBottomWidth: 1,
         borderBottomColor: colors.gray100,
-        paddingVertical: 5,
+        paddingVertical: 6,
         paddingHorizontal: 4,
     },
     tableCell: {
-        fontSize: 8,
+        fontSize: 11,
     },
     // 인사이트 박스
     insightBox: {
@@ -138,28 +138,28 @@ export const commonStyles = StyleSheet.create({
         borderLeftWidth: 3,
         borderLeftColor: colors.primary,
         borderRadius: 4,
-        padding: 12,
-        marginTop: 12,
+        padding: 14,
+        marginTop: 16,
     },
     insightTitle: {
-        fontSize: 9,
+        fontSize: 13,
         fontWeight: 700,
         color: colors.primary,
-        marginBottom: 4,
+        marginBottom: 6,
     },
     insightText: {
-        fontSize: 8,
+        fontSize: 11,
         color: colors.gray700,
         lineHeight: 1.5,
     },
     // 진행률 바
     progressBarBg: {
-        height: 10,
+        height: 14,
         backgroundColor: colors.gray200,
-        borderRadius: 5,
+        borderRadius: 7,
     },
     progressBarFill: {
-        height: 10,
-        borderRadius: 5,
+        height: 14,
+        borderRadius: 7,
     },
 });

@@ -27,7 +27,7 @@ export const IndividualReport = ({ data, departmentName, period, insight }: Indi
                 <View style={commonStyles.kpiCard}>
                     <Text style={commonStyles.kpiLabel}>완료율</Text>
                     <Text style={[commonStyles.kpiValue, { color: colors.success }]}>{data.completionRate}%</Text>
-                    <Text style={{ fontSize: 7, color: colors.gray500, marginTop: 2 }}>{data.completedTasks}/{data.totalTasks}건</Text>
+                    <Text style={{ fontSize: 10, color: colors.gray500, marginTop: 2 }}>{data.completedTasks}/{data.totalTasks}건</Text>
                 </View>
                 <View style={commonStyles.kpiCard}>
                     <Text style={commonStyles.kpiLabel}>공헌도</Text>
@@ -92,7 +92,7 @@ export const IndividualReport = ({ data, departmentName, period, insight }: Indi
                             return (
                                 <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
                                     <View style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: catColors[i % catColors.length] }} />
-                                    <Text style={{ fontSize: 7 }}>{c.category} ({c.count}건)</Text>
+                                    <Text style={{ fontSize: 10 }}>{c.category} ({c.count}건)</Text>
                                 </View>
                             );
                         })}

@@ -77,14 +77,14 @@ export const DepartmentReport = ({ data, period, insight }: DepartmentReportProp
                     <Text style={[commonStyles.sectionTitle, { marginTop: 16 }]}>[Category] 카테고리별 업무 분포</Text>
                     {data.categoryBreakdown.map((c, i) => (
                         <View key={i} style={{ flexDirection: "row", alignItems: "center", marginBottom: 4, gap: 6 }}>
-                            <Text style={{ fontSize: 8, width: 50 }}>{c.category}</Text>
+                            <Text style={{ fontSize: 11, width: 60 }}>{c.category}</Text>
                             <View style={[commonStyles.progressBarBg, { flex: 1 }]}>
                                 <View style={[commonStyles.progressBarFill, {
                                     width: `${c.rate}%`,
                                     backgroundColor: colors.primary,
                                 }]} />
                             </View>
-                            <Text style={{ fontSize: 8, width: 50, textAlign: "right" }}>{c.count}건 ({c.rate}%)</Text>
+                            <Text style={{ fontSize: 11, width: 70, textAlign: "right" }}>{c.count}건 ({c.rate}%)</Text>
                         </View>
                     ))}
                 </>
