@@ -103,7 +103,7 @@ export const IndividualReport = ({ data, departmentName, period, insight }: Indi
             {/* AI 코멘트 */}
             <View style={[commonStyles.insightBox, { backgroundColor: colors.gray100, borderLeftColor: colors.gray400 }]}>
                 <Text style={[commonStyles.insightTitle, { color: colors.gray600 }]}>💬 AI 코멘트 (관리자 전용)</Text>
-                <Text style={[commonStyles.insightText, { fontStyle: "italic" }]}>{insight}</Text>
+                <Text style={[commonStyles.insightText, { color: colors.gray600 }]}>{insight}</Text>
             </View>
 
             {/* 푸터 */}
