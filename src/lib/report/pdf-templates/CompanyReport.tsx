@@ -40,7 +40,7 @@ export const CompanyReport = ({ data, departments, period, insight }: CompanyRep
                     <Text style={commonStyles.kpiLabel}>완료율</Text>
                     <Text style={[commonStyles.kpiValue, { color: colors.success }]}>{data.completionRate}%</Text>
                     <Text style={[commonStyles.kpiDelta, { color: data.weekOverWeek.diff >= 0 ? colors.success : colors.danger }]}>
-                        {data.weekOverWeek.diff > 0 ? "▲" : data.weekOverWeek.diff < 0 ? "▼" : "─"} {Math.abs(data.weekOverWeek.diff)}%p (전기 {data.weekOverWeek.prevRate}%)
+                        {data.weekOverWeek.diff > 0 ? "(+)" : data.weekOverWeek.diff < 0 ? "(-)" : "(=)"} {Math.abs(data.weekOverWeek.diff)}%p (전기 {data.weekOverWeek.prevRate}%)
                     </Text>
                 </View>
                 <View style={commonStyles.kpiCard}>
@@ -56,7 +56,7 @@ export const CompanyReport = ({ data, departments, period, insight }: CompanyRep
             {/* 프로젝트별 진행률 */}
             {data.projectSummaries.length > 0 && (
                 <>
-                    <Text style={commonStyles.sectionTitle}>📋 프로젝트 현황</Text>
+                    <Text style={commonStyles.sectionTitle}>[Projects] 프로젝트 현황</Text>
                     <View style={commonStyles.tableHeader}>
                         <Text style={[commonStyles.tableCell, { flex: 3 }]}>프로젝트명</Text>
                         <Text style={[commonStyles.tableCell, { flex: 1, textAlign: "center" }]}>업무</Text>
@@ -84,7 +84,7 @@ export const CompanyReport = ({ data, departments, period, insight }: CompanyRep
 
             {/* AI 인사이트 */}
             <View style={commonStyles.insightBox}>
-                <Text style={commonStyles.insightTitle}>🤖 AI 분석 인사이트</Text>
+                <Text style={commonStyles.insightTitle}>[AI] 분석 인사이트</Text>
                 <Text style={commonStyles.insightText}>{insight}</Text>
             </View>
 
@@ -99,7 +99,7 @@ export const CompanyReport = ({ data, departments, period, insight }: CompanyRep
             </View>
 
             {/* 부서별 완료율 바 차트 */}
-            <Text style={commonStyles.sectionTitle}>📊 부서별 완료율</Text>
+            <Text style={commonStyles.sectionTitle}>[Chart] 부서별 완료율</Text>
             {departments.map((dept, i) => (
                 <View key={i} style={{ flexDirection: "row", alignItems: "center", marginBottom: 6, gap: 6 }}>
                     <Text style={{ fontSize: 8, width: 60 }}>{dept.name}</Text>
@@ -114,7 +114,7 @@ export const CompanyReport = ({ data, departments, period, insight }: CompanyRep
             ))}
 
             {/* 부서 상세 테이블 */}
-            <Text style={[commonStyles.sectionTitle, { marginTop: 20 }]}>📋 부서별 상세</Text>
+            <Text style={[commonStyles.sectionTitle, { marginTop: 20 }]}>[Detail] 부서별 상세</Text>
             <View style={commonStyles.tableHeader}>
                 <Text style={[commonStyles.tableCell, { flex: 2 }]}>부서</Text>
                 <Text style={[commonStyles.tableCell, { flex: 1, textAlign: "center" }]}>업무</Text>
@@ -137,7 +137,7 @@ export const CompanyReport = ({ data, departments, period, insight }: CompanyRep
             {/* Top 5 기여자 */}
             {data.topContributors.length > 0 && (
                 <>
-                    <Text style={[commonStyles.sectionTitle, { marginTop: 20 }]}>🏆 Top 5 기여자</Text>
+                    <Text style={[commonStyles.sectionTitle, { marginTop: 20 }]}>[Top5] Top 5 기여자</Text>
                     <View style={commonStyles.tableHeader}>
                         <Text style={[commonStyles.tableCell, { flex: 0.5, textAlign: "center" }]}>#</Text>
                         <Text style={[commonStyles.tableCell, { flex: 2 }]}>이름</Text>

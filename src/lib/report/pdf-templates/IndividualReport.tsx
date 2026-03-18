@@ -40,7 +40,7 @@ export const IndividualReport = ({ data, departmentName, period, insight }: Indi
             </View>
 
             {/* 업무 상세 테이블 */}
-            <Text style={commonStyles.sectionTitle}>📋 업무 상세</Text>
+            <Text style={commonStyles.sectionTitle}>[Tasks] 업무 상세</Text>
             <View style={commonStyles.tableHeader}>
                 <Text style={[commonStyles.tableCell, { flex: 3 }]}>업무명</Text>
                 <Text style={[commonStyles.tableCell, { flex: 1.5 }]}>프로젝트</Text>
@@ -55,14 +55,14 @@ export const IndividualReport = ({ data, departmentName, period, insight }: Indi
                         : t.isDelayed ? colors.dangerLight : undefined,
                 }]}>
                     <Text style={[commonStyles.tableCell, { flex: 3 }]}>
-                        {t.status === "완료" ? "✓ " : t.isDelayed ? "⚠ " : ""}{t.title}
+                        {t.status === "완료" ? "[V] " : t.isDelayed ? "[!] " : ""}{t.title}
                     </Text>
                     <Text style={[commonStyles.tableCell, { flex: 1.5, color: colors.gray500 }]}>{t.project}</Text>
                     <Text style={[commonStyles.tableCell, { flex: 1, textAlign: "center" }]}>{t.category}</Text>
                     <Text style={[commonStyles.tableCell, { flex: 0.7, textAlign: "center",
                         color: t.status === "완료" ? colors.success : t.isDelayed ? colors.danger : colors.gray600,
                     }]}>
-                        {t.isDelayed ? `${t.delayDays}일↑` : t.status}
+                        {t.isDelayed ? `${t.delayDays}일 지연` : t.status}
                     </Text>
                     <Text style={[commonStyles.tableCell, { flex: 1, textAlign: "center" }]}>{t.dueDate}</Text>
                     <Text style={[commonStyles.tableCell, { flex: 0.7, textAlign: "center" }]}>{t.contributionScore}</Text>
@@ -72,7 +72,7 @@ export const IndividualReport = ({ data, departmentName, period, insight }: Indi
             {/* 카테고리 비율 */}
             {data.categoryBreakdown.length > 0 && (
                 <>
-                    <Text style={[commonStyles.sectionTitle, { marginTop: 14 }]}>📂 카테고리별 비율</Text>
+                    <Text style={[commonStyles.sectionTitle, { marginTop: 14 }]}>[Category] 카테고리별 비율</Text>
                     <View style={{ flexDirection: "row", height: 14, borderRadius: 7, overflow: "hidden" }}>
                         {data.categoryBreakdown.map((c, i) => {
                             const catColors = [colors.primary, colors.success, colors.warning, colors.danger, "#8b5cf6", colors.gray400];
@@ -102,7 +102,7 @@ export const IndividualReport = ({ data, departmentName, period, insight }: Indi
 
             {/* AI 코멘트 */}
             <View style={[commonStyles.insightBox, { backgroundColor: colors.gray100, borderLeftColor: colors.gray400 }]}>
-                <Text style={[commonStyles.insightTitle, { color: colors.gray600 }]}>💬 AI 코멘트 (관리자 전용)</Text>
+                <Text style={[commonStyles.insightTitle, { color: colors.gray600 }]}>[AI Comment] 관리자 전용</Text>
                 <Text style={[commonStyles.insightText, { color: colors.gray600 }]}>{insight}</Text>
             </View>
 

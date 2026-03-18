@@ -49,7 +49,7 @@ export const DepartmentReport = ({ data, period, insight }: DepartmentReportProp
             </View>
 
             {/* 직원별 성과 */}
-            <Text style={commonStyles.sectionTitle}>👥 직원별 성과</Text>
+            <Text style={commonStyles.sectionTitle}>[Members] 직원별 성과</Text>
             <View style={commonStyles.tableHeader}>
                 <Text style={[commonStyles.tableCell, { flex: 2 }]}>이름</Text>
                 <Text style={[commonStyles.tableCell, { flex: 1, textAlign: "center" }]}>업무</Text>
@@ -74,7 +74,7 @@ export const DepartmentReport = ({ data, period, insight }: DepartmentReportProp
             {/* 카테고리 분포 */}
             {data.categoryBreakdown.length > 0 && (
                 <>
-                    <Text style={[commonStyles.sectionTitle, { marginTop: 16 }]}>📂 카테고리별 업무 분포</Text>
+                    <Text style={[commonStyles.sectionTitle, { marginTop: 16 }]}>[Category] 카테고리별 업무 분포</Text>
                     {data.categoryBreakdown.map((c, i) => (
                         <View key={i} style={{ flexDirection: "row", alignItems: "center", marginBottom: 4, gap: 6 }}>
                             <Text style={{ fontSize: 8, width: 50 }}>{c.category}</Text>
@@ -92,7 +92,7 @@ export const DepartmentReport = ({ data, period, insight }: DepartmentReportProp
 
             {/* AI 인사이트 */}
             <View style={commonStyles.insightBox}>
-                <Text style={commonStyles.insightTitle}>🤖 AI 분석 인사이트</Text>
+                <Text style={commonStyles.insightTitle}>[AI] 분석 인사이트</Text>
                 <Text style={commonStyles.insightText}>{insight}</Text>
             </View>
 
