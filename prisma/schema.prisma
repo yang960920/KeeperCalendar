@@ -38,6 +38,7 @@ model User {
   activityLogs        ActivityLog[]
   givenReviews        PeerReview[] @relation("PeerReviewer")
   receivedReviews     PeerReview[] @relation("PeerReviewee")
+  notifications       Notification[]
   settings     UserSettings?
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
@@ -57,10 +58,26 @@ model UserSettings {
   notifyDueDays       Int     @default(1)
   notifyPeerReview    Boolean @default(true)
   notifySubTaskAssign Boolean @default(true)
+  notifyNudge         Boolean @default(true)  // 독촉 알림 수신 여부
   theme               String  @default("dark")
   heatmapColor        String  @default("green")
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+}
+
+// 알림
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   // NUDGE, DEADLINE, SYSTEM
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  projectId String?
+  taskId    String?
+  senderId  String?  // 독촉 발신자
+  createdAt DateTime @default(now())
 }
 
 enum ProjectStatus {

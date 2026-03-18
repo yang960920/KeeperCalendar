@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
 import { EditTaskDialog } from "@/components/EditTaskDialog";
 import { CalendarGrid } from "@/components/CalendarGrid";
+import { DeadlineAlertDialog } from "@/components/DeadlineAlertDialog";
+import { getUserSettings } from "@/app/actions/settings";
 
 interface MonthlyTaskListProps {
     year: string;
@@ -26,9 +28,24 @@ export const MonthlyTaskList = ({ year, month }: MonthlyTaskListProps) => {
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
+    // 알림 설정
+    const [notifyDueDate, setNotifyDueDate] = useState(true);
+    const [notifyDueDays, setNotifyDueDays] = useState(1);
+
     useEffect(() => {
         setMounted(true);
     }, []);
+
+    // 사용자 설정 로드
+    useEffect(() => {
+        if (!currentUser) return;
+        getUserSettings(currentUser.id).then((res: any) => {
+            if (res.success && res.data) {
+                setNotifyDueDate(res.data.notifyDueDate ?? true);
+                setNotifyDueDays(res.data.notifyDueDays ?? 1);
+            }
+        });
+    }, [currentUser]);
 
     // 선택된 연/월 및 검색어에 해당하는 데이터만 필터링
     const filteredTasks = useMemo(() => {
@@ -81,15 +98,20 @@ export const MonthlyTaskList = ({ year, month }: MonthlyTaskListProps) => {
 
     return (
         <div className="space-y-4">
-            {/* 검색 바 */}
-            <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                    placeholder="업무명 또는 내용 검색..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-9 w-full md:max-w-sm"
-                />
+            {/* 검색 바 + 마감 임박 뱃지 */}
+            <div className="flex items-center gap-3">
+                <div className="relative flex-1 md:max-w-sm">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        placeholder="업무명 또는 내용 검색..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-9 w-full"
+                    />
+                </div>
+                {notifyDueDate && (
+                    <DeadlineAlertDialog dueDays={notifyDueDays} userId={currentUser?.id} />
+                )}
             </div>
 
             <div className="mt-6">

@@ -49,6 +49,7 @@ export default function SettingsPage() {
         notifyDueDays: 1,
         notifyPeerReview: true,
         notifySubTaskAssign: true,
+        notifyNudge: true,
         theme: "dark",
         heatmapColor: "green",
     });
@@ -333,6 +334,18 @@ export default function SettingsPage() {
                                     <Switch
                                         checked={settings.notifySubTaskAssign}
                                         onCheckedChange={(v: boolean) => setSettings((s) => ({ ...s, notifySubTaskAssign: v }))}
+                                    />
+                                </div>
+
+                                {/* 독촉 알림 */}
+                                <div className="flex items-center justify-between rounded-lg border p-4">
+                                    <div>
+                                        <p className="text-sm font-medium">독촉 알림 수신</p>
+                                        <p className="text-xs text-muted-foreground">프로젝트 생성자가 보낸 독촉 알림을 받습니다.</p>
+                                    </div>
+                                    <Switch
+                                        checked={settings.notifyNudge}
+                                        onCheckedChange={(v: boolean) => setSettings((s) => ({ ...s, notifyNudge: v }))}
                                     />
                                 </div>
 

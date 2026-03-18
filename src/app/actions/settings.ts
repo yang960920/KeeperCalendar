@@ -82,6 +82,7 @@ export async function getUserSettings(userId: string) {
                 notifyDueDays: settings.notifyDueDays,
                 notifyPeerReview: settings.notifyPeerReview,
                 notifySubTaskAssign: settings.notifySubTaskAssign,
+                notifyNudge: (settings as any).notifyNudge ?? true,
                 theme: settings.theme,
                 heatmapColor: settings.heatmapColor,
             },
@@ -98,6 +99,7 @@ export async function updateUserSettings(userId: string, data: {
     notifyDueDays?: number;
     notifyPeerReview?: boolean;
     notifySubTaskAssign?: boolean;
+    notifyNudge?: boolean;
     theme?: string;
     heatmapColor?: string;
 }) {

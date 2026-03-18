@@ -2,9 +2,11 @@
 
 import React, { useState, useMemo } from "react";
 import { format, differenceInDays } from "date-fns";
-import { ListChecks, Search, ChevronDown, ChevronRight, AlertTriangle, Clock, CheckCircle2, Bell } from "lucide-react";
+import { ListChecks, Search, ChevronDown, ChevronRight, AlertTriangle, Clock, CheckCircle2, Bell, Megaphone } from "lucide-react";
 import { useTaskStore, Task, SubTask } from "@/store/useTaskStore";
+import { useAuthStore } from "@/store/useAuthStore";
 import { useStore } from "@/hooks/useStore";
+import { sendNudge, getNudgeCount } from "@/app/actions/notification";
 import {
     Dialog,
     DialogContent,
@@ -53,10 +55,13 @@ interface ProjectTaskListDialogProps {
 
 export const ProjectTaskListDialog = ({ projectId }: ProjectTaskListDialogProps) => {
     const tasks = useStore(useTaskStore, (s) => s.tasks) || [];
+    const user = useStore(useAuthStore, (s) => s.user);
     const [open, setOpen] = useState(false);
     const [filter, setFilter] = useState<FilterType>("all");
     const [searchTerm, setSearchTerm] = useState("");
     const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
+    const [nudgeCounts, setNudgeCounts] = useState<Record<string, number>>({});
+    const [nudging, setNudging] = useState<string | null>(null);
 
     // 프로젝트 전체 업무 (월 제한 없음)
     const projectTasks = useMemo(() => {
@@ -123,9 +128,42 @@ export const ProjectTaskListDialog = ({ projectId }: ProjectTaskListDialogProps)
         setExpandedTaskId((prev) => (prev === taskId ? null : taskId));
     };
 
-    const handleNudge = (task: Task) => {
-        const names = task.assigneeNames?.join(", ") || task.assigneeName || task.assigneeId || "미정";
-        alert(`📢 독촉 알림 (추후 실제 알림 연동 예정)\n\n담당자: ${names}\n업무: ${task.title}\n마감: ${task.endDate || "미정"}`);
+    const handleNudge = async (task: Task) => {
+        if (!user || nudging) return;
+        const recipientIds = task.assigneeIds?.length
+            ? task.assigneeIds.filter(id => id !== user.id)
+            : task.assigneeId && task.assigneeId !== user.id
+                ? [task.assigneeId]
+                : [];
+
+        if (recipientIds.length === 0) {
+            alert("독촉할 담당자가 없습니다.");
+            return;
+        }
+
+        setNudging(task.id);
+        try {
+            const result = await sendNudge({
+                senderId: user.id,
+                taskId: task.id,
+                taskTitle: task.title,
+                projectId: projectId,
+                recipientIds,
+            });
+
+            if (result.success) {
+                alert(`📢 ${recipientIds.join(", ")}님에게 독촉 알림을 보냈습니다.`);
+                // 독촉 횟수 갱신
+                const count = await getNudgeCount(task.id);
+                setNudgeCounts(prev => ({ ...prev, [task.id]: count }));
+            } else {
+                alert(result.error || "독촉 알림 전송 실패");
+            }
+        } catch {
+            alert("독촉 알림 전송 중 오류가 발생했습니다.");
+        } finally {
+            setNudging(null);
+        }
     };
 
     return (
@@ -244,10 +282,16 @@ export const ProjectTaskListDialog = ({ projectId }: ProjectTaskListDialogProps)
                                                     {isDelayedOrApproaching && (
                                                         <button
                                                             onClick={() => handleNudge(task)}
-                                                            className="p-1 rounded hover:bg-amber-500/10 text-amber-500 transition-colors"
+                                                            disabled={nudging === task.id}
+                                                            className="p-1 rounded hover:bg-amber-500/10 text-amber-500 transition-colors disabled:opacity-50 relative"
                                                             title="독촉 알림 보내기"
                                                         >
-                                                            <Bell className="h-3.5 w-3.5" />
+                                                            <Megaphone className="h-3.5 w-3.5" />
+                                                            {(nudgeCounts[task.id] || 0) > 0 && (
+                                                                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] rounded-full min-w-[14px] h-[14px] flex items-center justify-center">
+                                                                    {nudgeCounts[task.id]}
+                                                                </span>
+                                                            )}
                                                         </button>
                                                     )}
                                                 </td>

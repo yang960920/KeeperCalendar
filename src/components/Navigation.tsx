@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useStore } from "@/hooks/useStore";
 import { getUserProfile } from "@/app/actions/settings";
+import { NotificationBell } from "@/components/NotificationBell";
 
 export const Navigation = () => {
     const pathname = usePathname() || "/";
@@ -82,9 +83,12 @@ export const Navigation = () => {
                                 </span>
                             </div>
                         </div>
-                        <button onClick={logout} className="p-2 text-muted-foreground hover:text-red-500 transition-colors" title="로그아웃">
-                            <LogOut className="h-4 w-4" />
-                        </button>
+                        <div className="flex items-center gap-1">
+                            <NotificationBell />
+                            <button onClick={logout} className="p-2 text-muted-foreground hover:text-red-500 transition-colors" title="로그아웃">
+                                <LogOut className="h-4 w-4" />
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
