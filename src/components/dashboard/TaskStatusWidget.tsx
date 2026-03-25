@@ -40,9 +40,8 @@ export function TaskStatusWidget() {
         });
     }, [user]);
 
-    // 필터 적용
     const filteredTasks = filter ? allTasks.filter((t) => t.status === filter) : allTasks;
-    const { items: pageItems, totalPages, currentPage } = paginate(filteredTasks, page);
+    const { items: pageItems, totalPages, currentPage } = paginate(filteredTasks, page, 4);
 
     const handleFilter = (status: string | null) => {
         setFilter((prev) => (prev === status ? null : status));
@@ -51,13 +50,13 @@ export function TaskStatusWidget() {
 
     return (
         <div className="bg-card rounded-xl border shadow-sm p-5 flex flex-col h-full">
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-2 mb-2">
                 <ClipboardList className="h-4 w-4 text-indigo-400" />
                 <h3 className="text-sm font-bold">업무 현황</h3>
             </div>
 
-            {/* 상태 뱃지 — 클릭하면 필터 */}
-            <div className="flex flex-wrap gap-1.5 mb-3">
+            {/* 상태 뱃지 */}
+            <div className="flex flex-wrap gap-1.5 mb-2">
                 <FilterBadge label="전체" value={stats.total} active={filter === null} onClick={() => handleFilter(null)} className="bg-zinc-700/50 text-zinc-200" />
                 <FilterBadge label="대기" value={stats.todo} active={filter === "TODO"} onClick={() => handleFilter("TODO")} className="bg-slate-600/50 text-slate-200" />
                 <FilterBadge label="진행" value={stats.inProgress} active={filter === "IN_PROGRESS"} onClick={() => handleFilter("IN_PROGRESS")} className="bg-blue-600/30 text-blue-300" />
@@ -70,7 +69,7 @@ export function TaskStatusWidget() {
             </div>
 
             {/* 업무 리스트 */}
-            <div className="flex-1 space-y-1.5 overflow-y-auto">
+            <div className="flex-1 space-y-1 overflow-y-auto">
                 {pageItems.map((task) => (
                     <div key={task.id} className="flex items-center gap-2 p-2 rounded-lg bg-muted/30 text-sm hover:bg-muted/60 transition-colors cursor-pointer">
                         <StatusDot status={task.status} />

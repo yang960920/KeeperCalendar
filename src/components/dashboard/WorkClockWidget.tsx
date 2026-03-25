@@ -17,13 +17,11 @@ export function WorkClockWidget() {
     const [clockOutTimeStr, setClockOutTimeStr] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
 
-    // 실시간 시계
     useEffect(() => {
         const timer = setInterval(() => setTime(new Date()), 1000);
         return () => clearInterval(timer);
     }, []);
 
-    // 출퇴근 상태 조회
     useEffect(() => {
         if (!user) return;
         getTodayAttendance(user.id).then((res) => {
@@ -59,7 +57,6 @@ export function WorkClockWidget() {
         }
     }, [user]);
 
-    // 근무 경과 시간 계산
     const getElapsedTime = () => {
         if (!clockInTime || status !== "CLOCKED_IN") return null;
         const diffMs = time.getTime() - clockInTime.getTime();
@@ -68,55 +65,109 @@ export function WorkClockWidget() {
         return `${hours}시간 ${mins}분`;
     };
 
-    const hours = time.getHours().toString().padStart(2, "0");
-    const minutes = time.getMinutes().toString().padStart(2, "0");
-    const seconds = time.getSeconds().toString().padStart(2, "0");
+    const hours = time.getHours();
+    const minutes = time.getMinutes();
+    const seconds = time.getSeconds();
     const elapsed = getElapsedTime();
+
+    // 아날로그 시계 각도
+    const hourDeg = ((hours % 12) + minutes / 60) * 30;
+    const minDeg = (minutes + seconds / 60) * 6;
+    const secDeg = seconds * 6;
 
     return (
         <div className="bg-card rounded-xl border shadow-sm p-5 flex flex-col h-full">
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-2 mb-2">
                 <Clock className="h-4 w-4 text-cyan-400" />
                 <h3 className="text-sm font-bold">근무 체크</h3>
+                <div className="ml-auto"><StatusBadge status={status} /></div>
             </div>
 
-            {/* 상태 뱃지 */}
-            <div className="flex justify-center mb-2">
-                <StatusBadge status={status} />
-            </div>
+            {/* 아날로그 + 디지털 시계 */}
+            <div className="flex items-center justify-center gap-4 flex-1">
+                {/* 아날로그 시계 (SVG) */}
+                <div className="relative">
+                    <svg width="120" height="120" viewBox="0 0 120 120" className="drop-shadow-lg">
+                        {/* 외곽 */}
+                        <circle cx="60" cy="60" r="56" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/20" />
+                        <circle cx="60" cy="60" r="54" fill="none" stroke="currentColor" strokeWidth="1" className="text-muted-foreground/10" />
 
-            {/* 시계 */}
-            <div className="text-center mb-2">
-                <div className="text-3xl font-mono font-bold tracking-wider">
-                    <span>{hours}</span>
-                    <span className="animate-pulse">:</span>
-                    <span>{minutes}</span>
-                    <span className="animate-pulse">:</span>
-                    <span className="text-muted-foreground">{seconds}</span>
+                        {/* 시간 눈금 */}
+                        {Array.from({ length: 12 }).map((_, i) => {
+                            const angle = (i * 30 - 90) * (Math.PI / 180);
+                            const x1 = 60 + 48 * Math.cos(angle);
+                            const y1 = 60 + 48 * Math.sin(angle);
+                            const x2 = 60 + 42 * Math.cos(angle);
+                            const y2 = 60 + 42 * Math.sin(angle);
+                            return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} strokeWidth={i % 3 === 0 ? "2.5" : "1"} className="text-muted-foreground" stroke="currentColor" />;
+                        })}
+
+                        {/* 분 눈금 */}
+                        {Array.from({ length: 60 }).map((_, i) => {
+                            if (i % 5 === 0) return null;
+                            const angle = (i * 6 - 90) * (Math.PI / 180);
+                            const x1 = 60 + 48 * Math.cos(angle);
+                            const y1 = 60 + 48 * Math.sin(angle);
+                            const x2 = 60 + 46 * Math.cos(angle);
+                            const y2 = 60 + 46 * Math.sin(angle);
+                            return <line key={`m${i}`} x1={x1} y1={y1} x2={x2} y2={y2} strokeWidth="0.5" className="text-muted-foreground/30" stroke="currentColor" />;
+                        })}
+
+                        {/* 시침 */}
+                        <line
+                            x1="60" y1="60"
+                            x2={60 + 28 * Math.cos((hourDeg - 90) * (Math.PI / 180))}
+                            y2={60 + 28 * Math.sin((hourDeg - 90) * (Math.PI / 180))}
+                            strokeWidth="3" strokeLinecap="round" className="text-foreground" stroke="currentColor"
+                        />
+                        {/* 분침 */}
+                        <line
+                            x1="60" y1="60"
+                            x2={60 + 38 * Math.cos((minDeg - 90) * (Math.PI / 180))}
+                            y2={60 + 38 * Math.sin((minDeg - 90) * (Math.PI / 180))}
+                            strokeWidth="2" strokeLinecap="round" className="text-foreground" stroke="currentColor"
+                        />
+                        {/* 초침 */}
+                        <line
+                            x1="60" y1="60"
+                            x2={60 + 42 * Math.cos((secDeg - 90) * (Math.PI / 180))}
+                            y2={60 + 42 * Math.sin((secDeg - 90) * (Math.PI / 180))}
+                            strokeWidth="1" strokeLinecap="round" className="text-cyan-400" stroke="currentColor"
+                        />
+                        {/* 중심 점 */}
+                        <circle cx="60" cy="60" r="3" className="fill-cyan-400" />
+                        <circle cx="60" cy="60" r="1.5" className="fill-background" />
+                    </svg>
+                </div>
+
+                {/* 디지털 시계 + 정보 */}
+                <div className="flex flex-col items-center gap-1.5">
+                    <div className="text-2xl font-mono font-bold tracking-wider">
+                        <span>{String(hours).padStart(2, "0")}</span>
+                        <span className="animate-pulse">:</span>
+                        <span>{String(minutes).padStart(2, "0")}</span>
+                        <span className="text-muted-foreground text-lg">:{String(seconds).padStart(2, "0")}</span>
+                    </div>
+
+                    {elapsed && <p className="text-[11px] text-primary/70">근무 {elapsed}</p>}
+
+                    <div className="space-y-0.5 text-[11px] text-muted-foreground">
+                        {clockInTime && (
+                            <span className="flex items-center gap-1">
+                                <LogIn className="h-3 w-3 text-emerald-400" /> 출근 {clockInTime.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                        )}
+                        {clockOutTimeStr && (
+                            <span className="flex items-center gap-1">
+                                <LogOut className="h-3 w-3 text-orange-400" /> 퇴근 {clockOutTimeStr}
+                            </span>
+                        )}
+                    </div>
                 </div>
             </div>
 
-            {/* 경과 시간 */}
-            {elapsed && (
-                <p className="text-center text-xs text-primary/70 mb-2">근무 {elapsed}</p>
-            )}
-
-            {/* 출퇴근 시간 */}
-            <div className="flex justify-center gap-4 text-xs text-muted-foreground mb-3">
-                {clockInTime && (
-                    <span className="flex items-center gap-1">
-                        <LogIn className="h-3 w-3 text-emerald-400" /> 출근 {clockInTime.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}
-                    </span>
-                )}
-                {clockOutTimeStr && (
-                    <span className="flex items-center gap-1">
-                        <LogOut className="h-3 w-3 text-orange-400" /> 퇴근 {clockOutTimeStr}
-                    </span>
-                )}
-            </div>
-
             {/* 하단 */}
-            <div className="mt-auto flex gap-2">
+            <div className="mt-auto pt-2">
                 {status === "CLOCKED_IN" && (
                     <Button variant="outline" size="sm" onClick={handleClockOut} disabled={loading} className="w-full text-xs">
                         <LogOut className="h-3 w-3 mr-1" />
@@ -138,7 +189,7 @@ export function WorkClockWidget() {
 }
 
 function StatusBadge({ status }: { status: AttendanceStatus }) {
-    if (status === "CLOCKED_IN") return <span className="px-3 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/20 text-emerald-400">출근 중</span>;
-    if (status === "CLOCKED_OUT") return <span className="px-3 py-0.5 rounded-full text-[11px] font-semibold bg-orange-500/20 text-orange-400">퇴근</span>;
-    return <span className="px-3 py-0.5 rounded-full text-[11px] font-semibold bg-zinc-500/20 text-zinc-400">출근 전</span>;
+    if (status === "CLOCKED_IN") return <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-400">출근 중</span>;
+    if (status === "CLOCKED_OUT") return <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-orange-500/20 text-orange-400">퇴근</span>;
+    return <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-zinc-500/20 text-zinc-400">출근 전</span>;
 }
