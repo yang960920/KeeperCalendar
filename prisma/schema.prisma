@@ -39,6 +39,7 @@ model User {
   givenReviews        PeerReview[] @relation("PeerReviewer")
   receivedReviews     PeerReview[] @relation("PeerReviewee")
   notifications       Notification[]
+  attendances         Attendance[]
   settings     UserSettings?
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
@@ -333,4 +334,19 @@ model ProjectReport {
   stats            Json
   generatedAt      DateTime            @default(now())
   generatedBy      String?             // "SYSTEM" 또는 관리자 ID
+}
+
+// ── 근무 체크 (출퇴근) ──
+
+model Attendance {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clockIn   DateTime  @default(now())
+  clockOut  DateTime?
+  date      DateTime  // 근무일 (YYYY-MM-DD, 시간 00:00:00)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([userId, date])
 }

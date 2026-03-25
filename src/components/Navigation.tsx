@@ -3,9 +3,10 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarIcon, LayoutDashboardIcon, FolderKanbanIcon, Settings, UserCircle, LogOut } from "lucide-react";
+import { Home, CalendarIcon, LayoutDashboardIcon, FolderKanbanIcon, Settings, UserCircle, LogOut, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useAdminStore } from "@/store/useAdminStore";
 import { useStore } from "@/hooks/useStore";
 import { getUserProfile } from "@/app/actions/settings";
 import { NotificationBell } from "@/components/NotificationBell";
@@ -14,6 +15,7 @@ export const Navigation = () => {
     const pathname = usePathname() || "/";
     const user = useStore(useAuthStore, (state) => state.user);
     const logout = useAuthStore((state) => state.logout);
+    const isAdminAuth = useStore(useAdminStore, (state) => state.isAdminAuthenticated);
 
     // 로그인 및 관리자 페이지에서는 네비게이션을 숨김
     if (pathname === "/login" || pathname.startsWith("/admin")) return null;
@@ -30,6 +32,17 @@ export const Navigation = () => {
                     className={cn(
                         "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
                         pathname === "/" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    )}
+                >
+                    <Home className="h-4 w-4" />
+                    <span>오피스 홈</span>
+                </Link>
+
+                <Link
+                    href="/monthly"
+                    className={cn(
+                        "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
+                        pathname === "/monthly" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
                     )}
                 >
                     <LayoutDashboardIcon className="h-4 w-4" />
@@ -66,8 +79,19 @@ export const Navigation = () => {
                     )}
                 >
                     <Settings className="h-4 w-4" />
-                    <span>Keeper Settings</span>
+                    <span>Settings</span>
                 </Link>
+
+                {/* Admin 탭 — admin 인증 상태일 때만 노출 */}
+                {isAdminAuth && (
+                    <Link
+                        href="/admin/achievement"
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium text-red-400/80 hover:bg-red-500/10 hover:text-red-400 transition-colors"
+                    >
+                        <ShieldCheck className="h-4 w-4" />
+                        <span>Admin</span>
+                    </Link>
+                )}
             </div>
 
             {/* 하단 유저 프로필 및 로그아웃 영역 */}
@@ -95,6 +119,7 @@ export const Navigation = () => {
         </nav>
     );
 };
+
 
 // 프로필 아바타 컴포넌트 — auth store에서 직접 읽음
 function ProfileAvatar({ userId }: { userId: string }) {

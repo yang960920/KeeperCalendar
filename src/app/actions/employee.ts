@@ -149,6 +149,7 @@ export async function deleteEmployee(id: string) {
 }
 /**
  * 일반 사원 로그인 (ID, PW 검증)
+ * 로그인 성공 시 → ActivityLog LOGIN 기록 + 자동 출근 처리
  */
 export async function loginUser(id: string, password: string) {
     try {
@@ -163,6 +164,29 @@ export async function loginUser(id: string, password: string) {
 
         if (user.password !== password) {
             return { success: false, error: "비밀번호가 일치하지 않습니다." };
+        }
+
+        // 로그인 성공 → ActivityLog에 LOGIN 기록
+        try {
+            await prisma.activityLog.create({
+                data: {
+                    action: "LOGIN",
+                    entityType: "USER",
+                    entityId: user.id,
+                    details: `${user.name} 로그인`,
+                    userId: user.id,
+                },
+            });
+        } catch (logError) {
+            console.error("[Login] ActivityLog 기록 실패 (무시):", logError);
+        }
+
+        // 자동 출근 처리 (하루 1회)
+        try {
+            const { autoClockIn } = await import("@/app/actions/attendance");
+            await autoClockIn(user.id);
+        } catch (clockError) {
+            console.error("[Login] 자동 출근 실패 (무시):", clockError);
         }
 
         // 보안상 비밀번호는 제외하고 반환
