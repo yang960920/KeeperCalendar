@@ -18,7 +18,8 @@
 <br/>
 
 **Keeper Calendar**는 팀의 업무를 체계적으로 관리하고, 실시간 성과를 추적하며,  
-프로젝트 단위 협업을 지원하는 **올인원 업무 관리 플랫폼**입니다.
+프로젝트 단위 협업을 지원하는 **올인원 업무 관리 플랫폼**입니다.  
+**오피스 홈 대시보드**로 출퇴근, 업무, 알림, 일정을 한 화면에서 관리합니다.
 
 [🚀 라이브 데모](#) · [📖 문서](#getting-started) · [🐛 이슈 리포트](../../issues)
 
@@ -31,12 +32,15 @@
 <table>
   <tr>
     <td width="50%">
-      <h3>📊 월간 업무 로그</h3>
+      <h3>🏠 오피스 홈 대시보드</h3>
       <ul>
-        <li>연도/월 필터링으로 업무 히스토리 관리</li>
-        <li>Bar / Line / Category 차트로 월간 통계 시각화</li>
-        <li>월간 요약 위젯 (달성률, 완료 건수, 진행 현황)</li>
-        <li>업무 검색 & 인라인 편집/삭제</li>
+        <li><b>3×3 위젯 그리드</b> 레이아웃 (행별 개별 높이)</li>
+        <li>프로필 카드 — 통계 클릭 이동 + 알림 팝업 (99+ / 페이지네이션)</li>
+        <li>업무 현황 — 상태 뱃지 필터 (전체/대기/진행/완료) + 4개씩 페이지네이션</li>
+        <li>근무 체크 — 자동 출근 + <b>SVG 아날로그 시계</b> + 경과 시간 표시</li>
+        <li>미니 캘린더 — 날짜 클릭 시 업무 표시 (상위 3개 + "+N개 더")</li>
+        <li>활동 피드 — <b>내 프로젝트 범위</b>만 필터링 + 페이지네이션</li>
+        <li>오늘 할 일 / 알림 / 접속 기록 / 바로가기</li>
       </ul>
     </td>
     <td width="50%">
@@ -47,6 +51,26 @@
         <li><b>복수 담당자</b> 업무 할당 (M:N 관계)</li>
         <li>첨부파일 업로드 지원 (Vercel Blob)</li>
         <li><b>프로젝트 종료</b> (보고서 첨부 + 피어리뷰)</li>
+      </ul>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <h3>📊 월간 업무 로그</h3>
+      <ul>
+        <li>연도/월 필터링으로 업무 히스토리 관리</li>
+        <li>Bar / Line / Category 차트로 월간 통계 시각화</li>
+        <li>월간 요약 위젯 (달성률, 완료 건수, 진행 현황)</li>
+        <li>업무 검색 & 인라인 편집/삭제</li>
+      </ul>
+    </td>
+    <td width="50%">
+      <h3>⏱️ 근무 관리</h3>
+      <ul>
+        <li>로그인 시 <b>자동 출근</b> (B-plan)</li>
+        <li>퇴근 버튼으로 수동 퇴근 처리</li>
+        <li>근무 경과 시간 실시간 표시</li>
+        <li>접속 기록 자동 로깅 (ActivityLog)</li>
       </ul>
     </td>
   </tr>
@@ -239,7 +263,8 @@ keeper-calendar/
 │       └── NotoSansKR-Variable.ttf # 한글 폰트 (PDF용)
 ├── 📂 src/
 │   ├── 📂 app/
-│   │   ├── page.tsx               # 🏠 메인 (월간 로그 대시보드)
+│   │   ├── page.tsx               # 🏠 오피스 홈 대시보드 (3×3 위젯)
+│   │   ├── 📂 monthly/           # 📊 월간 업무 로그
 │   │   ├── 📂 login/              # 🔐 일반 사원 로그인
 │   │   ├── 📂 projects/           # 🗂️ 프로젝트 목록 & 상세
 │   │   ├── 📂 yearly/            # 🔥 연간 히트맵 & 통계
@@ -248,18 +273,31 @@ keeper-calendar/
 │   │   │   ├── employees/        #    사원 관리
 │   │   │   ├── tracking/         #    실적 추적
 │   │   │   ├── achievement/      #    성과 분석
-│   │   │   └── reports/          #    📄 PDF 리포트 관리 (NEW)
+│   │   │   └── reports/          #    📄 PDF 리포트 관리
 │   │   ├── 📂 actions/           # ⚡ Server Actions
 │   │   │   ├── task.ts           #    업무 CRUD + 공헌도
-│   │   │   ├── report.ts         #    📄 리포트 생성/발송/이력 (NEW)
+│   │   │   ├── dashboard.ts      #    🏠 대시보드 위젯 데이터
+│   │   │   ├── attendance.ts     #    ⏱️ 출퇴근 관리
+│   │   │   ├── report.ts         #    📄 리포트 생성/발송/이력
 │   │   │   ├── notification.ts   #    🔔 알림 (독촉/마감)
 │   │   │   ├── ai-chat.ts        #    🤖 AI 어시스턴트
 │   │   │   └── ...
 │   │   └── 📂 api/
-│   │       └── 📂 cron/          # ⏰ Vercel Cron (NEW)
+│   │       └── 📂 cron/          # ⏰ Vercel Cron
 │   │           ├── weekly-report/ #    주간 리포트 (금 18:00 KST)
 │   │           └── monthly-report/#    월간 리포트 (1일 09:00 KST)
 │   ├── 📂 components/
+│   │   ├── 📂 dashboard/         # 🏠 대시보드 위젯 (9개)
+│   │   │   ├── UserProfileCard    #    프로필 + 알림 팝업
+│   │   │   ├── MailWidget          #    알림 위젯
+│   │   │   ├── LoginHistoryWidget  #    접속 기록
+│   │   │   ├── AppGrid             #    바로가기
+│   │   │   ├── TaskStatusWidget    #    업무 현황
+│   │   │   ├── WorkClockWidget     #    근무 체크 (아날로그 시계)
+│   │   │   ├── MiniCalendar        #    미니 캘린더
+│   │   │   ├── TodayTaskWidget     #    오늘 할 일
+│   │   │   ├── ActivityFeedWidget  #    활동 피드
+│   │   │   └── WidgetPagination    #    공통 페이지네이션
 │   │   ├── CalendarGrid.tsx       # 캘린더
 │   │   ├── NotificationBell.tsx   # 🔔 알림 벨
 │   │   ├── AIChatAssistant.tsx    # 🤖 AI 채팅
@@ -294,6 +332,7 @@ erDiagram
     User ||--o{ Project : creates
     User }o--o{ Project : participates
     User ||--o{ Notification : receives
+    User ||--o{ Attendance : records
     Project ||--o{ Task : has
     Project ||--o{ PeerReview : has
     Task ||--o{ SubTask : contains
@@ -332,6 +371,13 @@ erDiagram
         string title
         enum status
         boolean isCompleted
+    }
+    Attendance {
+        string id PK
+        string userId FK
+        datetime clockIn
+        datetime clockOut
+        float totalHours
     }
     Notification {
         string id PK
