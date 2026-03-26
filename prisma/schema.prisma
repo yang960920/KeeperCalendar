@@ -40,6 +40,7 @@ model User {
   receivedReviews     PeerReview[] @relation("PeerReviewee")
   notifications       Notification[]
   attendances         Attendance[]
+  deviceTokens        DeviceToken[]
   settings     UserSettings?
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
@@ -345,8 +346,24 @@ model Attendance {
   clockIn   DateTime  @default(now())
   clockOut  DateTime?
   date      DateTime  // 근무일 (YYYY-MM-DD, 시간 00:00:00)
+  status    String    @default("PRESENT") // PRESENT, LATE, ABSENT
+  deviceId  String?   // 출퇴근 처리를 진행한 DeviceToken id
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
   @@unique([userId, date])
+}
+
+// ── 기기 인증 토큰 ──
+
+model DeviceToken {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token      String   @unique // 브라우저 localStorage에 저장될 난수 값
+  deviceInfo String?  // 예: "Chrome on Windows" (User-Agent 파싱)
+  status     String   @default("PENDING") // PENDING (승인 대기), APPROVED (승인됨)
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
 }

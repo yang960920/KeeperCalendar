@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAdminStore } from "@/store/useAdminStore";
 import Link from "next/link";
-import { LogOut, BarChart3, Users, Activity, FileBarChart } from "lucide-react";
+import { LogOut, BarChart3, Users, Activity, FileBarChart, CalendarClock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -44,6 +44,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         { href: "/admin/tracking", label: "진행도 확인 및 로그", icon: Activity },
         { href: "/admin/employees", label: "사원 명부 및 권한", icon: Users },
         { href: "/admin/reports", label: "리포트 관리", icon: FileBarChart },
+        { href: "/admin/attendance", label: "근태 관리", icon: CalendarClock },
     ];
 
     return (

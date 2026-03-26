@@ -4,10 +4,12 @@ import { useEffect, useState, useCallback } from "react";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useStore } from "@/hooks/useStore";
 import { getTodayAttendance, clockOut } from "@/app/actions/attendance";
-import { Clock, LogIn, LogOut, Coffee } from "lucide-react";
+import { checkDeviceToken, requestDeviceRegistration } from "@/app/actions/device-auth";
+import { Clock, LogIn, LogOut, Coffee, ShieldCheck, ShieldAlert, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 type AttendanceStatus = "NOT_CLOCKED_IN" | "CLOCKED_IN" | "CLOCKED_OUT";
+type DeviceStatus = "CHECKING" | "APPROVED" | "PENDING" | "NEED_REGISTRATION" | "AUTO_REGISTERED";
 
 export function WorkClockWidget() {
     const user = useStore(useAuthStore, (s) => s.user);
@@ -17,13 +19,40 @@ export function WorkClockWidget() {
     const [clockOutTimeStr, setClockOutTimeStr] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
 
+    // 기기 인증 상태
+    const [deviceStatus, setDeviceStatus] = useState<DeviceStatus>("CHECKING");
+    const [deviceLoading, setDeviceLoading] = useState(false);
+
+    // 실시간 시계
     useEffect(() => {
         const timer = setInterval(() => setTime(new Date()), 1000);
         return () => clearInterval(timer);
     }, []);
 
+    // 기기 인증 체크 (마운트 시)
     useEffect(() => {
         if (!user) return;
+        const storedToken = localStorage.getItem("keeper_device_token");
+        checkDeviceToken(user.id, storedToken).then((res) => {
+            if (res.success) {
+                if (res.status === "AUTO_REGISTERED" && res.token) {
+                    // 첫 기기 자동 등록 → 토큰을 localStorage에 저장
+                    localStorage.setItem("keeper_device_token", res.token);
+                }
+                setDeviceStatus("APPROVED");
+            } else {
+                if (res.status === "PENDING") {
+                    setDeviceStatus("PENDING");
+                } else {
+                    setDeviceStatus("NEED_REGISTRATION");
+                }
+            }
+        });
+    }, [user]);
+
+    // 출퇴근 상태 조회
+    useEffect(() => {
+        if (!user || deviceStatus !== "APPROVED") return;
         getTodayAttendance(user.id).then((res) => {
             if (res.success && res.data) {
                 const ci = new Date(res.data.clockIn);
@@ -39,7 +68,7 @@ export function WorkClockWidget() {
                 setStatus("NOT_CLOCKED_IN");
             }
         });
-    }, [user]);
+    }, [user, deviceStatus]);
 
     const handleClockOut = useCallback(async () => {
         if (!user) return;
@@ -54,6 +83,23 @@ export function WorkClockWidget() {
             }
         } finally {
             setLoading(false);
+        }
+    }, [user]);
+
+    const handleRequestDevice = useCallback(async () => {
+        if (!user) return;
+        setDeviceLoading(true);
+        try {
+            const deviceInfo = navigator.userAgent.substring(0, 100);
+            const res = await requestDeviceRegistration(user.id, deviceInfo);
+            if (res.success && res.token) {
+                localStorage.setItem("keeper_device_token", res.token);
+                setDeviceStatus("PENDING");
+            } else {
+                alert("기기 등록 요청에 실패했습니다.");
+            }
+        } finally {
+            setDeviceLoading(false);
         }
     }, [user]);
 
@@ -75,6 +121,64 @@ export function WorkClockWidget() {
     const minDeg = (minutes + seconds / 60) * 6;
     const secDeg = seconds * 6;
 
+    // 기기 인증 확인 중
+    if (deviceStatus === "CHECKING") {
+        return (
+            <div className="bg-card rounded-xl border shadow-sm p-5 flex flex-col items-center justify-center h-full gap-3">
+                <Loader2 className="h-8 w-8 animate-spin text-cyan-400" />
+                <p className="text-sm text-muted-foreground">기기 인증 확인 중...</p>
+            </div>
+        );
+    }
+
+    // 기기 미등록 / 대기 상태
+    if (deviceStatus === "NEED_REGISTRATION" || deviceStatus === "PENDING") {
+        return (
+            <div className="bg-card rounded-xl border shadow-sm p-5 flex flex-col h-full">
+                <div className="flex items-center gap-2 mb-3">
+                    <Clock className="h-4 w-4 text-cyan-400" />
+                    <h3 className="text-sm font-bold">근무 체크</h3>
+                </div>
+
+                <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center">
+                    {deviceStatus === "PENDING" ? (
+                        <>
+                            <ShieldAlert className="h-12 w-12 text-amber-400 opacity-60" />
+                            <p className="text-sm font-medium text-amber-400">기기 승인 대기 중</p>
+                            <p className="text-xs text-muted-foreground">
+                                관리자의 승인을 기다리고 있습니다.<br />
+                                승인 후 이 페이지를 새로고침 하세요.
+                            </p>
+                        </>
+                    ) : (
+                        <>
+                            <ShieldCheck className="h-12 w-12 text-muted-foreground opacity-40" />
+                            <p className="text-sm font-medium">등록되지 않은 기기</p>
+                            <p className="text-xs text-muted-foreground">
+                                이 기기에서 출퇴근을 사용하려면<br />
+                                기기 등록이 필요합니다.
+                            </p>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleRequestDevice}
+                                disabled={deviceLoading}
+                                className="mt-2 text-xs"
+                            >
+                                {deviceLoading ? (
+                                    <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> 요청 중...</>
+                                ) : (
+                                    "기기 등록 요청하기"
+                                )}
+                            </Button>
+                        </>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    // 기기 승인됨 → 기존 출퇴근 UI
     return (
         <div className="bg-card rounded-xl border shadow-sm p-5 flex flex-col h-full">
             <div className="flex items-center gap-2 mb-2">

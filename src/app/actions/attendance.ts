@@ -7,7 +7,7 @@ import { unstable_noStore as noStore } from "next/cache";
  * 자동 출근 처리 (로그인 시 호출)
  * 하루 1회 제한 — @@unique([userId, date])
  */
-export async function autoClockIn(userId: string) {
+export async function autoClockIn(userId: string, deviceToken?: string) {
     try {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -23,11 +23,30 @@ export async function autoClockIn(userId: string) {
             return { success: true, alreadyClockedIn: true, data: existing };
         }
 
+        // 기기 토큰 검증 (토큰이 있는 경우에만)
+        let deviceId: string | null = null;
+        if (deviceToken) {
+            const device = await prisma.deviceToken.findUnique({
+                where: { token: deviceToken },
+            });
+            if (device && device.status === "APPROVED" && device.userId === userId) {
+                deviceId = device.id;
+            }
+        }
+
+        // 지각 판정 (09:00 이후 출근 시 지각)
+        const now = new Date();
+        const lateThreshold = new Date(today);
+        lateThreshold.setHours(9, 0, 0, 0);
+        const status = now > lateThreshold ? "LATE" : "PRESENT";
+
         const attendance = await prisma.attendance.create({
             data: {
                 userId,
                 date: today,
-                clockIn: new Date(),
+                clockIn: now,
+                status,
+                deviceId,
             },
         });
 
