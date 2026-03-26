@@ -21,7 +21,7 @@
 프로젝트 단위 협업을 지원하는 **올인원 업무 관리 플랫폼**입니다.  
 **오피스 홈 대시보드**로 출퇴근, 업무, 알림, 일정을 한 화면에서 관리합니다.
 
-[🚀 라이브 데모](#) · [📖 문서](#getting-started) · [🐛 이슈 리포트](../../issues)
+[🚀 라이브 데모](https://keeper-calendar.vercel.app) · [📖 문서](#-getting-started) · [🛠️ 개발 히스토리](#-개발-및-디버깅-히스토리) · [🐛 이슈 리포트](../../issues)
 
 </div>
 
@@ -507,6 +507,44 @@ npm run dev
 | `npm run build` | Prisma 생성 + 프로덕션 빌드 |
 | `npm run start` | 프로덕션 서버 실행 |
 | `npm run lint` | ESLint 검사 |
+
+---
+
+## 🛠️ 개발 및 디버깅 히스토리
+
+본 프로젝트는 AI와의 페어 프로그래밍을 통해 지속적으로 구조를 개선하고 기능을 확장해 왔습니다. 주요 개발 및 트러블슈팅 내역은 다음과 같습니다.
+
+### 1️⃣ Task 협업 시스템 강화 (Multi-Assignee & SubTask)
+- **이슈**: 기존 1:N 구조에서는 하나의 업무를 여러 명이 공동으로 담당할 수 없었음.
+- **해결**: Prisma 스키마를 N:M(다대다) 구조(`assignees`)로 마이그레이션.
+- **기능 추가**: 하위업무(Sub-Task) 단계를 `TODO`, `IN_PROGRESS`, `DONE` 세분화 및 하위업무별 담당자 지정.
+- **UI 반영**: 달력(Calendar) 및 업무 수정 모달에서 다중 담당자 아바타/이름 정상 표출되도록 컴포넌트 전면 개편.
+
+### 2️⃣ 데이터 무결성 및 Activity Logging 방어
+- **이슈**: NeonDB / Prisma 환경에서 잘못된 CASCADE 설정으로 인해 계정 삭제 시 관련 프로젝트 전체가 날아가는 위험성 존재.
+- **해결**: 외래키의 `onDelete: Cascade` 범위를 면밀히 수정하고, 모든 CRUD 액션에 안전하게 로그를 남기는 `ActivityLog` 트랜잭션 패턴 도입.
+- **더미 데이터**: `/scripts/seed_dummy.cjs`를 통해 `User` 외의 테이블을 초기화 및 테스트할 수 있는 프레임워크 구축.
+
+### 3️⃣ 보고서 듀얼 트랙 시스템 (Dual-Track Reports)
+- **이슈**: 프로젝트 생성자(Creator)와 최고 관리자(Admin)가 보는 성과 데이터의 투명성/기밀성 분리가 필요.
+- **해결**: 전사/부서별/개인별로 권한에 맞춰 접근 가능한 PDF 리포트 3계층 자동 생성 시스템 도입 (Gemini AI 분석 연동 + Vercel Cron).
+
+### 4️⃣ 관리자 대시보드 및 커스텀 유연 근무제
+- **이슈**: 일반 직원용 페이지 내에 관리자 탭이 노출될 때, 데이터베이스 상의 권한 필드 부재 및 인증 상태 꼬임(Hydration 에러).
+- **해결**:
+  - `Role` (CREATOR/PARTICIPANT)과 글로벌 `Admin` 권한을 스토리지 기반으로 완전 분리.
+  - Zustand `persist`의 `_hasHydrated` 검증 로직을 `AdminLayout`에 추가하여, 새로고침 시 로그인 화면으로 튕기는 **Hydration Race Condition 버그 철저히 디버깅 및 완벽 해결**.
+  - `User` 모델에 `workStartTime`, `workEndTime` 필드 추가하여, 09:00 출근이 아닌 사람도 지각 여부를 동적으로 판정하는 **개인별 유연 근무제** 적용.
+
+### 5️⃣ 기기 인증 및 보안 출퇴근 (Device Auth)
+- **이슈**: 웹 캘린더 특성상 대리 출석 방지가 필요하나, 매일 로그인할 때마다 인증하는 것은 UX를 훼손함.
+- **해결**: `localStorage`의 `keeper_device_token`과 DB의 `DeviceToken` 모델을 연동.
+  - **첫 번째 기기**: 별도 승인 없이 자동 `APPROVED`.
+  - **두 번째 기기 이상**: `PENDING` 처리 후 관리자 페이지(`/admin/attendance` 대기열 탭)에서 수동 승인하는 안전한 하이브리드 인증 로직 구현.
+
+### 6️⃣ CI/CD 파이프라인 최적화
+- **이슈**: `README.md` 등 문서만 수정했을 때도 Vercel 빌드가 트리거되어 빌드 시간(Build Minutes) 낭비 발생.
+- **해결**: 커밋 메시지 `[skip ci]` 컨벤션 도입 및 Vercel Dashboard의 *Ignored Build Step* 규칙(`git diff --quiet HEAD^ HEAD ./src/ ...`) 적용하여 코어 소스 변경 시에만 배포되도록 설정.
 
 ---
 
