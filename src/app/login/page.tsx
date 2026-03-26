@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -15,10 +15,18 @@ import { ShieldCheck } from "lucide-react";
 
 export default function LoginPage() {
     const login = useAuthStore((state) => state.login);
+    const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
     const router = useRouter();
 
     const [id, setId] = useState("");
     const [password, setPassword] = useState("");
+
+    // 로그인된 사용자가 접근하면 루트로 이동
+    useEffect(() => {
+        if (isAuthenticated) {
+            router.push("/");
+        }
+    }, [isAuthenticated, router]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

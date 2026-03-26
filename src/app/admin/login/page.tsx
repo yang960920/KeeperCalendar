@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAdminStore } from "@/store/useAdminStore";
 import { loginAdmin } from "@/app/actions/admin";
@@ -10,7 +10,15 @@ import { Label } from "@/components/ui/label";
 
 export default function AdminLoginPage() {
     const adminLogin = useAdminStore((state) => state.adminLogin);
+    const isAdminAuthenticated = useAdminStore((state) => state.isAdminAuthenticated);
     const router = useRouter();
+
+    // 관리자 로그인된 사용자가 접근하면 루트로 이동
+    useEffect(() => {
+        if (isAdminAuthenticated) {
+            router.push("/admin/achievement");
+        }
+    }, [isAdminAuthenticated, router]);
 
     const [id, setId] = useState("");
     const [password, setPassword] = useState("");

@@ -8,7 +8,7 @@ import { LogOut, BarChart3, Users, Activity, FileBarChart, CalendarClock } from 
 import { Button } from "@/components/ui/button";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-    const { isAdminAuthenticated, adminLogout } = useAdminStore();
+    const { isAdminAuthenticated, adminLogout, _hasHydrated } = useAdminStore();
     const router = useRouter();
     const pathname = usePathname();
     const [mounted, setMounted] = useState(false);
@@ -18,10 +18,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }, []);
 
     useEffect(() => {
-        if (mounted && !isAdminAuthenticated && pathname !== "/admin/login") {
+        if (mounted && _hasHydrated && !isAdminAuthenticated && pathname !== "/admin/login") {
             router.push("/admin/login");
         }
-    }, [isAdminAuthenticated, pathname, router, mounted]);
+    }, [isAdminAuthenticated, _hasHydrated, pathname, router, mounted]);
 
     // Prevent hydration errors and flicker
     if (!mounted) return null;
