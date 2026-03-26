@@ -65,11 +65,12 @@
       </ul>
     </td>
     <td width="50%">
-      <h3>⏱️ 근무 관리</h3>
+      <h3>⏱️ 근태 및 시간 관리</h3>
       <ul>
-        <li>로그인 시 <b>자동 출근</b> (B-plan)</li>
+        <li><b>기기 인증 보안</b>: 최초 기기 자동 접속, 이후 기기 관리자 승인제도</li>
+        <li><b>유연 근무제 지원</b>: 직원별 개별 출퇴근 기준 시간 설정 가능</li>
+        <li>로그인 시 <b>자동 출근</b> (지각 자동 판정)</li>
         <li>퇴근 버튼으로 수동 퇴근 처리</li>
-        <li>근무 경과 시간 실시간 표시</li>
         <li>접속 기록 자동 로깅 (ActivityLog)</li>
       </ul>
     </td>
@@ -132,6 +133,7 @@
       <h3>🛡️ 관리자 대시보드</h3>
       <ul>
         <li>사원 등록/수정/삭제 및 부서 관리</li>
+        <li><b>전사 근태 현황 관리</b> 및 기기 인증(대기열) 승인 제어</li>
         <li>실시간 업무 추적 (진행률, 지연 현황)</li>
         <li>부서별 성과 비교 분석 차트</li>
         <li>활동 로그 감사 추적 (Audit Trail)</li>
@@ -273,6 +275,7 @@ keeper-calendar/
 │   │   │   ├── employees/        #    사원 관리
 │   │   │   ├── tracking/         #    실적 추적
 │   │   │   ├── achievement/      #    성과 분석
+│   │   │   ├── attendance/       #    ⏱️ 근태 및 기기 승인 관리
 │   │   │   └── reports/          #    📄 PDF 리포트 관리
 │   │   ├── 📂 actions/           # ⚡ Server Actions
 │   │   │   ├── task.ts           #    업무 CRUD + 공헌도
@@ -348,6 +351,8 @@ erDiagram
         string name
         enum role
         string departmentId FK
+        string workStartTime
+        string workEndTime
     }
     Project {
         string id PK
