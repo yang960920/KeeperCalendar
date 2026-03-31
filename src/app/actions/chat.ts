@@ -221,7 +221,6 @@ export async function sendMessage(data: {
         // 보낸 사람의 lastReadAt 갱신
         await markChatAsRead(data.roomId, data.senderId);
 
-        revalidatePath("/chat");
         return { success: true, data: formattedMessage };
     } catch (error) {
         return handleError("메시지 전송에 실패했습니다.", error);

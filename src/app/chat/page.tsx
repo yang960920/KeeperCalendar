@@ -112,18 +112,35 @@ export default function ChatPage() {
         const channel = pusherClient.subscribe(channelName);
 
         channel.bind("new-message", (newMsg: any) => {
-            if (isMounted) {
-                setMessages((prev) => {
-                    if (prev.find(m => m.id === newMsg.id)) return prev;
-                    return [...prev, newMsg];
-                });
-                
-                // 화면 하단에 있을 때만 자동 스크롤 하거나 일단 스크롤 (단순화)
-                scrollToBottom();
+            if (!isMounted) return;
 
-                // 새로 온 메시지 즉시 읽음 처리
-                markChatAsRead(selectedRoomId, user.id);
-            }
+            setMessages((prev) => {
+                if (prev.find((m) => m.id === newMsg.id)) return prev;
+
+                if (newMsg.senderId === user.id) {
+                    const tempIndex = prev.findIndex(
+                        (m) => m.id.startsWith("temp-") && m.content === newMsg.content
+                    );
+                    if (tempIndex !== -1) {
+                        const updated = [...prev];
+                        updated[tempIndex] = newMsg;
+                        return updated;
+                    }
+                }
+
+                return [...prev, newMsg];
+            });
+
+            scrollToBottom();
+            markChatAsRead(selectedRoomId, user.id);
+
+            setRooms((prev) =>
+                prev.map((r) =>
+                    r.id === newMsg.roomId
+                        ? { ...r, lastMessage: newMsg, updatedAt: newMsg.createdAt }
+                        : r
+                )
+            );
         });
 
         return () => {
@@ -143,17 +160,52 @@ export default function ChatPage() {
 
     const handleSend = async () => {
         if (!input.trim() || !selectedRoomId || !user) return;
-        
+
         const tempContent = input.trim();
-        setInput(""); // 낙관적 초기화
-        
-        await sendMessage({
+        const tempId = `temp-${Date.now()}`;
+        setInput("");
+
+        const optimisticMsg = {
+            id: tempId,
+            roomId: selectedRoomId,
+            senderId: user.id,
+            content: tempContent,
+            createdAt: new Date().toISOString(),
+            sender: {
+                id: user.id,
+                name: user.name,
+                profileImageUrl: user.profileImageUrl,
+            },
+        };
+
+        setMessages((prev) => [...prev, optimisticMsg]);
+        scrollToBottom();
+
+        setRooms((prev) =>
+            prev.map((r) =>
+                r.id === selectedRoomId
+                    ? { ...r, lastMessage: optimisticMsg, updatedAt: optimisticMsg.createdAt }
+                    : r
+            )
+        );
+
+        const result = await sendMessage({
             roomId: selectedRoomId,
             senderId: user.id,
             content: tempContent,
         });
 
-        loadRooms(); // 목록의 마지막 메시지 갱신
+        if (!result.success) {
+            setMessages((prev) => prev.filter((m) => m.id !== tempId));
+            setRooms((prev) =>
+                prev.map((r) =>
+                    r.id === selectedRoomId
+                        ? { ...r, lastMessage: r.lastMessage?.id === tempId ? undefined : r.lastMessage }
+                        : r
+                )
+            );
+            console.error("메시지 전송 실패");
+        }
     };
 
     // 새 채팅방 만들기 
