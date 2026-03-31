@@ -94,6 +94,13 @@ export async function getMyChatRooms(userId: string) {
                     select: {
                         userId: true,
                         lastReadAt: true,
+                        user: {
+                            select: {
+                                id: true,
+                                name: true,
+                                resumeUrl: true,
+                            }
+                        }
                     }
                 },
                 messages: {
@@ -135,6 +142,11 @@ export async function getMessages(roomId: string, limit: number = 50, cursor?: s
             where: { roomId },
             take: limit,
             orderBy: { createdAt: "desc" },
+            include: {
+                sender: {
+                    select: { id: true, name: true, resumeUrl: true }
+                }
+            }
         };
 
         if (cursor) {
@@ -173,6 +185,11 @@ export async function sendMessage(data: {
                 senderId: data.senderId,
                 content: data.content,
             },
+            include: {
+                sender: {
+                    select: { id: true, name: true, resumeUrl: true }
+                }
+            }
         });
 
         const formattedMessage = {

@@ -205,6 +205,9 @@ export default function ChatPage() {
     };
 
     const selectedRoom = rooms.find(r => r.id === selectedRoomId);
+    const isSelectedDirect = selectedRoom?.type === "DIRECT";
+    const selectedOpponent = isSelectedDirect ? selectedRoom.members.find((m: any) => m.userId !== user?.id)?.user : null;
+    const selectedRoomName = isSelectedDirect ? (selectedOpponent?.name || "알 수 없음") : (selectedRoom?.name || "그룹 채팅");
 
     if (!user) return null;
 
@@ -294,6 +297,11 @@ export default function ChatPage() {
                         <div className="flex flex-col gap-1 p-2">
                             {rooms.map(room => {
                                 const isUnread = room.lastMessage && new Date(room.lastMessage.createdAt) > new Date(room.myLastReadAt);
+                                const isDirect = room.type === "DIRECT";
+                                const opponent = isDirect ? room.members.find((m: any) => m.userId !== user.id)?.user : null;
+                                const roomName = isDirect ? (opponent?.name || "알 수 없음") : (room.name || "그룹 채팅");
+                                const avatarUrl = isDirect ? opponent?.resumeUrl : null;
+
                                 return (
                                     <button
                                         key={room.id}
@@ -303,13 +311,17 @@ export default function ChatPage() {
                                             selectedRoomId === room.id ? "bg-primary/10" : "hover:bg-muted/60"
                                         )}
                                     >
-                                        <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 text-primary">
-                                            {room.type === "GROUP" ? <User className="h-5 w-5" /> : <User className="h-5 w-5" />}
-                                        </div>
+                                        {avatarUrl ? (
+                                            <img src={avatarUrl} alt="avatar" className="h-10 w-10 rounded-full object-cover flex-shrink-0" />
+                                        ) : (
+                                            <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 text-primary">
+                                                <User className="h-5 w-5" />
+                                            </div>
+                                        )}
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center justify-between mb-1">
                                                 <span className="font-semibold text-sm truncate pr-2">
-                                                    {room.name || "개인 대화"}
+                                                    {roomName}
                                                 </span>
                                                 {room.lastMessage && (
                                                     <span className="text-[10px] text-muted-foreground whitespace-nowrap">
@@ -340,8 +352,8 @@ export default function ChatPage() {
                     <>
                         {/* 채팅방 헤더 */}
                         <div className="h-14 border-b flex items-center justify-between px-6 bg-card/30">
-                            <h3 className="font-semibold">
-                                {selectedRoom?.name || "개인 대화"}
+                            <h3 className="font-semibold flex items-center gap-2">
+                                {selectedRoomName}
                             </h3>
                             <Button variant="ghost" size="icon">
                                 <MoreVertical className="h-5 w-5 text-muted-foreground" />
@@ -357,21 +369,27 @@ export default function ChatPage() {
                                     {messages.map((msg, idx) => {
                                         const isMe = msg.senderId === user.id;
                                         const showAvatar = !isMe && (idx === 0 || messages[idx - 1].senderId !== msg.senderId);
-                                        
+                                        const senderName = msg.sender?.name || "알 수 없음";
+                                        const senderAvatar = msg.sender?.resumeUrl;
+
                                         return (
                                             <div key={msg.id} className={cn("flex gap-3", isMe ? "justify-end" : "justify-start")}>
                                                 {!isMe && (
                                                     <div className="w-8 flex-shrink-0 flex items-end">
                                                         {showAvatar && (
-                                                            <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary text-xs">
-                                                                👤
-                                                            </div>
+                                                            senderAvatar ? (
+                                                                <img src={senderAvatar} alt="avatar" className="h-8 w-8 rounded-full object-cover" />
+                                                            ) : (
+                                                                <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary text-xs">
+                                                                    <User className="h-4 w-4" />
+                                                                </div>
+                                                            )
                                                         )}
                                                     </div>
                                                 )}
                                                 <div className={cn("flex flex-col max-w-[70%]", isMe ? "items-end" : "items-start")}>
                                                     {!isMe && showAvatar && (
-                                                        <span className="text-xs text-muted-foreground mb-1 ml-1">상대방</span>
+                                                        <span className="text-xs text-muted-foreground mb-1 ml-1">{senderName}</span>
                                                     )}
                                                     <div className="flex items-end gap-1.5">
                                                         {isMe && (
