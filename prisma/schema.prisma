@@ -21,32 +21,34 @@ model Department {
 
 // 사용자 (사원 및 관리자)
 model User {
-  id           String      @id // Login ID (예: '홍길동')
-  name         String
-  password     String      // 비밀번호 (기본: 생년월일 6자리)
-  role         Role        @default(PARTICIPANT)
-  departmentId String?
-  department   Department? @relation(fields: [departmentId], references: [id])
-  resumeUrl    String?     // Vercel Blob 이력서/포트폴리오 다운로드 링크
-  profileImageUrl String?  // Vercel Blob 프로필 이미지 URL
-  tasks               Task[]      @relation("TaskAssignee")
-  assignedTasks       Task[]      @relation("TaskAssignees")  // 다대다 (복수 담당자)
-  projects            Project[]   @relation("ProjectCreator")
-  participatedProjects Project[]  @relation("ProjectParticipants")
-  assignedSubTasks    SubTask[]   @relation("SubTaskAssignee")
-  subTaskComments     SubTaskComment[]
-  activityLogs        ActivityLog[]
-  givenReviews        PeerReview[] @relation("PeerReviewer")
-  receivedReviews     PeerReview[] @relation("PeerReviewee")
-  notifications       Notification[]
-  attendances         Attendance[]
-  deviceTokens        DeviceToken[]
-  fieldWorkRequests   FieldWorkRequest[]
-  settings     UserSettings?
-  workStartTime String?    // 개인별 출근 기준 시간 (예: "09:30", null이면 기본 "09:00")
-  workEndTime   String?    // 개인별 퇴근 기준 시간 (예: "18:30", null이면 기본 "18:00")
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  id                   String             @id // Login ID (예: '홍길동')
+  name                 String
+  password             String // 비밀번호 (기본: 생년월일 6자리)
+  role                 Role               @default(PARTICIPANT)
+  departmentId         String?
+  department           Department?        @relation(fields: [departmentId], references: [id])
+  resumeUrl            String? // Vercel Blob 이력서/포트폴리오 다운로드 링크
+  profileImageUrl      String? // Vercel Blob 프로필 이미지 URL
+  tasks                Task[]             @relation("TaskAssignee")
+  assignedTasks        Task[]             @relation("TaskAssignees") // 다대다 (복수 담당자)
+  projects             Project[]          @relation("ProjectCreator")
+  participatedProjects Project[]          @relation("ProjectParticipants")
+  assignedSubTasks     SubTask[]          @relation("SubTaskAssignee")
+  subTaskComments      SubTaskComment[]
+  activityLogs         ActivityLog[]
+  givenReviews         PeerReview[]       @relation("PeerReviewer")
+  receivedReviews      PeerReview[]       @relation("PeerReviewee")
+  notifications        Notification[]
+  attendances          Attendance[]
+  deviceTokens         DeviceToken[]
+  fieldWorkRequests    FieldWorkRequest[]
+  settings             UserSettings?
+  workStartTime        String? // 개인별 출근 기준 시간 (예: "09:30", null이면 기본 "09:00")
+  workEndTime          String? // 개인별 퇴근 기준 시간 (예: "18:30", null이면 기본 "18:00")
+  chatMembers          ChatMember[]
+  chatMessages         ChatMessage[]
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
 }
 
 enum Role {
@@ -56,18 +58,18 @@ enum Role {
 
 // 사용자 설정
 model UserSettings {
-  id              String  @id @default(cuid())
-  userId          String  @unique
-  user            User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  notifyDueDate       Boolean @default(true)
-  notifyDueDays       Int     @default(1)
-  notifyPeerReview    Boolean @default(true)
-  notifySubTaskAssign Boolean @default(true)
-  notifyNudge         Boolean @default(true)  // 독촉 알림 수신 여부
-  theme               String  @default("dark")
-  heatmapColor        String  @default("green")
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notifyDueDate       Boolean  @default(true)
+  notifyDueDays       Int      @default(1)
+  notifyPeerReview    Boolean  @default(true)
+  notifySubTaskAssign Boolean  @default(true)
+  notifyNudge         Boolean  @default(true) // 독촉 알림 수신 여부
+  theme               String   @default("dark")
+  heatmapColor        String   @default("green")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 }
 
 // 알림
@@ -75,13 +77,13 @@ model Notification {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type      String   // NUDGE, DEADLINE, SYSTEM
+  type      String // NUDGE, DEADLINE, SYSTEM
   title     String
   message   String
   isRead    Boolean  @default(false)
   projectId String?
   taskId    String?
-  senderId  String?  // 독촉 발신자
+  senderId  String? // 독촉 발신자
   createdAt DateTime @default(now())
 }
 
@@ -94,72 +96,72 @@ enum ProjectStatus {
 
 // 프로젝트
 model Project {
-  id           String   @id @default(cuid())
-  name         String
-  description  String?
-  category     String   // 프로젝트 카테고리 (색상 등 식별용)
-  creatorId    String
-  creator      User     @relation("ProjectCreator", fields: [creatorId], references: [id])
-  participants User[]   @relation("ProjectParticipants")
-  startDate    DateTime
-  endDate      DateTime
-  tasks        Task[]
-  peerReviews  PeerReview[]
-  activityLogs ActivityLog[]
+  id              String         @id @default(cuid())
+  name            String
+  description     String?
+  category        String // 프로젝트 카테고리 (색상 등 식별용)
+  creatorId       String
+  creator         User           @relation("ProjectCreator", fields: [creatorId], references: [id])
+  participants    User[]         @relation("ProjectParticipants")
+  startDate       DateTime
+  endDate         DateTime
+  tasks           Task[]
+  peerReviews     PeerReview[]
+  activityLogs    ActivityLog[]
   projectReport   ProjectReport?
-  status          ProjectStatus @default(ACTIVE)
+  status          ProjectStatus  @default(ACTIVE)
   closedAt        DateTime?
-  closeReason     String?       // 정상 완료, 조기 종료, 보류, 취소
-  closeSummary    String?       // 종료 요약
-  closeReportUrl  String?       // Vercel Blob 다운로드 URL
-  closeReportName String?       // 원본 파일명
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  closeReason     String? // 정상 완료, 조기 종료, 보류, 취소
+  closeSummary    String? // 종료 요약
+  closeReportUrl  String? // Vercel Blob 다운로드 URL
+  closeReportName String? // 원본 파일명
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 }
 
 // 태스크
 model Task {
-  id          String       @id @default(cuid())
-  title       String
-  description String?
-  status      TaskStatus   @default(TODO)
-  priority    TaskPriority @default(MEDIUM)
-  planned     Float        @default(1)   // 기본값 1 (레거시 필드, 공헌도는 contributionScore 사용)
-  projectId   String
-  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  assigneeId  String?
-  assignee    User?        @relation("TaskAssignee", fields: [assigneeId], references: [id])
-  assignees   User[]       @relation("TaskAssignees")  // 복수 담당자 (다대다)
-  dueDate     DateTime?    // 기존 필드 유지
-  endDate     DateTime?    // 추가: 업무 지정 기한 (종료일)
-  completedAt DateTime?    // 추가: 실제 완료 처리된 시간
+  id                String        @id @default(cuid())
+  title             String
+  description       String?
+  status            TaskStatus    @default(TODO)
+  priority          TaskPriority  @default(MEDIUM)
+  planned           Float         @default(1) // 기본값 1 (레거시 필드, 공헌도는 contributionScore 사용)
+  projectId         String
+  project           Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assigneeId        String?
+  assignee          User?         @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  assignees         User[]        @relation("TaskAssignees") // 복수 담당자 (다대다)
+  dueDate           DateTime? // 기존 필드 유지
+  endDate           DateTime? // 추가: 업무 지정 기한 (종료일)
+  completedAt       DateTime? // 추가: 실제 완료 처리된 시간
   contributionScore Float? // 자동 산출 공헌도 (완료 시 계산, 관리자 전용)
-  isUrgent         Boolean        @default(false)  // 긴급 요청 여부
-  urgencyStatus    UrgencyStatus  @default(NONE)   // 긴급 승인 상태
-  attachments  Attachment[]
-  activityLogs ActivityLog[]
-  subTasks     SubTask[]
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  isUrgent          Boolean       @default(false) // 긴급 요청 여부
+  urgencyStatus     UrgencyStatus @default(NONE) // 긴급 승인 상태
+  attachments       Attachment[]
+  activityLogs      ActivityLog[]
+  subTasks          SubTask[]
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 }
 
 // 하위 업무 (체크리스트 형태)
 model SubTask {
-  id          String        @id @default(cuid())
+  id          String           @id @default(cuid())
   title       String
   description String?
-  isCompleted Boolean       @default(false)
-  status      SubTaskStatus @default(TODO)  // Phase 3: 3단계 상태
+  isCompleted Boolean          @default(false)
+  status      SubTaskStatus    @default(TODO) // Phase 3: 3단계 상태
   taskId      String
-  task        Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  task        Task             @relation(fields: [taskId], references: [id], onDelete: Cascade)
   assigneeId  String?
-  assignee    User?         @relation("SubTaskAssignee", fields: [assigneeId], references: [id])
+  assignee    User?            @relation("SubTaskAssignee", fields: [assigneeId], references: [id])
   comments    SubTaskComment[]
   dueDate     DateTime?
   endDate     DateTime?
   completedAt DateTime?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
 }
 
 enum TaskStatus {
@@ -176,11 +178,11 @@ enum TaskPriority {
 
 // 긴급 승인 상태
 enum UrgencyStatus {
-  NONE              // 긴급 요청 없음
-  PENDING_CREATOR   // PARTICIPANT 요청 → CREATOR 검수 대기
-  PENDING_ADMIN     // CREATOR 승인 또는 CREATOR 직접 요청 → Admin 승인 대기
-  APPROVED          // Admin 수락
-  REJECTED          // 거절됨
+  NONE // 긴급 요청 없음
+  PENDING_CREATOR // PARTICIPANT 요청 → CREATOR 검수 대기
+  PENDING_ADMIN // CREATOR 승인 또는 CREATOR 직접 요청 → Admin 승인 대기
+  APPROVED // Admin 수락
+  REJECTED // 거절됨
 }
 
 // Phase 3: 하위업무 상태
@@ -215,31 +217,31 @@ model SubTaskComment {
 
 // 활동 로그 (프로젝트/태스크 수정 내역)
 model ActivityLog {
-  id          String   @id @default(cuid())
-  action      String   // 예: "CREATED_TASK", "UPDATED_PROJECT_STATUS"
-  entityType  String   // 예: "TASK", "PROJECT"
-  entityId    String   // 연결된 개체 ID
-  details     String?  // 변경 내용에 대한 세부 설명 (JSON 또는 텍스트)
-  userId      String
-  user        User     @relation(fields: [userId], references: [id])
-  projectId   String?  // 프로젝트와 연관된 활동인 경우 접근 용이성 제공
-  project     Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  taskId      String?
-  task        Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  action     String // 예: "CREATED_TASK", "UPDATED_PROJECT_STATUS"
+  entityType String // 예: "TASK", "PROJECT"
+  entityId   String // 연결된 개체 ID
+  details    String? // 변경 내용에 대한 세부 설명 (JSON 또는 텍스트)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  projectId  String? // 프로젝트와 연관된 활동인 경우 접근 용이성 제공
+  project    Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  taskId     String?
+  task       Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
 }
 
 // 피어 리뷰 (프로젝트 종료 후 상호 평가)
 model PeerReview {
-  id          String   @id @default(cuid())
-  projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  reviewerId  String
-  reviewer    User     @relation("PeerReviewer", fields: [reviewerId], references: [id])
-  revieweeId  String
-  reviewee    User     @relation("PeerReviewee", fields: [revieweeId], references: [id])
-  score       Int      // 별점 1~5
-  createdAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  projectId  String
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  reviewerId String
+  reviewer   User     @relation("PeerReviewer", fields: [reviewerId], references: [id])
+  revieweeId String
+  reviewee   User     @relation("PeerReviewee", fields: [revieweeId], references: [id])
+  score      Int // 별점 1~5
+  createdAt  DateTime @default(now())
 
   @@unique([projectId, reviewerId, revieweeId])
 }
@@ -309,57 +311,57 @@ model ReportRecipient {
 // ── 프로젝트 성과 보고서 (이중 트랙) ──
 
 enum ProjectReportStatus {
-  GENERATING     // 생성 중
-  GENERATED      // 생성 완료, 수정본 미제출
-  SUBMITTED      // Creator가 수정본 제출
-  CONFIRMED      // Admin 확인 완료
+  GENERATING // 생성 중
+  GENERATED // 생성 완료, 수정본 미제출
+  SUBMITTED // Creator가 수정본 제출
+  CONFIRMED // Admin 확인 완료
 }
 
 model ProjectReport {
-  id               String              @id @default(cuid())
-  projectId        String              @unique
-  project          Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id        String  @id @default(cuid())
+  projectId String  @unique
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   // 이중 트랙 파일 관리
-  originalUrl      String              // 관리자 전용 원본 PDF (Blob)
+  originalUrl      String // 관리자 전용 원본 PDF (Blob)
   originalFilename String
-  creatorUrl       String              // Creator에게 노출되는 PDF (Blob)
+  creatorUrl       String // Creator에게 노출되는 PDF (Blob)
   creatorFilename  String
 
   // 수정본 (Creator 제출)
-  revisedUrl       String?
-  revisedFilename  String?
-  revisedAt        DateTime?
-  revisedComment   String?
+  revisedUrl      String?
+  revisedFilename String?
+  revisedAt       DateTime?
+  revisedComment  String?
 
   // 메타데이터
-  status           ProjectReportStatus @default(GENERATED)
-  aiInsight        String?             @db.Text
-  stats            Json
-  generatedAt      DateTime            @default(now())
-  generatedBy      String?             // "SYSTEM" 또는 관리자 ID
+  status      ProjectReportStatus @default(GENERATED)
+  aiInsight   String?             @db.Text
+  stats       Json
+  generatedAt DateTime            @default(now())
+  generatedBy String? // "SYSTEM" 또는 관리자 ID
 }
 
 // ── 근무 체크 (출퇴근) ──
 
 model Attendance {
-  id        String    @id @default(cuid())
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  clockIn   DateTime  @default(now())
-  clockOut  DateTime?
-  date      DateTime  // 근무일 (YYYY-MM-DD, 시간 00:00:00)
-  status    String    @default("PRESENT") // PRESENT, LATE, ABSENT
-  deviceId  String?   // 출퇴근 처리를 진행한 DeviceToken id
+  id       String    @id @default(cuid())
+  userId   String
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clockIn  DateTime  @default(now())
+  clockOut DateTime?
+  date     DateTime // 근무일 (YYYY-MM-DD, 시간 00:00:00)
+  status   String    @default("PRESENT") // PRESENT, LATE, ABSENT
+  deviceId String? // 출퇴근 처리를 진행한 DeviceToken id
 
   // 외근 관련 필드
-  workType       String  @default("OFFICE")   // OFFICE(내근), FIELD_PLANNED(사전외근), FIELD_EMERGENCY(긴급외근)
+  workType       String  @default("OFFICE") // OFFICE(내근), FIELD_PLANNED(사전외근), FIELD_EMERGENCY(긴급외근)
   fieldReason    String? // 외근 사유 (예: "A사 영업 미팅")
   fieldProofText String? // 사후 증빙 텍스트 (외근 결과 보고)
   fieldProofUrl  String? // 사후 증빙 파일 URL (명함, 미팅 사진 등)
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([userId, date])
 }
@@ -367,15 +369,15 @@ model Attendance {
 // ── 외근 사전 신청 ──
 
 model FieldWorkRequest {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  date        DateTime // 외근 예정일 (YYYY-MM-DD)
-  reason      String   // 외근 사유
-  status      String   @default("PENDING") // PENDING(대기), APPROVED(승인), REJECTED(반려)
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date           DateTime // 외근 예정일 (YYYY-MM-DD)
+  reason         String // 외근 사유
+  status         String   @default("PENDING") // PENDING(대기), APPROVED(승인), REJECTED(반려)
   rejectedReason String? // 반려 사유
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@unique([userId, date])
   @@index([status])
@@ -388,7 +390,7 @@ model DeviceToken {
   userId     String
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   token      String   @unique // 브라우저 localStorage에 저장될 난수 값
-  deviceInfo String?  // 예: "Chrome on Windows" (User-Agent 파싱)
+  deviceInfo String? // 예: "Chrome on Windows" (User-Agent 파싱)
   status     String   @default("PENDING") // PENDING (승인 대기), APPROVED (승인됨)
   createdAt  DateTime @default(now())
 
@@ -398,18 +400,18 @@ model DeviceToken {
 // ── 공유 캘린더 ──
 
 enum EventCategory {
-  MEETING     // 회의
-  FIELD_WORK  // 외근
-  TRAINING    // 교육
-  VACATION    // 휴가
-  OTHER       // 기타
+  MEETING // 회의
+  FIELD_WORK // 외근
+  TRAINING // 교육
+  VACATION // 휴가
+  OTHER // 기타
 }
 
 enum EventResponse {
-  PENDING     // 미응답
-  ACCEPTED    // 수락
-  DECLINED    // 거절
-  TENTATIVE   // 미정
+  PENDING // 미응답
+  ACCEPTED // 수락
+  DECLINED // 거절
+  TENTATIVE // 미정
 }
 
 enum RecurrenceType {
@@ -421,29 +423,29 @@ enum RecurrenceType {
 }
 
 model CalendarEvent {
-  id              String         @id @default(cuid())
-  title           String
-  description     String?
-  category        EventCategory  @default(OTHER)
-  startTime       DateTime
-  endTime         DateTime
-  isAllDay        Boolean        @default(false)
-  location        String?
-  creatorId       String         // User.id 참조 (직접 relation 없음)
-  recurrenceType  RecurrenceType @default(NONE)
-  recurrenceEnd   DateTime?      // 반복 종료일
-  projectId       String?        // 프로젝트 연동 (옵션)
-  attendees       EventAttendee[]
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  id             String          @id @default(cuid())
+  title          String
+  description    String?
+  category       EventCategory   @default(OTHER)
+  startTime      DateTime
+  endTime        DateTime
+  isAllDay       Boolean         @default(false)
+  location       String?
+  creatorId      String // User.id 참조 (직접 relation 없음)
+  recurrenceType RecurrenceType  @default(NONE)
+  recurrenceEnd  DateTime? // 반복 종료일
+  projectId      String? // 프로젝트 연동 (옵션)
+  attendees      EventAttendee[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 }
 
 model EventAttendee {
-  id        String        @id @default(cuid())
-  eventId   String
-  event     CalendarEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  userId    String        // User.id 참조 (직접 relation 없음)
-  response  EventResponse @default(PENDING)
+  id       String        @id @default(cuid())
+  eventId  String
+  event    CalendarEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId   String // User.id 참조 (직접 relation 없음)
+  response EventResponse @default(PENDING)
 
   @@unique([eventId, userId])
 }
@@ -451,51 +453,51 @@ model EventAttendee {
 // ── 전자결재 ──
 
 enum ApprovalCategory {
-  VACATION     // 휴가
-  OVERTIME     // 시간외근무
+  VACATION // 휴가
+  OVERTIME // 시간외근무
   BUSINESS_TRIP // 출장
-  EXPENSE      // 지출결의
-  GENERAL      // 일반기안
+  EXPENSE // 지출결의
+  GENERAL // 일반기안
 }
 
 enum ApprovalStatus {
-  PENDING      // 대기 중
-  IN_PROGRESS  // 결재 중
-  APPROVED     // 승인 완료
-  REJECTED     // 반려
-  WITHDRAWN    // 철회
+  PENDING // 대기 중
+  IN_PROGRESS // 결재 중
+  APPROVED // 승인 완료
+  REJECTED // 반려
+  WITHDRAWN // 철회
 }
 
 enum StepStatus {
-  WAITING    // 대기
-  PENDING    // 결재 중
-  APPROVED   // 승인
-  REJECTED   // 반려
+  WAITING // 대기
+  PENDING // 결재 중
+  APPROVED // 승인
+  REJECTED // 반려
 }
 
 model ApprovalRequest {
-  id          String           @id @default(cuid())
-  title       String
-  content     String           // 결재 내용 (텍스트)
-  category    ApprovalCategory @default(GENERAL)
-  status      ApprovalStatus   @default(PENDING)
-  requesterId String           // 기안자 User.id
-  projectId   String?          // 프로젝트 연동 (옵션)
-  attachmentUrl String?        // 첨부 파일 URL
-  steps       ApprovalStep[]
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  id            String           @id @default(cuid())
+  title         String
+  content       String // 결재 내용 (텍스트)
+  category      ApprovalCategory @default(GENERAL)
+  status        ApprovalStatus   @default(PENDING)
+  requesterId   String // 기안자 User.id
+  projectId     String? // 프로젝트 연동 (옵션)
+  attachmentUrl String? // 첨부 파일 URL
+  steps         ApprovalStep[]
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
 }
 
 model ApprovalStep {
   id         String          @id @default(cuid())
   requestId  String
   request    ApprovalRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  approverId String          // 결재자 User.id
-  stepOrder  Int             // 결재 순서 (1, 2, 3...)
+  approverId String // 결재자 User.id
+  stepOrder  Int // 결재 순서 (1, 2, 3...)
   status     StepStatus      @default(WAITING)
-  comment    String?         // 결재 의견
-  actedAt    DateTime?       // 결재/반려 시각
+  comment    String? // 결재 의견
+  actedAt    DateTime? // 결재/반려 시각
 
   @@unique([requestId, stepOrder])
 }
@@ -503,90 +505,88 @@ model ApprovalStep {
 // ── 문서 관리 (자료실) ──
 
 enum DocVisibility {
-  PUBLIC   // 전체 공개
-  PRIVATE  // 비공개 (생성자만)
+  PUBLIC // 전체 공개
+  PRIVATE // 비공개 (생성자만)
 }
 
 model DocFolder {
-  id          String        @id @default(cuid())
-  name        String
-  parentId    String?       // 상위 폴더 (null이면 루트)
-  parent      DocFolder?    @relation("FolderTree", fields: [parentId], references: [id], onDelete: Cascade)
-  children    DocFolder[]   @relation("FolderTree")
-  documents   Document[]
-  creatorId   String
-  projectId   String?
-  createdAt   DateTime      @default(now())
+  id        String      @id @default(cuid())
+  name      String
+  parentId  String? // 상위 폴더 (null이면 루트)
+  parent    DocFolder?  @relation("FolderTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children  DocFolder[] @relation("FolderTree")
+  documents Document[]
+  creatorId String
+  projectId String?
+  createdAt DateTime    @default(now())
 }
 
 model Document {
-  id          String          @id @default(cuid())
-  name        String
-  mimeType    String?
-  size        Int?            // bytes
-  folderId    String?
-  folder      DocFolder?      @relation(fields: [folderId], references: [id], onDelete: SetNull)
-  uploaderId  String
-  projectId   String?
-  visibility  DocVisibility   @default(PUBLIC)
-  currentUrl  String          // 최신 버전 URL (Vercel Blob)
-  versions    DocumentVersion[]
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  id         String            @id @default(cuid())
+  name       String
+  mimeType   String?
+  size       Int? // bytes
+  folderId   String?
+  folder     DocFolder?        @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  uploaderId String
+  projectId  String?
+  visibility DocVisibility     @default(PUBLIC)
+  currentUrl String // 최신 버전 URL (Vercel Blob)
+  versions   DocumentVersion[]
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
 }
 
 model DocumentVersion {
-  id          String    @id @default(cuid())
-  documentId  String
-  document    Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  url         String
-  size        Int?
-  uploaderId  String
-  note        String?   // 버전 메모
-  createdAt   DateTime  @default(now())
+  id         String   @id @default(cuid())
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  url        String
+  size       Int?
+  uploaderId String
+  note       String? // 버전 메모
+  createdAt  DateTime @default(now())
 }
 
 // ── 사내 메신저 ──
 
 enum ChatRoomType {
-  DIRECT  // 1:1 채팅
-  GROUP   // 그룹 채팅
+  DIRECT // 1:1 채팅
+  GROUP // 그룹 채팅
 }
 
 model ChatRoom {
-  id          String       @id @default(cuid())
-  name        String?      // 그룹 채팅방 이름 (1:1은 null)
-  type        ChatRoomType @default(DIRECT)
-  creatorId   String
-  members     ChatMember[]
-  messages    ChatMessage[]
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  id        String        @id @default(cuid())
+  name      String? // 그룹 채팅방 이름 (1:1은 null)
+  type      ChatRoomType  @default(DIRECT)
+  creatorId String
+  members   ChatMember[]
+  messages  ChatMessage[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
 }
 
 model ChatMember {
-  id         String    @id @default(cuid())
+  id         String   @id @default(cuid())
   roomId     String
-  room       ChatRoom  @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  room       ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
   userId     String
-  lastReadAt DateTime  @default(now())  // 마지막 읽음 시각
-  joinedAt   DateTime  @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastReadAt DateTime @default(now()) // 마지막 읽음 시각
+  joinedAt   DateTime @default(now())
 
   @@unique([roomId, userId])
 }
 
 model ChatMessage {
-  id        String    @id @default(cuid())
+  id        String   @id @default(cuid())
   roomId    String
-  room      ChatRoom  @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  room      ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
   senderId  String
+  sender    User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
   content   String
-  isEdited  Boolean   @default(false)
-  createdAt DateTime  @default(now())
+  isEdited  Boolean  @default(false)
+  createdAt DateTime @default(now())
 
   @@index([roomId, createdAt])
 }
-
-
-
-
