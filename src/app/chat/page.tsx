@@ -30,6 +30,7 @@ import {
     DialogHeader,
     DialogTitle,
     DialogTrigger,
+    DialogDescription,
 } from "@/components/ui/dialog";
 
 // ─── 유틸 ─────────────────────────────────────────────────────────────────────
@@ -227,9 +228,12 @@ export default function ChatPage() {
                                 <Plus className="h-4 w-4" />
                             </Button>
                         </DialogTrigger>
-                        <DialogContent className="sm:max-w-md">
+                        <DialogContent className="sm:max-w-md" aria-describedby="dialog-description">
                             <DialogHeader>
                                 <DialogTitle>새로운 대화 시작</DialogTitle>
+                                <DialogDescription id="dialog-description" className="sr-only">
+                                    새로운 1:1 대화 또는 그룹 채팅방을 생성하기 위해 사용자를 선택합니다.
+                                </DialogDescription>
                             </DialogHeader>
                             <div className="space-y-4 py-4 px-2">
                                 <div className="space-y-2">
