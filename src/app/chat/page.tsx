@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useStore } from "@/hooks/useStore";
 import { pusherClient } from "@/lib/pusher-client";
-import { MessageCircle, Search, Plus, User, FileText, Send, MoreVertical, X } from "lucide-react";
+import { MessageCircle, Search, Plus, User, FileText, Send, MoreVertical, X, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,8 @@ import {
     getOrCreateDM,
     createGroupChat,
 } from "@/app/actions/chat";
+
+import { getEmployees } from "@/app/actions/employee";
 
 import {
     Dialog,
@@ -52,6 +54,13 @@ export default function ChatPage() {
     const [isMessagesLoading, setIsMessagesLoading] = useState(false);
     const [input, setInput] = useState("");
     const messagesEndRef = useRef<HTMLDivElement>(null);
+
+    // 새 채팅 모달 상태
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [allUsers, setAllUsers] = useState<any[]>([]);
+    const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+    const [groupName, setGroupName] = useState("");
+    const [isCreatingRoom, setIsCreatingRoom] = useState(false);
 
     // 채팅방 목록 로드
     const loadRooms = async () => {
@@ -139,6 +148,55 @@ export default function ChatPage() {
         loadRooms(); // 목록의 마지막 메시지 갱신
     };
 
+    // 새 채팅방 만들기 
+    const handleOpenCreateModal = async () => {
+        setIsCreateModalOpen(true);
+        setSelectedUsers([]);
+        setGroupName("");
+        if (allUsers.length === 0) {
+            const res = await getEmployees();
+            if (res.success && "data" in res && res.data) {
+                // 관리자나 다른 사용자들 가져오기 (본인 제외)
+                setAllUsers((res.data as any[]).filter((u: any) => u.id !== user?.id));
+            }
+        }
+    };
+
+    const handleCreateChat = async () => {
+        if (selectedUsers.length === 0 || !user) return;
+        setIsCreatingRoom(true);
+        try {
+            if (selectedUsers.length === 1) {
+                // 1:1 채팅
+                const res = await getOrCreateDM(user.id, selectedUsers[0]);
+                if (res.success && "data" in res && res.data) {
+                    setSelectedRoomId((res.data as any).id);
+                    setIsCreateModalOpen(false);
+                    loadRooms();
+                }
+            } else {
+                // 그룹 채팅
+                if (!groupName.trim()) {
+                    alert("그룹 채팅방 이름을 입력해주세요.");
+                    setIsCreatingRoom(false);
+                    return;
+                }
+                const res = await createGroupChat({
+                    name: groupName,
+                    creatorId: user.id,
+                    memberIds: [user.id, ...selectedUsers]
+                });
+                if (res.success && "data" in res && res.data) {
+                    setSelectedRoomId((res.data as any).id);
+                    setIsCreateModalOpen(false);
+                    loadRooms();
+                }
+            }
+        } finally {
+            setIsCreatingRoom(false);
+        }
+    };
+
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
@@ -160,10 +218,64 @@ export default function ChatPage() {
                         메신저
                     </h2>
                     {/* 새 채팅 ────────────────────────────────────────── */}
-                    {/* 데모를 위해 새 채팅 버튼은 생략하거나 별도 모달 추가 */}
-                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
-                        <Plus className="h-4 w-4" />
-                    </Button>
+                    <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+                        <DialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={handleOpenCreateModal}>
+                                <Plus className="h-4 w-4" />
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-md">
+                            <DialogHeader>
+                                <DialogTitle>새로운 대화 시작</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-4 py-4 px-2">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium leading-none">대화 상대 선택</label>
+                                    <ScrollArea className="h-48 border rounded-md p-2">
+                                        <div className="flex flex-col gap-1">
+                                            {allUsers.map((u) => {
+                                                const isSelected = selectedUsers.includes(u.id);
+                                                return (
+                                                    <button
+                                                        key={u.id}
+                                                        onClick={() => {
+                                                            setSelectedUsers(prev => 
+                                                                isSelected ? prev.filter(id => id !== u.id) : [...prev, u.id]
+                                                            );
+                                                        }}
+                                                        className={cn(
+                                                            "flex justify-between items-center w-full px-3 py-2 text-sm rounded-md transition-colors",
+                                                            isSelected ? "bg-primary/10 text-primary font-medium" : "hover:bg-muted"
+                                                        )}
+                                                    >
+                                                        <span>{u.name} <span className="text-xs text-muted-foreground ml-1">({u.department?.name || '부서 없음'})</span></span>
+                                                        {isSelected && <Check className="h-4 w-4" />}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </ScrollArea>
+                                </div>
+                                {selectedUsers.length > 1 && (
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium leading-none">그룹 채팅방 이름</label>
+                                        <Input
+                                            value={groupName}
+                                            onChange={(e) => setGroupName(e.target.value)}
+                                            placeholder="채팅방 이름을 입력하세요"
+                                        />
+                                    </div>
+                                )}
+                                <Button 
+                                    className="w-full" 
+                                    onClick={handleCreateChat}
+                                    disabled={selectedUsers.length === 0 || isCreatingRoom || (selectedUsers.length > 1 && !groupName.trim())}
+                                >
+                                    {isCreatingRoom ? "생성 중..." : (selectedUsers.length > 1 ? "그룹 채팅방 만들기" : "1:1 대화 시작")}
+                                </Button>
+                            </div>
+                        </DialogContent>
+                    </Dialog>
                 </div>
                 
                 <div className="p-3">
