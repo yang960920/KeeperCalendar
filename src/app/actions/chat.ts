@@ -88,7 +88,7 @@ export async function createGroupChat(data: {
 }
 
 // ─── 내 채팅방 목록 조회 ──────────────────────────────────────────────────────
-export async function getMyChatRooms(userId: string) {
+export async function getMyChatRooms(userId: string, _t?: number) {
     noStore();
     try {
         const rooms = await (prisma as any).chatRoom.findMany({
@@ -142,7 +142,7 @@ export async function getMyChatRooms(userId: string) {
 }
 
 // ─── 채팅 메시지 목록 페이징으로 가져오기 ────────────────────────────────────
-export async function getMessages(roomId: string, limit: number = 50, cursor?: string) {
+export async function getMessages(roomId: string, limit: number = 50, cursor?: string, _t?: number) {
     noStore();
     try {
         const query: any = {

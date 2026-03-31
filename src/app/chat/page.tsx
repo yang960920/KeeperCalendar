@@ -62,14 +62,19 @@ export default function ChatPage() {
     const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
     const [groupName, setGroupName] = useState("");
     const [isCreatingRoom, setIsCreatingRoom] = useState(false);
+    const [pageError, setPageError] = useState<string | null>(null);
 
     // 채팅방 목록 로드
     const loadRooms = async () => {
         if (!user) return;
         setIsRoomsLoading(true);
-        const res = await getMyChatRooms(user.id);
+        setPageError(null);
+        const res = await getMyChatRooms(user.id, Date.now());
         if (res.success && "data" in res && res.data) {
             setRooms(res.data as any[]);
+        } else {
+            console.error("채팅방 로드 오류:", (res as any).error);
+            setPageError((res as any).error || "채팅방을 파악하지 못했습니다.");
         }
         setIsRoomsLoading(false);
     };
@@ -85,10 +90,12 @@ export default function ChatPage() {
         let isMounted = true;
         const loadInitialMessages = async () => {
             setIsMessagesLoading(true);
-            const res = await getMessages(selectedRoomId, 50);
+            const res = await getMessages(selectedRoomId, 50, undefined, Date.now());
             if (isMounted && res.success && "data" in res && res.data) {
                 setMessages(res.data as any[]);
                 scrollToBottom();
+            } else if (isMounted && !res.success) {
+                console.error("메시지 로드 오류:", (res as any).error);
             }
             setIsMessagesLoading(false);
             
@@ -208,7 +215,9 @@ export default function ChatPage() {
     const selectedRoom = rooms.find(r => r.id === selectedRoomId);
     const isSelectedDirect = selectedRoom?.type === "DIRECT";
     const selectedOpponent = isSelectedDirect ? selectedRoom.members.find((m: any) => m.userId !== user?.id)?.user : null;
-    const selectedRoomName = isSelectedDirect ? (selectedOpponent?.name || "알 수 없음") : (selectedRoom?.name || "그룹 채팅");
+    const selectedRoomName = selectedRoom 
+        ? (isSelectedDirect ? (selectedOpponent?.name || "알 수 없음") : (selectedRoom.name || "그룹 채팅"))
+        : "채팅방 로딩 중...";
 
     if (!user) return null;
 
@@ -293,6 +302,9 @@ export default function ChatPage() {
                 </div>
 
                 <ScrollArea className="flex-1">
+                    {pageError && (
+                        <div className="p-4 text-center text-sm text-red-500">{pageError}</div>
+                    )}
                     {isRoomsLoading ? (
                         <div className="p-4 text-center text-sm text-muted-foreground">로딩 중...</div>
                     ) : rooms.length === 0 ? (
