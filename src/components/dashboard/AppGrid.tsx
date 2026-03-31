@@ -10,14 +10,25 @@ import {
     Settings,
     ShieldCheck,
     NotebookPen,
+    Columns3,
+    CalendarCheck,
+    FileText,
+    FolderOpen,
+    MessageCircle,
 } from "lucide-react";
 
 const menuItems = [
     { href: "/monthly", label: "월별 일지", icon: NotebookPen, color: "text-blue-400 bg-blue-400/10" },
     { href: "/projects", label: "프로젝트", icon: FolderKanban, color: "text-emerald-400 bg-emerald-400/10" },
     { href: "/yearly", label: "연간 히트맵", icon: CalendarDays, color: "text-purple-400 bg-purple-400/10" },
+    { href: "/kanban", label: "칸반 보드", icon: Columns3, color: "text-orange-400 bg-orange-400/10" },
+    { href: "/calendar", label: "공유 캘린더", icon: CalendarCheck, color: "text-blue-400 bg-blue-400/10" },
+    { href: "/approvals", label: "전자결재", icon: FileText, color: "text-violet-400 bg-violet-400/10" },
+    { href: "/documents", label: "자료실", icon: FolderOpen, color: "text-amber-400 bg-amber-400/10" },
+    { href: "/chat", label: "메신저", icon: MessageCircle, color: "text-pink-400 bg-pink-400/10" },
     { href: "/settings", label: "설정", icon: Settings, color: "text-gray-400 bg-gray-400/10" },
 ];
+
 
 export function AppGrid() {
     const isAdminAuth = useStore(useAdminStore, (s) => s.isAdminAuthenticated);

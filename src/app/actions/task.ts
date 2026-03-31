@@ -446,3 +446,174 @@ export async function getTaskDetailsForModal(taskId: string) {
         return { success: false, error: "상세 정보를 불러오는 중 오류가 발생했습니다." };
     }
 }
+
+// ====== Kanban Board ======
+
+/**
+ * 칸반 보드에서 드래그로 태스크 상태 변경
+ */
+export async function updateTaskStatusByKanban(
+    taskId: string,
+    newStatus: "TODO" | "IN_PROGRESS" | "DONE",
+    userId: string
+) {
+    try {
+        const task = await prisma.task.findUnique({
+            where: { id: taskId },
+            include: { attachments: true },
+        });
+        if (!task) return { success: false, error: "업무를 찾을 수 없습니다." };
+
+        if (
+            newStatus === "DONE" &&
+            task.urgencyStatus === "APPROVED" &&
+            (!task.attachments || task.attachments.length === 0)
+        ) {
+            return { success: false, error: "긴급 업무는 작업물 첨부가 필수입니다." };
+        }
+
+        let contributionScore: number | null = null;
+        let completedAt: Date | null = null;
+
+        if (newStatus === "DONE") {
+            completedAt = new Date();
+            const taskData = await prisma.task.findUnique({
+                where: { id: taskId },
+                include: { subTasks: true, assignees: true, project: true },
+            });
+            const isPersonalTask = taskData?.project?.name === "개인 업무";
+            if (taskData && !isPersonalTask) {
+                contributionScore = calculateContribution({
+                    startDate: taskData.dueDate || taskData.createdAt,
+                    endDate: taskData.endDate || null,
+                    completedAt: new Date(),
+                    subTaskCount: taskData.subTasks.length,
+                    assigneeCount: Math.max(taskData.assignees.length, 1),
+                    isUrgentApproved: taskData.urgencyStatus === "APPROVED",
+                });
+            }
+        }
+
+        const updateData: any = { status: newStatus };
+        if (newStatus === "DONE") {
+            updateData.completedAt = completedAt;
+            updateData.contributionScore = contributionScore;
+        } else if (newStatus === "TODO") {
+            updateData.completedAt = null;
+            updateData.contributionScore = null;
+        }
+
+        const updated = await prisma.task.update({
+            where: { id: taskId },
+            data: updateData,
+            include: { assignees: { select: { id: true, name: true } } },
+        });
+
+        try {
+            await prisma.activityLog.create({
+                data: {
+                    action: "칸반 상태 변경",
+                    entityType: "TASK",
+                    entityId: taskId,
+                    details: `"${updated.title}" 상태를 ${newStatus}로 변경했습니다.`,
+                    userId,
+                    projectId: updated.projectId,
+                    taskId,
+                },
+            });
+        } catch (logErr) {
+            console.error("[ActivityLog] 칸반 로그 기록 실패:", logErr);
+        }
+
+        revalidatePath("/");
+        revalidatePath("/kanban");
+        revalidatePath("/admin/tracking");
+        return { success: true, data: updated };
+    } catch (error: any) {
+        console.error("Failed to update task status via kanban:", error);
+        return { success: false, error: "상태 변경에 실패했습니다." };
+    }
+}
+
+/**
+ * 특정 프로젝트의 전체 태스크를 칸반용으로 조회
+ */
+export async function getTasksByProjectForKanban(projectId: string) {
+    try {
+        const tasks = await prisma.task.findMany({
+            where: { projectId },
+            include: {
+                assignees: { select: { id: true, name: true } },
+                subTasks: { select: { id: true, isCompleted: true } },
+            },
+            orderBy: { createdAt: "asc" },
+        });
+
+        return {
+            success: true,
+            data: tasks.map((t) => ({
+                id: t.id,
+                title: t.title,
+                description: t.description,
+                status: t.status as "TODO" | "IN_PROGRESS" | "DONE",
+                priority: t.priority as "LOW" | "MEDIUM" | "HIGH",
+                assignees: t.assignees,
+                dueDate: t.dueDate?.toISOString().split("T")[0] ?? null,
+                endDate: t.endDate?.toISOString().split("T")[0] ?? null,
+                subTaskTotal: t.subTasks.length,
+                subTaskDone: t.subTasks.filter((st) => st.isCompleted).length,
+                isUrgent: t.isUrgent,
+                urgencyStatus: t.urgencyStatus,
+            })),
+        };
+    } catch (error: any) {
+        console.error("Failed to get tasks for kanban:", error);
+        return { success: false, data: [] as any[] };
+    }
+}
+
+/**
+ * 내 업무 전체를 칸반용으로 조회 (전체 프로젝트 통합, 개인 업무 제외)
+ */
+export async function getMyTasksForKanban(userId: string) {
+    try {
+        const tasks = await prisma.task.findMany({
+            where: {
+                OR: [
+                    { assigneeId: userId },
+                    { assignees: { some: { id: userId } } },
+                ],
+                project: { name: { not: "개인 업무" } },
+            },
+            include: {
+                assignees: { select: { id: true, name: true } },
+                subTasks: { select: { id: true, isCompleted: true } },
+                project: { select: { name: true } },
+            },
+            orderBy: { createdAt: "asc" },
+        });
+
+        return {
+            success: true,
+            data: tasks.map((t) => ({
+                id: t.id,
+                title: t.title,
+                description: t.description,
+                status: t.status as "TODO" | "IN_PROGRESS" | "DONE",
+                priority: t.priority as "LOW" | "MEDIUM" | "HIGH",
+                assignees: t.assignees,
+                projectName: t.project.name,
+                projectId: t.projectId,
+                dueDate: t.dueDate?.toISOString().split("T")[0] ?? null,
+                endDate: t.endDate?.toISOString().split("T")[0] ?? null,
+                subTaskTotal: t.subTasks.length,
+                subTaskDone: t.subTasks.filter((st) => st.isCompleted).length,
+                isUrgent: t.isUrgent,
+            })),
+        };
+    } catch (error: any) {
+        console.error("Failed to get my tasks for kanban:", error);
+        return { success: false, data: [] as any[] };
+    }
+}
+

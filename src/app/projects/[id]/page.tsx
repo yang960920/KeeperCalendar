@@ -3,12 +3,13 @@
 import { useState, use, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
-import { ChevronLeft, CalendarClock } from "lucide-react";
+import { ChevronLeft, CalendarClock, CalendarDays, Columns3 } from "lucide-react";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useProjectStore } from "@/store/useProjectStore";
 import { useTaskStore } from "@/store/useTaskStore";
 import { useStore } from "@/hooks/useStore";
 import { CalendarGrid } from "@/components/CalendarGrid";
+import { KanbanBoard } from "@/components/KanbanBoard";
 import { Button } from "@/components/ui/button";
 import { ProjectTaskForm } from "@/components/ProjectTaskForm";
 import { EditTaskDialog } from "@/components/EditTaskDialog";
@@ -29,6 +30,7 @@ import { ProjectProgressWidget } from "@/components/ProjectProgressWidget";
 import PeerReviewDialog from "@/components/PeerReviewDialog";
 import { ProjectReportSection } from "@/components/ProjectReportSection";
 
+
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const router = useRouter();
     const resolvedParams = use(params);
@@ -40,6 +42,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
     const [selectedTask, setSelectedTask] = useState<any | null>(null);
     const [users, setUsers] = useState<any[]>([]);
+    const [viewTab, setViewTab] = useState<"calendar" | "board">("calendar");
+
 
     useEffect(() => {
         async function fetchUsers() {
@@ -169,19 +173,55 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             )}
 
             <main className="flex-1">
-                {/* 캘린더 그리드 영역 */}
-                <div className="mt-8">
-                    <CalendarGrid
-                        year={selectedYear}
-                        month={selectedMonth}
-                        tasks={visibleTasks}
-                        onTaskClick={(t) => setSelectedTask(t)}
-                        userRole={user?.role}
-                        currentUserId={user?.id}
-                        projectCreatorId={project.creatorId}
-                    />
+                {/* 뷰 탭 전환 */}
+                <div className="mt-6 mb-4 flex items-center gap-1 border-b pb-0">
+                    <button
+                        onClick={() => setViewTab("calendar")}
+                        className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                            viewTab === "calendar"
+                                ? "border-primary text-primary"
+                                : "border-transparent text-muted-foreground hover:text-foreground"
+                        }`}
+                    >
+                        <CalendarDays className="h-4 w-4" />
+                        캘린더 뷰
+                    </button>
+                    <button
+                        onClick={() => setViewTab("board")}
+                        className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                            viewTab === "board"
+                                ? "border-primary text-primary"
+                                : "border-transparent text-muted-foreground hover:text-foreground"
+                        }`}
+                    >
+                        <Columns3 className="h-4 w-4" />
+                        보드 뷰
+                    </button>
                 </div>
+
+                {/* 캘린더 뷰 */}
+                {viewTab === "calendar" && (
+                    <div className="mt-4">
+                        <CalendarGrid
+                            year={selectedYear}
+                            month={selectedMonth}
+                            tasks={visibleTasks}
+                            onTaskClick={(t) => setSelectedTask(t)}
+                            userRole={user?.role}
+                            currentUserId={user?.id}
+                            projectCreatorId={project.creatorId}
+                        />
+                    </div>
+                )}
+
+                {/* 보드 뷰 */}
+                {viewTab === "board" && (
+                    <div className="mt-4 min-h-[500px]">
+                        <KanbanBoard projectId={projectId} />
+                    </div>
+                )}
             </main>
+
 
             {/* 업무 생성 버튼: CREATOR만 업무 할당 가능 */}
             {user?.role === "CREATOR" && (

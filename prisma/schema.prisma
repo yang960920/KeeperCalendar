@@ -394,3 +394,199 @@ model DeviceToken {
 
   @@index([userId])
 }
+
+// ── 공유 캘린더 ──
+
+enum EventCategory {
+  MEETING     // 회의
+  FIELD_WORK  // 외근
+  TRAINING    // 교육
+  VACATION    // 휴가
+  OTHER       // 기타
+}
+
+enum EventResponse {
+  PENDING     // 미응답
+  ACCEPTED    // 수락
+  DECLINED    // 거절
+  TENTATIVE   // 미정
+}
+
+enum RecurrenceType {
+  NONE
+  DAILY
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+}
+
+model CalendarEvent {
+  id              String         @id @default(cuid())
+  title           String
+  description     String?
+  category        EventCategory  @default(OTHER)
+  startTime       DateTime
+  endTime         DateTime
+  isAllDay        Boolean        @default(false)
+  location        String?
+  creatorId       String         // User.id 참조 (직접 relation 없음)
+  recurrenceType  RecurrenceType @default(NONE)
+  recurrenceEnd   DateTime?      // 반복 종료일
+  projectId       String?        // 프로젝트 연동 (옵션)
+  attendees       EventAttendee[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
+
+model EventAttendee {
+  id        String        @id @default(cuid())
+  eventId   String
+  event     CalendarEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId    String        // User.id 참조 (직접 relation 없음)
+  response  EventResponse @default(PENDING)
+
+  @@unique([eventId, userId])
+}
+
+// ── 전자결재 ──
+
+enum ApprovalCategory {
+  VACATION     // 휴가
+  OVERTIME     // 시간외근무
+  BUSINESS_TRIP // 출장
+  EXPENSE      // 지출결의
+  GENERAL      // 일반기안
+}
+
+enum ApprovalStatus {
+  PENDING      // 대기 중
+  IN_PROGRESS  // 결재 중
+  APPROVED     // 승인 완료
+  REJECTED     // 반려
+  WITHDRAWN    // 철회
+}
+
+enum StepStatus {
+  WAITING    // 대기
+  PENDING    // 결재 중
+  APPROVED   // 승인
+  REJECTED   // 반려
+}
+
+model ApprovalRequest {
+  id          String           @id @default(cuid())
+  title       String
+  content     String           // 결재 내용 (텍스트)
+  category    ApprovalCategory @default(GENERAL)
+  status      ApprovalStatus   @default(PENDING)
+  requesterId String           // 기안자 User.id
+  projectId   String?          // 프로젝트 연동 (옵션)
+  attachmentUrl String?        // 첨부 파일 URL
+  steps       ApprovalStep[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model ApprovalStep {
+  id         String          @id @default(cuid())
+  requestId  String
+  request    ApprovalRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  approverId String          // 결재자 User.id
+  stepOrder  Int             // 결재 순서 (1, 2, 3...)
+  status     StepStatus      @default(WAITING)
+  comment    String?         // 결재 의견
+  actedAt    DateTime?       // 결재/반려 시각
+
+  @@unique([requestId, stepOrder])
+}
+
+// ── 문서 관리 (자료실) ──
+
+enum DocVisibility {
+  PUBLIC   // 전체 공개
+  PRIVATE  // 비공개 (생성자만)
+}
+
+model DocFolder {
+  id          String        @id @default(cuid())
+  name        String
+  parentId    String?       // 상위 폴더 (null이면 루트)
+  parent      DocFolder?    @relation("FolderTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children    DocFolder[]   @relation("FolderTree")
+  documents   Document[]
+  creatorId   String
+  projectId   String?
+  createdAt   DateTime      @default(now())
+}
+
+model Document {
+  id          String          @id @default(cuid())
+  name        String
+  mimeType    String?
+  size        Int?            // bytes
+  folderId    String?
+  folder      DocFolder?      @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  uploaderId  String
+  projectId   String?
+  visibility  DocVisibility   @default(PUBLIC)
+  currentUrl  String          // 최신 버전 URL (Vercel Blob)
+  versions    DocumentVersion[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
+model DocumentVersion {
+  id          String    @id @default(cuid())
+  documentId  String
+  document    Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  url         String
+  size        Int?
+  uploaderId  String
+  note        String?   // 버전 메모
+  createdAt   DateTime  @default(now())
+}
+
+// ── 사내 메신저 ──
+
+enum ChatRoomType {
+  DIRECT  // 1:1 채팅
+  GROUP   // 그룹 채팅
+}
+
+model ChatRoom {
+  id          String       @id @default(cuid())
+  name        String?      // 그룹 채팅방 이름 (1:1은 null)
+  type        ChatRoomType @default(DIRECT)
+  creatorId   String
+  members     ChatMember[]
+  messages    ChatMessage[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model ChatMember {
+  id         String    @id @default(cuid())
+  roomId     String
+  room       ChatRoom  @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId     String
+  lastReadAt DateTime  @default(now())  // 마지막 읽음 시각
+  joinedAt   DateTime  @default(now())
+
+  @@unique([roomId, userId])
+}
+
+model ChatMessage {
+  id        String    @id @default(cuid())
+  roomId    String
+  room      ChatRoom  @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  senderId  String
+  content   String
+  isEdited  Boolean   @default(false)
+  createdAt DateTime  @default(now())
+
+  @@index([roomId, createdAt])
+}
+
+
+
+

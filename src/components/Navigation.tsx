@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, CalendarIcon, LayoutDashboardIcon, FolderKanbanIcon, Settings, UserCircle, LogOut, ShieldCheck } from "lucide-react";
+import { Home, CalendarIcon, LayoutDashboardIcon, FolderKanbanIcon, Settings, UserCircle, LogOut, ShieldCheck, Columns3, CalendarCheck, FileText, FolderOpen, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useAdminStore } from "@/store/useAdminStore";
@@ -69,6 +69,61 @@ export const Navigation = () => {
                 >
                     <CalendarIcon className="h-4 w-4" />
                     <span>연간 히트맵</span>
+                </Link>
+
+                <Link
+                    href="/kanban"
+                    className={cn(
+                        "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
+                        pathname === "/kanban" || pathname.startsWith("/kanban") ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    )}
+                >
+                    <Columns3 className="h-4 w-4" />
+                    <span>칸반 보드</span>
+                </Link>
+
+                <Link
+                    href="/calendar"
+                    className={cn(
+                        "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
+                        pathname === "/calendar" || pathname.startsWith("/calendar") ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    )}
+                >
+                    <CalendarCheck className="h-4 w-4" />
+                    <span>공유 캘린더</span>
+                </Link>
+
+                <Link
+                    href="/approvals"
+                    className={cn(
+                        "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
+                        pathname === "/approvals" || pathname.startsWith("/approvals") ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    )}
+                >
+                    <FileText className="h-4 w-4" />
+                    <span>전자결재</span>
+                </Link>
+
+                <Link
+                    href="/documents"
+                    className={cn(
+                        "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
+                        pathname === "/documents" || pathname.startsWith("/documents") ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    )}
+                >
+                    <FolderOpen className="h-4 w-4" />
+                    <span>자료실</span>
+                </Link>
+
+                <Link
+                    href="/chat"
+                    className={cn(
+                        "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
+                        pathname === "/chat" || pathname.startsWith("/chat") ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    )}
+                >
+                    <MessageCircle className="h-4 w-4" />
+                    <span>메신저</span>
                 </Link>
 
                 <Link
