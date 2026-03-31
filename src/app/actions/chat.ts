@@ -7,7 +7,7 @@ import { unstable_noStore as noStore, revalidatePath } from "next/cache";
 // ─── 유틸: 에러 처리 ─────────────────────────────────────────────────────────
 function handleError(message: string, error: any) {
     console.error(message, error);
-    return { success: false, error: message };
+    return { success: false, error: `${message} [세부: ${error instanceof Error ? error.message : String(error)}]` };
 }
 
 // ─── 1:1 DM 방 가져오기 또는 생성 (DIRECT) ──────────────────────────────────
@@ -120,18 +120,20 @@ export async function getMyChatRooms(userId: string, _t?: number) {
         });
 
         const formattedRooms = rooms.map((r: any) => {
-            const memberMe = r.members.find((m: any) => m.userId === userId);
-            const myLastReadAt = memberMe ? memberMe.lastReadAt : new Date(0);
+            const memberMe = Array.isArray(r.members) ? r.members.find((m: any) => m.userId === userId) : null;
+            const myLastReadAt = (memberMe && memberMe.lastReadAt) ? memberMe.lastReadAt : new Date(0);
+            const msgsArray = Array.isArray(r.messages) ? r.messages : [];
+            const lastMsg = msgsArray[0];
             
             return {
                 ...r,
-                createdAt: r.createdAt.toISOString(),
-                updatedAt: r.updatedAt.toISOString(),
-                lastMessage: r.messages[0] ? {
-                    ...r.messages[0],
-                    createdAt: r.messages[0].createdAt.toISOString()
+                createdAt: r.createdAt?.toISOString ? r.createdAt.toISOString() : String(r.createdAt),
+                updatedAt: r.updatedAt?.toISOString ? r.updatedAt.toISOString() : String(r.updatedAt),
+                lastMessage: lastMsg ? {
+                    ...lastMsg,
+                    createdAt: lastMsg.createdAt?.toISOString ? lastMsg.createdAt.toISOString() : String(lastMsg.createdAt)
                 } : null,
-                myLastReadAt: myLastReadAt.toISOString(),
+                myLastReadAt: myLastReadAt?.toISOString ? myLastReadAt.toISOString() : String(myLastReadAt),
             };
         });
 
@@ -163,9 +165,9 @@ export async function getMessages(roomId: string, limit: number = 50, cursor?: s
 
         const msgs = await (prisma as any).chatMessage.findMany(query);
 
-        const data = msgs.reverse().map((m: any) => ({
+        const data = [...msgs].reverse().map((m: any) => ({
             ...m,
-            createdAt: m.createdAt.toISOString()
+            createdAt: m.createdAt?.toISOString ? m.createdAt.toISOString() : String(m.createdAt)
         }));
 
         const nextCursor = msgs.length === limit ? msgs[0].id : null;
@@ -202,7 +204,7 @@ export async function sendMessage(data: {
 
         const formattedMessage = {
             ...message,
-            createdAt: message.createdAt.toISOString(),
+            createdAt: message.createdAt?.toISOString ? message.createdAt.toISOString() : String(message.createdAt),
         };
 
         // 채팅방 업데이트 시간 갱신
