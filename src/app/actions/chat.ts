@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { pusherServer } from "@/lib/pusher-server";
+import { unstable_noStore as noStore, revalidatePath } from "next/cache";
 
 // ─── 유틸: 에러 처리 ─────────────────────────────────────────────────────────
 function handleError(message: string, error: any) {
@@ -11,6 +12,7 @@ function handleError(message: string, error: any) {
 
 // ─── 1:1 DM 방 가져오기 또는 생성 (DIRECT) ──────────────────────────────────
 export async function getOrCreateDM(userId1: string, userId2: string) {
+    noStore();
     try {
         // 기존 1:1 방 확인
         const existingRooms = await (prisma as any).chatRoom.findMany({
@@ -46,6 +48,7 @@ export async function getOrCreateDM(userId1: string, userId2: string) {
             include: { members: true },
         });
 
+        revalidatePath("/chat");
         return { success: true, data: newRoom };
     } catch (error) {
         return handleError("DM 방 생성에 실패했습니다.", error);
@@ -58,6 +61,7 @@ export async function createGroupChat(data: {
     creatorId: string;
     memberIds: string[];
 }) {
+    noStore();
     try {
         const membersData = [
             { userId: data.creatorId },
@@ -76,6 +80,7 @@ export async function createGroupChat(data: {
             include: { members: true },
         });
 
+        revalidatePath("/chat");
         return { success: true, data: room };
     } catch (error) {
         return handleError("그룹 채팅방 생성에 실패했습니다.", error);
@@ -84,6 +89,7 @@ export async function createGroupChat(data: {
 
 // ─── 내 채팅방 목록 조회 ──────────────────────────────────────────────────────
 export async function getMyChatRooms(userId: string) {
+    noStore();
     try {
         const rooms = await (prisma as any).chatRoom.findMany({
             where: {
@@ -137,6 +143,7 @@ export async function getMyChatRooms(userId: string) {
 
 // ─── 채팅 메시지 목록 페이징으로 가져오기 ────────────────────────────────────
 export async function getMessages(roomId: string, limit: number = 50, cursor?: string) {
+    noStore();
     try {
         const query: any = {
             where: { roomId },
@@ -177,6 +184,7 @@ export async function sendMessage(data: {
     fileUrl?: string;     // 확장: 첨부파일 구현 시 사용
     fileName?: string;    // 확장: 첨부파일 구현 시 사용
 }) {
+    noStore();
     try {
         // 메시지 저장
         const message = await (prisma as any).chatMessage.create({
@@ -211,6 +219,7 @@ export async function sendMessage(data: {
         // 보낸 사람의 lastReadAt 갱신
         await markChatAsRead(data.roomId, data.senderId);
 
+        revalidatePath("/chat");
         return { success: true, data: formattedMessage };
     } catch (error) {
         return handleError("메시지 전송에 실패했습니다.", error);
@@ -219,6 +228,7 @@ export async function sendMessage(data: {
 
 // ─── 채팅방의 메시지 마지막 읽은 시간 갱신 ───────────────────────────────────
 export async function markChatAsRead(roomId: string, userId: string) {
+    noStore();
     try {
         await (prisma as any).chatMember.update({
             where: {
