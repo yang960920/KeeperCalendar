@@ -12,6 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
+import { upload } from "@vercel/blob/client";
 
 import {
     getMyChatRooms,
@@ -55,6 +56,10 @@ export default function ChatPage() {
     const [isMessagesLoading, setIsMessagesLoading] = useState(false);
     const [input, setInput] = useState("");
     const messagesEndRef = useRef<HTMLDivElement>(null);
+
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [pendingFile, setPendingFile] = useState<File | null>(null);
+    const [uploading, setUploading] = useState(false);
 
     // 새 채팅 모달 상태
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -158,14 +163,38 @@ export default function ChatPage() {
         }, 100);
     };
 
+    useEffect(() => {
+        if (!pendingFile || !pendingFile.type.startsWith('image/')) return;
+        const url = URL.createObjectURL(pendingFile);
+        return () => URL.revokeObjectURL(url);
+    }, [pendingFile]);
+
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (file.size > 100 * 1024 * 1024) {
+            alert('파일 크기는 100MB 이하만 가능합니다.');
+            e.target.value = '';
+            return;
+        }
+
+        setPendingFile(file);
+        e.target.value = '';
+    };
+
     const handleSend = async () => {
-        if (!input.trim() || !selectedRoomId || !user) return;
+        if (!input.trim() && !pendingFile) return;
+        if (!selectedRoomId || !user) return;
 
         const tempContent = input.trim();
         const tempId = `temp-${Date.now()}`;
-        setInput("");
+        const fileToUpload = pendingFile;
 
-        const optimisticMsg = {
+        setInput('');
+        setPendingFile(null);
+
+        const optimisticMsg: any = {
             id: tempId,
             roomId: selectedRoomId,
             senderId: user.id,
@@ -178,9 +207,20 @@ export default function ChatPage() {
             },
         };
 
+        let localPreviewUrl: string | null = null;
+        if (fileToUpload) {
+            localPreviewUrl = fileToUpload.type.startsWith('image/')
+                ? URL.createObjectURL(fileToUpload)
+                : null;
+            optimisticMsg.fileName = fileToUpload.name;
+            optimisticMsg.fileSize = fileToUpload.size;
+            optimisticMsg.fileType = fileToUpload.type;
+            optimisticMsg.fileUrl = localPreviewUrl || 'uploading';
+        }
+
         setMessages((prev) => [...prev, optimisticMsg]);
         scrollToBottom();
-
+        
         setRooms((prev) =>
             prev.map((r) =>
                 r.id === selectedRoomId
@@ -189,22 +229,57 @@ export default function ChatPage() {
             )
         );
 
-        const result = await sendMessage({
-            roomId: selectedRoomId,
-            senderId: user.id,
-            content: tempContent,
-        });
+        try {
+            let fileUrl: string | undefined;
+            let fileName: string | undefined;
+            let fileSize: number | undefined;
+            let fileType: string | undefined;
 
-        if (!result.success) {
+            if (fileToUpload) {
+                setUploading(true);
+                const safeName = fileToUpload.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+                const pathname = `chat/${crypto.randomUUID()}_${safeName}`;
+
+                const blob = await upload(pathname, fileToUpload, {
+                    access: 'public',
+                    handleUploadUrl: '/api/chat-upload',
+                });
+
+                fileUrl = blob.url;
+                fileName = fileToUpload.name;
+                fileSize = fileToUpload.size;
+                fileType = fileToUpload.type;
+                setUploading(false);
+            }
+
+            const result = await sendMessage({
+                roomId: selectedRoomId,
+                senderId: user.id,
+                content: tempContent,
+                fileUrl,
+                fileName,
+                fileSize,
+                fileType,
+            });
+
+            if (!result.success) throw new Error('Send failed');
+
+        } catch (error) {
             setMessages((prev) => prev.filter((m) => m.id !== tempId));
             setRooms((prev) =>
                 prev.map((r) =>
                     r.id === selectedRoomId
-                        ? { ...r, lastMessage: r.lastMessage?.id === tempId ? undefined : r.lastMessage }
+                        ? {
+                            ...r,
+                            lastMessage: r.lastMessage?.id === tempId ? undefined : r.lastMessage,
+                        }
                         : r
                 )
             );
-            console.error("메시지 전송 실패");
+            setUploading(false);
+            console.error('메시지 전송 실패:', error);
+        } finally {
+            if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
         }
     };
 
@@ -467,11 +542,48 @@ export default function ChatPage() {
                                                         )}
                                                         <div
                                                             className={cn(
-                                                                "px-4 py-2 rounded-2xl text-sm whitespace-pre-wrap break-words",
+                                                                "px-4 py-2 rounded-2xl text-sm whitespace-pre-wrap break-words flex flex-col gap-1",
                                                                 isMe ? "bg-primary text-primary-foreground rounded-br-sm" : "bg-muted text-foreground rounded-bl-sm"
                                                             )}
                                                         >
-                                                            {msg.content}
+                                                            {msg.content && <span>{msg.content}</span>}
+                                                            
+                                                            {/* 이미지 파일 */}
+                                                            {msg.fileUrl && msg.fileUrl !== 'uploading' && msg.fileType?.startsWith('image/') && (
+                                                            <div className="mt-1 max-w-xs cursor-pointer" onClick={() => window.open(msg.fileUrl, '_blank')}>
+                                                                <img
+                                                                src={msg.fileUrl}
+                                                                alt={msg.fileName || '이미지'}
+                                                                className="rounded-lg max-h-60 object-cover"
+                                                                loading="lazy"
+                                                                />
+                                                            </div>
+                                                            )}
+
+                                                            {/* 문서 파일 */}
+                                                            {msg.fileUrl && msg.fileUrl !== 'uploading' && !msg.fileType?.startsWith('image/') && (
+                                                            <a
+                                                                href={msg.fileUrl}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className={cn("mt-1 flex items-center gap-2 p-2 rounded-lg transition-colors", isMe ? "bg-primary-foreground/10 hover:bg-primary-foreground/20" : "bg-background hover:bg-background/80")}
+                                                            >
+                                                                <FileText className="h-5 w-5 shrink-0" />
+                                                                <span className="text-sm font-medium truncate max-w-[150px]">{msg.fileName || '파일'}</span>
+                                                                {msg.fileSize && (
+                                                                <span className="text-xs opacity-70">
+                                                                    {msg.fileSize < 1024 * 1024
+                                                                    ? `${(msg.fileSize / 1024).toFixed(0)}KB`
+                                                                    : `${(msg.fileSize / (1024 * 1024)).toFixed(1)}MB`}
+                                                                </span>
+                                                                )}
+                                                            </a>
+                                                            )}
+
+                                                            {/* 업로드 중 표시 */}
+                                                            {msg.fileUrl === 'uploading' && (
+                                                            <div className="mt-1 text-sm opacity-70 animate-pulse">파일 업로드 중...</div>
+                                                            )}
                                                         </div>
                                                         {!isMe && (
                                                             <span className="text-[10px] text-muted-foreground mb-0.5">
@@ -489,21 +601,64 @@ export default function ChatPage() {
                         </ScrollArea>
 
                         {/* 입력 창 */}
-                        <div className="p-4 bg-background border-t">
+                        <div className="p-4 bg-background border-t flex flex-col gap-2">
+                            {/* 파일 미리보기 영역 */}
+                            {pendingFile && (
+                            <div className="px-4 py-2 border flex items-center gap-3 bg-muted/30 rounded-lg w-fit max-w-sm">
+                                {pendingFile.type.startsWith('image/') ? (
+                                <img
+                                    src={URL.createObjectURL(pendingFile)}
+                                    alt="미리보기"
+                                    className="h-12 w-12 object-cover rounded border"
+                                />
+                                ) : (
+                                <div className="h-12 w-12 rounded bg-background border flex items-center justify-center">
+                                    <FileText className="h-6 w-6 text-muted-foreground" />
+                                </div>
+                                )}
+                                <div className="flex flex-col min-w-0 flex-1">
+                                    <span className="text-sm font-medium truncate">{pendingFile.name}</span>
+                                    <span className="text-xs text-muted-foreground">
+                                    {pendingFile.size < 1024 * 1024
+                                        ? `${(pendingFile.size / 1024).toFixed(0)}KB`
+                                        : `${(pendingFile.size / (1024 * 1024)).toFixed(1)}MB`}
+                                    </span>
+                                </div>
+                                <Button variant="ghost" size="icon" onClick={() => setPendingFile(null)} className="h-6 w-6 ml-2 text-muted-foreground hover:text-destructive">
+                                    <X className="h-4 w-4" />
+                                </Button>
+                            </div>
+                            )}
+
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.docx,.xlsx"
+                                className="hidden"
+                                onChange={handleFileSelect}
+                            />
+
                             <div className="flex items-end gap-2 bg-muted/30 p-2 rounded-xl border focus-within:ring-1 focus-within:ring-primary/30 transition-shadow">
-                                <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0 text-muted-foreground hover:text-foreground">
+                                <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-10 w-10 shrink-0 text-muted-foreground hover:text-foreground disabled:opacity-50"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={uploading}
+                                >
                                     <Plus className="h-5 w-5" />
                                 </Button>
                                 <Input
                                     value={input}
                                     onChange={(e) => setInput(e.target.value)}
                                     onKeyDown={handleKeyDown}
-                                    placeholder="메시지를 입력하세요 (Shift + Enter로 줄바꿈)"
-                                    className="flex-1 border-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent min-h-[40px] px-2 shadow-none"
+                                    placeholder={uploading ? "파일을 업로드하는 중입니다..." : "메시지를 입력하세요 (Shift + Enter로 줄바꿈)"}
+                                    disabled={uploading}
+                                    className="flex-1 border-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent min-h-[40px] px-2 shadow-none disabled:opacity-50"
                                 />
                                 <Button 
                                     onClick={handleSend}
-                                    disabled={!input.trim()}
+                                    disabled={(!input.trim() && !pendingFile) || uploading}
                                     size="icon" 
                                     className="h-10 w-10 shrink-0 rounded-lg"
                                 >
