@@ -21,7 +21,7 @@
 프로젝트 단위 협업을 지원하는 **올인원 업무 관리 플랫폼**입니다.  
 **오피스 홈 대시보드**로 출퇴근, 업무, 알림, 일정을 한 화면에서 관리합니다.
 
-[🚀 라이브 데모](https://keeper-calendar.vercel.app) · [📖 문서](#-getting-started) · [🛠️ 개발 히스토리](#-개발-및-디버깅-히스토리) · [🐛 이슈 리포트](../../issues)
+[🚀 라이브 데모](https://keeper-calendar-demo.vercel.app/) · [📖 문서](#-getting-started) · [🛠️ 개발 히스토리](#-개발-및-디버깅-히스토리) · [🐛 이슈 리포트](../../issues)
 
 </div>
 
