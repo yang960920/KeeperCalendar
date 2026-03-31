@@ -61,6 +61,10 @@ export default function ChatPage() {
     const [pendingFile, setPendingFile] = useState<File | null>(null);
     const [uploading, setUploading] = useState(false);
 
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
+    const [hasMore, setHasMore] = useState(true);
+
     // 새 채팅 모달 상태
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [allUsers, setAllUsers] = useState<any[]>([]);
@@ -88,6 +92,42 @@ export default function ChatPage() {
         loadRooms();
     }, [user]);
 
+    // 이전 메시지 로드 핸들러
+    const handleScroll = async (e: React.UIEvent<HTMLDivElement>) => {
+        const target = e.target as HTMLDivElement;
+        if (target.scrollTop === 0 && hasMore && !isLoadingMore && selectedRoomId) {
+            setIsLoadingMore(true);
+            const oldestMsgId = messages[0]?.id;
+            if (!oldestMsgId) {
+                setIsLoadingMore(false);
+                return;
+            }
+            const res = await getMessages(selectedRoomId, 50, oldestMsgId, Date.now());
+            if (res.success && (res as any).data) {
+                const olderMsgs = (res as any).data as any[];
+                setHasMore((res as any).nextCursor !== null);
+                
+                if (olderMsgs.length > 0) {
+                    const scrollHeightBefore = target.scrollHeight;
+                    
+                    setMessages((prev) => {
+                        const existingIds = new Set(prev.map(m => m.id));
+                        const filtered = olderMsgs.filter(m => !existingIds.has(m.id));
+                        return [...filtered, ...prev];
+                    });
+                    
+                    requestAnimationFrame(() => {
+                        if (scrollContainerRef.current) {
+                            const scrollHeightAfter = scrollContainerRef.current.scrollHeight;
+                            scrollContainerRef.current.scrollTop = scrollHeightAfter - scrollHeightBefore;
+                        }
+                    });
+                }
+            }
+            setIsLoadingMore(false);
+        }
+    };
+
     // 방 선택 시 메시지 로드
     useEffect(() => {
         if (!selectedRoomId || !user) return;
@@ -96,8 +136,9 @@ export default function ChatPage() {
         const loadInitialMessages = async () => {
             setIsMessagesLoading(true);
             const res = await getMessages(selectedRoomId, 50, undefined, Date.now());
-            if (isMounted && res.success && "data" in res && res.data) {
-                setMessages(res.data as any[]);
+            if (isMounted && res.success && (res as any).data) {
+                setMessages((res as any).data as any[]);
+                setHasMore((res as any).nextCursor !== null);
                 scrollToBottom();
             } else if (isMounted && !res.success) {
                 console.error("메시지 로드 오류:", (res as any).error);
@@ -504,11 +545,18 @@ export default function ChatPage() {
                         </div>
 
                         {/* 메시지 리스트 */}
-                        <ScrollArea className="flex-1 p-6">
+                        <div 
+                            ref={scrollContainerRef}
+                            onScroll={handleScroll}
+                            className="flex-1 overflow-y-auto p-6 flex flex-col"
+                        >
                             {isMessagesLoading ? (
-                                <div className="text-center text-sm text-muted-foreground p-4">메시지 로딩 중...</div>
+                                <div className="text-center text-sm text-muted-foreground p-4 my-auto">메시지 로딩 중...</div>
                             ) : (
-                                <div className="flex flex-col gap-4">
+                                <div className="flex flex-col gap-4 flex-1">
+                                    {isLoadingMore && (
+                                        <div className="text-center text-xs text-muted-foreground py-2 animate-pulse">이전 메시지 불러오는 중...</div>
+                                    )}
                                     {messages.map((msg, idx) => {
                                         const isMe = msg.senderId === user.id;
                                         const showAvatar = !isMe && (idx === 0 || messages[idx - 1].senderId !== msg.senderId);
@@ -598,7 +646,7 @@ export default function ChatPage() {
                                     <div ref={messagesEndRef} />
                                 </div>
                             )}
-                        </ScrollArea>
+                        </div>
 
                         {/* 입력 창 */}
                         <div className="p-4 bg-background border-t flex flex-col gap-2">
