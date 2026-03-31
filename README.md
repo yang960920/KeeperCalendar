@@ -554,6 +554,14 @@ npm run dev
   - `ChatMember`, `ChatMessage` 모델과 `User` 테이블 모델 간의 관계식(`@relation`)을 명시하여 클라우드 DB 구조를 견고히 완성.
   - **프로필 아바타 매핑 보완**: Vercel Blob에 저장된 `profileImageUrl`을 올바르게 매핑하여 채팅방 UI에 상대방의 진짜 얼굴과 이름이 연동되도록 마무리.
 
+### 8️⃣ 사내 메신저 고도화 (대용량 첨부파일 및 UI/UX 성능 최적화)
+- **이슈**: 기본 채팅 기능 구축 이후, 대용량 파일 첨부의 필요성과 함께 메시지 증가 시 스크롤러 동작 불능, 그리고 메시지 전송 시 전체 페이지 깜빡임(Flickering) 현상이 보고됨.
+- **해결**:
+  - **Vercel Blob Client Upload 도입**: 서버 부하를 방지하고 최대 100MB의 이미지 및 문서(PDF, 오피스 등)를 프론트엔드에서 다이렉트로 안전하게 업로드할 수 있는 채팅 전용 클라이언트 API 라우트 신설.
+  - **낙관적 업데이트 (Optimistic UI)**: 메시지와 파일을 보내는 즉시 UI에 가상 객체(uploading) 상태로 반영하고, Pusher 이벤트 수신 구조를 개편하여 기존 `revalidatePath`로 인한 렌더링 깜빡임을 완전히 근절.
+  - **Pusher Client Singleton 패턴**: Next.js HMR(핫 모듈 교체) 환경 및 잦은 재렌더링 시 Pusher 인스턴스가 무한 증식하는 메모리 누수를 `globalThis` 패턴으로 차단하여 소켓 연결 안정성 100% 확보.
+  - **Native Scroll & 무한 스크롤(Pagination)**: 동적 이미지 높이와 충돌하던 UI 라이브러리 스크롤러를 제거. 마우스 휠 업(올리기) 시 과거 메시지를 50개씩 부드럽게 무한 추가 로딩하는 핸들러(`scrollTop === 0`)를 네이티브 CSS와 연동하여 말풍선 레이아웃 붕괴 문제까지 완벽 해결.
+
 ---
 
 ## 📄 License
