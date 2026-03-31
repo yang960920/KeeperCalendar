@@ -530,7 +530,7 @@ export default function ChatPage() {
                                                         )}
                                                     </div>
                                                 )}
-                                                <div className={cn("flex flex-col max-w-[70%]", isMe ? "items-end" : "items-start")}>
+                                                <div className={cn("flex flex-col max-w-[70%] overflow-hidden", isMe ? "items-end" : "items-start")}>
                                                     {!isMe && showAvatar && (
                                                         <span className="text-xs text-muted-foreground mb-1 ml-1">{senderName}</span>
                                                     )}
@@ -550,11 +550,11 @@ export default function ChatPage() {
                                                             
                                                             {/* 이미지 파일 */}
                                                             {msg.fileUrl && msg.fileUrl !== 'uploading' && msg.fileType?.startsWith('image/') && (
-                                                            <div className="mt-1 max-w-xs cursor-pointer" onClick={() => window.open(msg.fileUrl, '_blank')}>
+                                                            <div className="mt-1 cursor-pointer overflow-hidden rounded-lg" onClick={() => window.open(msg.fileUrl, '_blank')}>
                                                                 <img
                                                                 src={msg.fileUrl}
                                                                 alt={msg.fileName || '이미지'}
-                                                                className="rounded-lg max-h-60 object-cover"
+                                                                className="rounded-lg max-h-60 max-w-full object-cover"
                                                                 loading="lazy"
                                                                 />
                                                             </div>
