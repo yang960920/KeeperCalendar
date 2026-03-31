@@ -124,7 +124,7 @@ export async function getMyChatRooms(userId: string, _t?: number) {
             const myLastReadAt = (memberMe && memberMe.lastReadAt) ? memberMe.lastReadAt : new Date(0);
             const msgsArray = Array.isArray(r.messages) ? r.messages : [];
             const lastMsg = msgsArray[0];
-            
+
             return {
                 ...r,
                 createdAt: r.createdAt?.toISOString ? r.createdAt.toISOString() : String(r.createdAt),
@@ -183,17 +183,33 @@ export async function sendMessage(data: {
     roomId: string;
     senderId: string;
     content: string;
-    fileUrl?: string;     // 확장: 첨부파일 구현 시 사용
-    fileName?: string;    // 확장: 첨부파일 구현 시 사용
+    fileUrl?: string;
+    fileName?: string;
+    fileSize?: number;
+    fileType?: string;
 }) {
     noStore();
     try {
+        // 빈 메시지 검증
+        if (!data.content.trim() && !data.fileUrl) {
+            return { success: false, error: 'Empty message' };
+        }
+
+        // fileUrl 도메인 검증
+        if (data.fileUrl && !data.fileUrl.includes('.public.blob.vercel-storage.com/')) {
+            return { success: false, error: 'Invalid file URL' };
+        }
+
         // 메시지 저장
         const message = await (prisma as any).chatMessage.create({
             data: {
                 roomId: data.roomId,
                 senderId: data.senderId,
                 content: data.content,
+                fileUrl: data.fileUrl || null,
+                fileName: data.fileName || null,
+                fileSize: data.fileSize || null,
+                fileType: data.fileType || null,
             },
             include: {
                 sender: {

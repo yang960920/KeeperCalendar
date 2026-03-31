@@ -586,6 +586,10 @@ model ChatMessage {
   sender    User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
   content   String
   isEdited  Boolean  @default(false)
+  fileUrl   String?
+  fileName  String?
+  fileSize  Int?
+  fileType  String?
   createdAt DateTime @default(now())
 
   @@index([roomId, createdAt])
