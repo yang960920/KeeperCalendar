@@ -546,6 +546,14 @@ npm run dev
 - **이슈**: `README.md` 등 문서만 수정했을 때도 Vercel 빌드가 트리거되어 빌드 시간(Build Minutes) 낭비 발생.
 - **해결**: 커밋 메시지 `[skip ci]` 컨벤션 도입 및 Vercel Dashboard의 *Ignored Build Step* 규칙(`git diff --quiet HEAD^ HEAD ./src/ ...`) 적용하여 코어 소스 변경 시에만 배포되도록 설정.
 
+### 7️⃣ 사내 메신저 도입 및 실시간 통신 최적화 (Team Messenger)
+- **이슈**: Pusher를 활용한 실시간 채팅 시스템(1:1 및 그룹) 구현 중 Next.js Server Action의 강력한 정적 캐싱(Caching)으로 인해 방 생성 후 목록이 갱신되지 않는 동기화 버그 발생. 또한 Prisma Client의 읽기 전용(Frozen) 배열을 변이 시도하여 생기는 에러(`reverse()`) 및 Schema Relation 누락으로 인한 `Unknown field` 런타임 에러 발생.
+- **해결**:
+  - `noStore()` 및 무작위 타임스탬프 기반 캐시 버스팅을 적용하여 Vercel 배포 환경에서도 실시간으로 방 목록과 메시지가 동기화되도록 완전 수정.
+  - 배열 복사(`[...msgs].reverse()`) 및 Date 타입 직렬화(Serialization) 안전 보장 코드를 적용하여 JS 동결 객체 에러를 원천 차단.
+  - `ChatMember`, `ChatMessage` 모델과 `User` 테이블 모델 간의 관계식(`@relation`)을 명시하여 클라우드 DB 구조를 견고히 완성.
+  - **프로필 아바타 매핑 보완**: Vercel Blob에 저장된 `profileImageUrl`을 올바르게 매핑하여 채팅방 UI에 상대방의 진짜 얼굴과 이름이 연동되도록 마무리.
+
 ---
 
 ## 📄 License
