@@ -104,7 +104,7 @@ export async function getMyChatRooms(userId: string, _t?: number) {
                             select: {
                                 id: true,
                                 name: true,
-                                resumeUrl: true,
+                                profileImageUrl: true,
                             }
                         }
                     }
@@ -153,7 +153,7 @@ export async function getMessages(roomId: string, limit: number = 50, cursor?: s
             orderBy: { createdAt: "desc" },
             include: {
                 sender: {
-                    select: { id: true, name: true, resumeUrl: true }
+                    select: { id: true, name: true, profileImageUrl: true }
                 }
             }
         };
@@ -197,7 +197,7 @@ export async function sendMessage(data: {
             },
             include: {
                 sender: {
-                    select: { id: true, name: true, resumeUrl: true }
+                    select: { id: true, name: true, profileImageUrl: true }
                 }
             }
         });

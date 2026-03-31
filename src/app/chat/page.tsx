@@ -316,7 +316,7 @@ export default function ChatPage() {
                                 const isDirect = room.type === "DIRECT";
                                 const opponent = isDirect ? room.members.find((m: any) => m.userId !== user.id)?.user : null;
                                 const roomName = isDirect ? (opponent?.name || "알 수 없음") : (room.name || "그룹 채팅");
-                                const avatarUrl = isDirect ? opponent?.resumeUrl : null;
+                                const avatarUrl = isDirect ? opponent?.profileImageUrl : null;
 
                                 return (
                                     <button
@@ -386,7 +386,7 @@ export default function ChatPage() {
                                         const isMe = msg.senderId === user.id;
                                         const showAvatar = !isMe && (idx === 0 || messages[idx - 1].senderId !== msg.senderId);
                                         const senderName = msg.sender?.name || "알 수 없음";
-                                        const senderAvatar = msg.sender?.resumeUrl;
+                                        const senderAvatar = msg.sender?.profileImageUrl;
 
                                         return (
                                             <div key={msg.id} className={cn("flex gap-3", isMe ? "justify-end" : "justify-start")}>
