@@ -74,9 +74,9 @@ export default function ChatPage() {
     const [pageError, setPageError] = useState<string | null>(null);
 
     // 채팅방 목록 로드
-    const loadRooms = async () => {
+    const loadRooms = async (showLoading = false) => {
         if (!user) return;
-        setIsRoomsLoading(true);
+        if (showLoading) setIsRoomsLoading(true);
         setPageError(null);
         const res = await getMyChatRooms(user.id, Date.now());
         if (res.success && "data" in res && res.data) {
@@ -89,7 +89,7 @@ export default function ChatPage() {
     };
 
     useEffect(() => {
-        loadRooms();
+        loadRooms(true);
     }, [user]);
 
     // 이전 메시지 로드 핸들러
@@ -134,7 +134,8 @@ export default function ChatPage() {
         
         let isMounted = true;
         const loadInitialMessages = async () => {
-            setIsMessagesLoading(true);
+            // 이전 메시지가 없을 때만 로딩 표시 (최초 진입 시)
+            if (messages.length === 0) setIsMessagesLoading(true);
             const res = await getMessages(selectedRoomId, 50, undefined, Date.now());
             if (isMounted && res.success && (res as any).data) {
                 setMessages((res as any).data as any[]);
@@ -147,10 +148,12 @@ export default function ChatPage() {
             
             // 읽음 처리
             await markChatAsRead(selectedRoomId, user.id);
-            // 목록 갱신 (읽음 뱃지 제거)
+            // 목록 갱신 (읽음 뱃지 제거) — 백그라운드로 새로고침
             loadRooms();
         };
 
+        // 방 이동 시 기존 메시지 초기화 (이전 방 메시지가 잘못 보이지 않도록)
+        setMessages([]);
         loadInitialMessages();
 
         // Pusher 구독
