@@ -26,6 +26,9 @@ export function WorkClockWidget() {
     const [deviceStatus, setDeviceStatus] = useState<DeviceStatus>("CHECKING");
     const [deviceLoading, setDeviceLoading] = useState(false);
 
+    // 초기 로딩 상태 (깜빡임 방지용)
+    const [initialLoading, setInitialLoading] = useState(true);
+
     // 외근 관련 상태
     const [showFieldModal, setShowFieldModal] = useState(false);
     const [showEmergencyModal, setShowEmergencyModal] = useState(false);
@@ -42,48 +45,70 @@ export function WorkClockWidget() {
         return () => clearInterval(timer);
     }, []);
 
-    // 기기 인증 체크 (마운트 시)
+    // 초기 데이터 패칭 (기기 인증 + 오늘 출퇴근 상태 병렬 조회)
     useEffect(() => {
         if (!user) return;
-        const storedToken = localStorage.getItem("keeper_device_token");
-        checkDeviceToken(user.id, storedToken).then((res) => {
-            if (res.success) {
-                if (res.status === "AUTO_REGISTERED" && res.token) {
-                    localStorage.setItem("keeper_device_token", res.token);
-                }
-                setDeviceStatus("APPROVED");
-            } else {
-                if (res.status === "PENDING") {
-                    setDeviceStatus("PENDING");
-                } else {
-                    setDeviceStatus("NEED_REGISTRATION");
-                }
-            }
-        });
-    }, [user]);
 
-    // 출퇴근 상태 조회
-    useEffect(() => {
-        if (!user || deviceStatus !== "APPROVED") return;
-        getTodayAttendance(user.id).then((res) => {
-            if (res.success && res.data) {
-                const ci = new Date(res.data.clockIn);
-                setClockInTime(ci);
-                setAttendanceId(res.data.id);
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                setWorkType((res.data as any).workType || "OFFICE");
-                if (res.data.clockOut) {
-                    const co = new Date(res.data.clockOut);
-                    setClockOutTimeStr(co.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }));
-                    setStatus("CLOCKED_OUT");
+        let isMounted = true;
+        const storedToken = localStorage.getItem("keeper_device_token");
+
+        async function fetchInitialData() {
+            try {
+                // 병렬 요청: 기기 인증 + 출퇴근 기록
+                const [deviceRes, attendanceRes] = await Promise.all([
+                    checkDeviceToken(user!.id, storedToken),
+                    getTodayAttendance(user!.id),
+                ]);
+
+                if (!isMounted) return;
+
+                // 1. 기기 인증 상태 처리
+                if (deviceRes.success) {
+                    if (deviceRes.status === "AUTO_REGISTERED" && deviceRes.token) {
+                        localStorage.setItem("keeper_device_token", deviceRes.token);
+                    }
+                    setDeviceStatus("APPROVED");
                 } else {
-                    setStatus("CLOCKED_IN");
+                    if (deviceRes.status === "PENDING") {
+                        setDeviceStatus("PENDING");
+                    } else {
+                        setDeviceStatus("NEED_REGISTRATION");
+                    }
                 }
-            } else {
-                setStatus("NOT_CLOCKED_IN");
+
+                // 2. 출퇴근 상태 처리 (기기가 승인되었을 때만 유효함)
+                if (deviceRes.success && deviceRes.status !== "PENDING" && attendanceRes.success && attendanceRes.data) {
+                    const ci = new Date(attendanceRes.data.clockIn);
+                    setClockInTime(ci);
+                    setAttendanceId(attendanceRes.data.id);
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    setWorkType((attendanceRes.data as any).workType || "OFFICE");
+
+                    if (attendanceRes.data.clockOut) {
+                        const co = new Date(attendanceRes.data.clockOut);
+                        setClockOutTimeStr(co.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }));
+                        setStatus("CLOCKED_OUT");
+                    } else {
+                        setStatus("CLOCKED_IN");
+                    }
+                } else {
+                    setStatus("NOT_CLOCKED_IN");
+                }
+            } catch (error) {
+                console.error("Failed to fetch widget data:", error);
+            } finally {
+                if (isMounted) {
+                    setInitialLoading(false);
+                }
             }
-        });
-    }, [user, deviceStatus]);
+        }
+
+        fetchInitialData();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [user]);
 
     const handleClockOut = useCallback(async () => {
         if (!user) return;
@@ -200,11 +225,14 @@ export function WorkClockWidget() {
 
 
 
-    if (deviceStatus === "CHECKING") {
+    if (initialLoading || deviceStatus === "CHECKING") {
         return (
             <div className="bg-card rounded-xl border shadow-sm p-5 flex flex-col items-center justify-center h-full gap-3">
-                <Loader2 className="h-8 w-8 animate-spin text-cyan-400" />
-                <p className="text-sm text-muted-foreground">기기 인증 확인 중...</p>
+                <Loader2 className="h-8 w-8 animate-spin text-cyan-400 opacity-80" />
+                <p className="text-sm text-muted-foreground font-medium">근무 정보 동기화 중...</p>
+                <div className="w-32 h-1 bg-muted rounded-full overflow-hidden mt-2">
+                    <div className="h-full bg-cyan-400/50 w-1/2 rounded-full animate-[pulse_1.5s_ease-in-out_infinite]" />
+                </div>
             </div>
         );
     }

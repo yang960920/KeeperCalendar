@@ -9,17 +9,13 @@ import { prisma } from "@/lib/prisma";
  */
 export async function checkDeviceToken(userId: string, token: string | null) {
     try {
-        // 1. 해당 사용자의 모든 기기 토큰 조회
-        const allDevices = await prisma.deviceToken.findMany({
-            where: { userId },
-        });
-
-        const approvedDevices = allDevices.filter(d => d.status === "APPROVED");
-
-        // 2. 현재 토큰이 있으면 유효성 확인
+        // 1. 현재 토큰이 전달된 경우, 해당 토큰만 단일 조회 (가장 빈번한 케이스)
         if (token) {
-            const matched = allDevices.find(d => d.token === token);
-            if (matched) {
+            const matched = await prisma.deviceToken.findUnique({
+                where: { token },
+            });
+
+            if (matched && matched.userId === userId) {
                 if (matched.status === "APPROVED") {
                     return { success: true, status: "APPROVED", deviceId: matched.id };
                 }
@@ -29,8 +25,14 @@ export async function checkDeviceToken(userId: string, token: string | null) {
             }
         }
 
+        // 2. 토큰이 없거나 무효한 경우, 승인된 기기가 존재하는지 1건만 조회
+        const hasApprovedDevice = await prisma.deviceToken.findFirst({
+            where: { userId, status: "APPROVED" },
+            select: { id: true },
+        });
+
         // 3. 승인된 기기가 0개 = 첫 기기 → 자동 등록 + 자동 승인
-        if (approvedDevices.length === 0) {
+        if (!hasApprovedDevice) {
             const newToken = crypto.randomUUID();
             const device = await prisma.deviceToken.create({
                 data: {
