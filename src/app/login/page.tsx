@@ -34,19 +34,19 @@ export default function LoginPage() {
         try {
             const res = await loginUser(id, password);
             if (res.success && res.data) {
-                // 로그인 성공, Zustand 상태 업데이트
-                login({
-                    id: res.data.id,
-                    name: res.data.name,
-                    role: res.data.role as any, // "CREATOR" | "PARTICIPANT"
-                });
-
-                // 강제 DB 동기화 (Hydration)
+                // 강제 DB 동기화 (Hydration) — login() 보다 먼저 실행
                 const initRes = await getInitialData(res.data.id);
                 if (initRes.success) {
                     useProjectStore.setState({ projects: initRes.projects });
                     useTaskStore.setState({ tasks: initRes.tasks });
                 }
+
+                // 데이터 준비 완료 후 Zustand 상태 업데이트
+                login({
+                    id: res.data.id,
+                    name: res.data.name,
+                    role: res.data.role as any, // "CREATOR" | "PARTICIPANT"
+                });
 
                 router.push("/");
             } else {
