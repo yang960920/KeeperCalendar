@@ -9,6 +9,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { useAdminStore } from "@/store/useAdminStore";
 import { useStore } from "@/hooks/useStore";
 import { getUserProfile } from "@/app/actions/settings";
+import { getUnreadChatCount } from "@/app/actions/chat";
 import { NotificationBell } from "@/components/NotificationBell";
 
 export const Navigation = () => {
@@ -16,6 +17,23 @@ export const Navigation = () => {
     const user = useStore(useAuthStore, (state) => state.user);
     const logout = useAuthStore((state) => state.logout);
     const isAdminAuth = useStore(useAdminStore, (state) => state.isAdminAuthenticated);
+
+    // 메신저 미읽음 카운트
+    const [unreadChatCount, setUnreadChatCount] = useState(0);
+
+    useEffect(() => {
+        if (!user) return;
+        const fetchCount = () => {
+            getUnreadChatCount(user.id).then(res => {
+                if (res.success && 'count' in res) {
+                    setUnreadChatCount(res.count);
+                }
+            });
+        };
+        fetchCount();
+        const interval = setInterval(fetchCount, 30000);
+        return () => clearInterval(interval);
+    }, [user]);
 
     // 로그인 및 관리자 페이지에서는 네비게이션을 숨김
     if (pathname === "/login" || pathname.startsWith("/admin")) return null;
@@ -124,6 +142,11 @@ export const Navigation = () => {
                 >
                     <MessageCircle className="h-4 w-4" />
                     <span>메신저</span>
+                    {unreadChatCount > 0 && (
+                        <span className="ml-auto flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[10px] font-bold rounded-full bg-red-500 text-white">
+                            {unreadChatCount > 99 ? '99+' : unreadChatCount}
+                        </span>
+                    )}
                 </Link>
 
                 <Link

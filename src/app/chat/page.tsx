@@ -480,7 +480,7 @@ export default function ChatPage() {
                     ) : (
                         <div className="flex flex-col gap-1 p-2">
                             {rooms.map(room => {
-                                const isUnread = room.lastMessage && new Date(room.lastMessage.createdAt) > new Date(room.myLastReadAt);
+                                const isUnread = room.lastMessage && room.lastMessage.senderId !== user.id && new Date(room.lastMessage.createdAt) > new Date(room.myLastReadAt);
                                 const isDirect = room.type === "DIRECT";
                                 const opponent = isDirect ? room.members.find((m: any) => m.userId !== user.id)?.user : null;
                                 const roomName = isDirect ? (opponent?.name || "알 수 없음") : (room.name || "그룹 채팅");

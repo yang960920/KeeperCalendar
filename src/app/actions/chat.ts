@@ -263,3 +263,34 @@ export async function markChatAsRead(roomId: string, userId: string) {
         return handleError("읽음 처리에 실패했습니다.", error);
     }
 }
+
+// ─── 전체 미읽음 메시지 카운트 (Navigation 뱃지용) ─────────────────────────────
+export async function getUnreadChatCount(userId: string) {
+    noStore();
+    try {
+        const memberships = await (prisma as any).chatMember.findMany({
+            where: { userId },
+            select: {
+                roomId: true,
+                lastReadAt: true,
+            },
+        });
+
+        let totalUnread = 0;
+
+        for (const membership of memberships) {
+            const count = await (prisma as any).chatMessage.count({
+                where: {
+                    roomId: membership.roomId,
+                    senderId: { not: userId },
+                    createdAt: { gt: membership.lastReadAt || new Date(0) },
+                },
+            });
+            totalUnread += count;
+        }
+
+        return { success: true, count: totalUnread };
+    } catch (error) {
+        return handleError("미읽음 카운트 조회에 실패했습니다.", error);
+    }
+}
