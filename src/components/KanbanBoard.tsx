@@ -25,6 +25,8 @@ import {
     CalendarClock,
     CheckSquare,
     ChevronDown,
+    ChevronLeft,
+    ChevronRight,
     Filter,
     Loader2,
     Search,
@@ -263,6 +265,8 @@ function SortableKanbanCard({ task }: { task: KanbanTask }) {
 
 // ─── KanbanColumn ─────────────────────────────────────────────────────────────
 
+const ITEMS_PER_PAGE = 8;
+
 function KanbanColumn({
     config,
     tasks,
@@ -270,6 +274,19 @@ function KanbanColumn({
     config: (typeof COLUMN_CONFIG)[number];
     tasks: KanbanTask[];
 }) {
+    const [page, setPage] = useState(1);
+
+    const totalPages = Math.ceil(tasks.length / ITEMS_PER_PAGE) || 1;
+    const paginatedTasks = tasks.slice(
+        (page - 1) * ITEMS_PER_PAGE,
+        page * ITEMS_PER_PAGE
+    );
+
+    // tasks 변경(필터/검색/DnD) 시 페이지 리셋
+    useEffect(() => {
+        setPage(1);
+    }, [tasks.length]);
+
     return (
         <div
             className={`flex flex-col rounded-xl border ${config.borderColor} ${config.bgColor} min-h-[400px]`}
@@ -291,7 +308,7 @@ function KanbanColumn({
 
             {/* 카드 영역 */}
             <SortableContext
-                items={tasks.map((t) => t.id)}
+                items={paginatedTasks.map((t) => t.id)}
                 strategy={verticalListSortingStrategy}
             >
                 <div className="flex flex-col gap-2.5 p-3 flex-1">
@@ -300,11 +317,38 @@ function KanbanColumn({
                             업무 없음
                         </div>
                     )}
-                    {tasks.map((task) => (
+                    {paginatedTasks.map((task) => (
                         <SortableKanbanCard key={task.id} task={task} />
                     ))}
                 </div>
             </SortableContext>
+
+            {/* 페이지네이션 컨트롤 */}
+            {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-2 px-3 py-2 border-t border-inherit">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                        disabled={page === 1}
+                    >
+                        <ChevronLeft className="h-3.5 w-3.5" />
+                    </Button>
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                        {page} / {totalPages}
+                    </span>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                        disabled={page === totalPages}
+                    >
+                        <ChevronRight className="h-3.5 w-3.5" />
+                    </Button>
+                </div>
+            )}
         </div>
     );
 }
