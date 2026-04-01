@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { unstable_noStore as noStore } from "next/cache";
 
 /**
- * 대시보드 통계 데이터 한번에 조회
+ * 대시보드 통계 데이터 한번에 조회 (병렬 쿼리)
  */
 export async function getDashboardStats(userId: string) {
     noStore();
@@ -14,40 +14,57 @@ export async function getDashboardStats(userId: string) {
         const tomorrow = new Date(today);
         tomorrow.setDate(tomorrow.getDate() + 1);
 
-        // 1. 오늘 할 일 (오늘 기한인 업무 + 나에게 할당된 TODO/IN_PROGRESS 업무)
-        const todayTasks = await prisma.task.findMany({
-            where: {
-                OR: [
-                    {
-                        dueDate: { gte: today, lt: tomorrow },
-                        assignees: { some: { id: userId } },
-                    },
-                    {
-                        endDate: { gte: today, lt: tomorrow },
-                        assignees: { some: { id: userId } },
-                    },
-                ],
-            },
-            include: {
-                project: { select: { name: true } },
-                assignees: { select: { id: true, name: true } },
-            },
-            orderBy: { createdAt: "desc" },
-            take: 10,
-        });
-
-        // 2. 안 읽은 알림 수
-        const unreadNotifications = await prisma.notification.count({
-            where: { userId, isRead: false },
-        });
-
-        // 3. 업무 상태별 건수 (내가 담당인 것들)
-        const allMyTasks = await prisma.task.findMany({
-            where: {
-                assignees: { some: { id: userId } },
-            },
-            select: { status: true, isUrgent: true },
-        });
+        // 5개의 독립 쿼리를 병렬 실행 (Waterfall 제거)
+        const [todayTasks, unreadNotifications, allMyTasks, activeProjects, recentNotifications] = await Promise.all([
+            // 1. 오늘 할 일 (오늘 기한인 업무 + 나에게 할당된 업무)
+            prisma.task.findMany({
+                where: {
+                    OR: [
+                        {
+                            dueDate: { gte: today, lt: tomorrow },
+                            assignees: { some: { id: userId } },
+                        },
+                        {
+                            endDate: { gte: today, lt: tomorrow },
+                            assignees: { some: { id: userId } },
+                        },
+                    ],
+                },
+                include: {
+                    project: { select: { name: true } },
+                    assignees: { select: { id: true, name: true } },
+                },
+                orderBy: { createdAt: "desc" },
+                take: 10,
+            }),
+            // 2. 안 읽은 알림 수
+            prisma.notification.count({
+                where: { userId, isRead: false },
+            }),
+            // 3. 업무 상태별 건수 (내가 담당인 것들)
+            prisma.task.findMany({
+                where: {
+                    assignees: { some: { id: userId } },
+                },
+                select: { status: true, isUrgent: true },
+            }),
+            // 4. 진행 중 프로젝트 수
+            prisma.project.count({
+                where: {
+                    status: "ACTIVE",
+                    OR: [
+                        { creatorId: userId },
+                        { participants: { some: { id: userId } } },
+                    ],
+                },
+            }),
+            // 5. 최근 알림 목록 (메일 위젯용)
+            prisma.notification.findMany({
+                where: { userId },
+                orderBy: { createdAt: "desc" },
+                take: 5,
+            }),
+        ]);
 
         const taskStats = {
             total: allMyTasks.length,
@@ -56,24 +73,6 @@ export async function getDashboardStats(userId: string) {
             done: allMyTasks.filter((t) => t.status === "DONE").length,
             urgent: allMyTasks.filter((t) => t.isUrgent).length,
         };
-
-        // 4. 진행 중 프로젝트 수
-        const activeProjects = await prisma.project.count({
-            where: {
-                status: "ACTIVE",
-                OR: [
-                    { creatorId: userId },
-                    { participants: { some: { id: userId } } },
-                ],
-            },
-        });
-
-        // 5. 최근 알림 목록 (메일 위젯용)
-        const recentNotifications = await prisma.notification.findMany({
-            where: { userId },
-            orderBy: { createdAt: "desc" },
-            take: 5,
-        });
 
         return {
             success: true,

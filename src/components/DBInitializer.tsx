@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useAdminStore } from "@/store/useAdminStore";
 import { useTaskStore } from "@/store/useTaskStore";
 import { useProjectStore } from "@/store/useProjectStore";
 import { getInitialData } from "@/app/actions/init";
@@ -10,6 +11,19 @@ export function DBInitializer() {
     const user = useAuthStore((state) => state.user);
     const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
     const hasHydrated = useAuthStore((state) => state._hasHydrated);
+    const checkAuthExpiration = useAuthStore((state) => state.checkExpiration);
+
+    const adminHasHydrated = useAdminStore((state) => state._hasHydrated);
+    const checkAdminExpiration = useAdminStore((state) => state.checkExpiration);
+
+    // Hydration 완료 후 세션 만료 체크 (12시간)
+    useEffect(() => {
+        if (hasHydrated) checkAuthExpiration();
+    }, [hasHydrated, checkAuthExpiration]);
+
+    useEffect(() => {
+        if (adminHasHydrated) checkAdminExpiration();
+    }, [adminHasHydrated, checkAdminExpiration]);
 
     // Zustand 스토어 액션 직접 추출
     useEffect(() => {
@@ -35,3 +49,4 @@ export function DBInitializer() {
 
     return null; // UI를 렌더링하지 않는 로직 전용 컴포넌트
 }
+

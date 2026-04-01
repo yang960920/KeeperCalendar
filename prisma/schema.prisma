@@ -85,6 +85,9 @@ model Notification {
   taskId    String?
   senderId  String? // 독촉 발신자
   createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+  @@index([createdAt])
 }
 
 enum ProjectStatus {
@@ -143,6 +146,11 @@ model Task {
   subTasks          SubTask[]
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
+
+  @@index([dueDate])
+  @@index([endDate])
+  @@index([createdAt])
+  @@index([status])
 }
 
 // 하위 업무 (체크리스트 형태)
@@ -229,6 +237,10 @@ model ActivityLog {
   taskId     String?
   task       Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
   createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([projectId])
+  @@index([createdAt])
 }
 
 // 피어 리뷰 (프로젝트 종료 후 상호 평가)
