@@ -21,15 +21,20 @@ export default function LoginPage() {
     const [id, setId] = useState("");
     const [password, setPassword] = useState("");
 
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
     // 로그인된 사용자가 접근하면 루트로 이동
+    // (이미 로그인 상태에서 /login 직접 접근 시 리다이렉트)
     useEffect(() => {
         if (isAuthenticated) {
-            router.push("/");
+            router.replace("/");
         }
     }, [isAuthenticated, router]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (isSubmitting) return;
+        setIsSubmitting(true);
 
         try {
             const res = await loginUser(id, password);
@@ -48,13 +53,16 @@ export default function LoginPage() {
                     role: res.data.role as any, // "CREATOR" | "PARTICIPANT"
                 });
 
-                router.push("/");
+                // useEffect에서 isAuthenticated 변경 감지 → router.replace("/")로 이동
+                // 여기서 중복 push하지 않음 (이중 네비게이션 방지)
             } else {
                 alert(res.error || "로그인에 실패했습니다.");
+                setIsSubmitting(false);
             }
         } catch (error) {
             console.error(error);
             alert("서버 오류가 발생했습니다.");
+            setIsSubmitting(false);
         }
     };
 
@@ -99,8 +107,8 @@ export default function LoginPage() {
                         />
                     </div>
 
-                    <Button type="submit" className="w-full mt-6">
-                        로그인
+                    <Button type="submit" className="w-full mt-6" disabled={isSubmitting}>
+                        {isSubmitting ? "로그인 중..." : "로그인"}
                     </Button>
                 </form>
             </div>

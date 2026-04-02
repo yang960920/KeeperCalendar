@@ -166,9 +166,10 @@ export async function loginUser(id: string, password: string) {
             return { success: false, error: "비밀번호가 일치하지 않습니다." };
         }
 
-        // 로그인 성공 → ActivityLog에 LOGIN 기록
-        try {
-            await prisma.activityLog.create({
+        // 로그인 성공 → ActivityLog 기록 + 자동 출근 병렬 처리
+        const { autoClockIn } = await import("@/app/actions/attendance");
+        await Promise.allSettled([
+            prisma.activityLog.create({
                 data: {
                     action: "LOGIN",
                     entityType: "USER",
@@ -176,18 +177,9 @@ export async function loginUser(id: string, password: string) {
                     details: `${user.name} 로그인`,
                     userId: user.id,
                 },
-            });
-        } catch (logError) {
-            console.error("[Login] ActivityLog 기록 실패 (무시):", logError);
-        }
-
-        // 자동 출근 처리 (하루 1회)
-        try {
-            const { autoClockIn } = await import("@/app/actions/attendance");
-            await autoClockIn(user.id);
-        } catch (clockError) {
-            console.error("[Login] 자동 출근 실패 (무시):", clockError);
-        }
+            }),
+            autoClockIn(user.id),
+        ]);
 
         // 보안상 비밀번호는 제외하고 반환
         const { password: _, ...userWithoutPassword } = user;

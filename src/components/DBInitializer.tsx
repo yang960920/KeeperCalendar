@@ -29,6 +29,12 @@ export function DBInitializer() {
     useEffect(() => {
         // Hydration이 끝나고, 로그인된 상태일 때만 DB 동기화 실행
         if (hasHydrated && isAuthenticated && user?.id) {
+            // 로그인 페이지에서 이미 데이터를 로드했으면 중복 호출 스킵
+            const existingProjects = useProjectStore.getState().projects;
+            if (existingProjects && existingProjects.length > 0) {
+                return;
+            }
+
             async function loadData() {
                 try {
                     const res = await getInitialData(user!.id);

@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useAuthStore } from "@/store/useAuthStore";
-import { useStore } from "@/hooks/useStore";
 import { getTodayAttendance, clockOut } from "@/app/actions/attendance";
 import { checkDeviceToken, requestDeviceRegistration } from "@/app/actions/device-auth";
 import { requestFieldWork, emergencyFieldClockIn, submitFieldProof } from "@/app/actions/field-work";
@@ -13,7 +12,8 @@ type AttendanceStatus = "NOT_CLOCKED_IN" | "CLOCKED_IN" | "CLOCKED_OUT";
 type DeviceStatus = "CHECKING" | "APPROVED" | "PENDING" | "NEED_REGISTRATION" | "AUTO_REGISTERED";
 
 export function WorkClockWidget() {
-    const user = useStore(useAuthStore, (s) => s.user);
+    // AuthProvider에서 이미 hydration 완료를 보장하므로 useStore 대신 직접 구독
+    const user = useAuthStore((s) => s.user);
     const [time, setTime] = useState(new Date());
     const [status, setStatus] = useState<AttendanceStatus>("NOT_CLOCKED_IN");
     const [clockInTime, setClockInTime] = useState<Date | null>(null);
