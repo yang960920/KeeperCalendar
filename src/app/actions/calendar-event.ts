@@ -191,18 +191,20 @@ export async function getCalendarEvents(userId: string, year: number, month: num
         const startOfMonth = new Date(year, month - 1, 1);
         const endOfMonth = new Date(year, month, 0, 23, 59, 59);
 
-        // 내가 생성하거나 초대된 일정
+        // 내가 생성하거나 초대된 일정 + 외근/휴가는 전체 공개
         const events = await (prisma as any).calendarEvent.findMany({
             where: {
                 OR: [
                     { creatorId: userId },
                     { attendees: { some: { userId } } },
+                    { category: { in: ["FIELD_WORK", "VACATION"] } },
                 ],
                 startTime: { lte: endOfMonth },
                 endTime: { gte: startOfMonth },
             },
             include: {
                 attendees: true,
+                creator: { select: { name: true } },
             },
             orderBy: { startTime: "asc" },
         });
@@ -221,6 +223,7 @@ export async function getCalendarEvents(userId: string, year: number, month: num
                 isAllDay: event.isAllDay,
                 location: event.location,
                 creatorId: event.creatorId,
+                creatorName: event.creator?.name || null,
                 requiresRsvp: event.requiresRsvp,
                 recurrenceType: event.recurrenceType,
                 recurrenceEnd: event.recurrenceEnd?.toISOString() || null,

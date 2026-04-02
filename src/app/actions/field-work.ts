@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { createCalendarEvent } from "@/app/actions/calendar-event";
 
 // ── 1. 직원: 외근 사전 신청 ──
 export async function requestFieldWork(userId: string, date: string, reason: string) {
@@ -79,6 +80,24 @@ export async function approveFieldWork(requestId: string) {
             });
         }
 
+        // 3) 공유 캘린더에 외근 일정 자동 등록 (공지형)
+        try {
+            const endTime = new Date(clockInTime.getTime() + 9 * 60 * 60 * 1000); // 9시간 근무
+            await createCalendarEvent({
+                title: `[외근] ${req.user.name}`,
+                description: req.reason,
+                category: "FIELD_WORK",
+                startTime: clockInTime.toISOString(),
+                endTime: endTime.toISOString(),
+                isAllDay: false,
+                creatorId: req.userId,
+                attendeeIds: [],
+                requiresRsvp: false,
+            });
+        } catch (calErr) {
+            console.error("[FieldWork] 캘린더 이벤트 생성 실패 (무시):", calErr);
+        }
+
         return { success: true };
     } catch (error) {
         console.error("[FieldWork] 승인 오류:", error);
@@ -135,6 +154,24 @@ export async function emergencyFieldClockIn(userId: string, reason: string) {
                 fieldReason: reason,
             },
         });
+
+        // 공유 캘린더에 긴급 외근 일정 자동 등록
+        try {
+            const endTime = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+            await createCalendarEvent({
+                title: `[긴급외근] ${user?.name || ""}`,
+                description: reason,
+                category: "FIELD_WORK",
+                startTime: now.toISOString(),
+                endTime: endTime.toISOString(),
+                isAllDay: false,
+                creatorId: userId,
+                attendeeIds: [],
+                requiresRsvp: false,
+            });
+        } catch (calErr) {
+            console.error("[FieldWork] 긴급외근 캘린더 이벤트 생성 실패 (무시):", calErr);
+        }
 
         return { success: true, data: attendance };
     } catch (error) {

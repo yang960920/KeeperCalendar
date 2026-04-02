@@ -47,6 +47,8 @@ model User {
   workEndTime          String? // 개인별 퇴근 기준 시간 (예: "18:30", null이면 기본 "18:00")
   chatMembers          ChatMember[]
   chatMessages         ChatMessage[]
+  chatReactions        ChatReaction[]
+  monthlyGoals         MonthlyGoal[]
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
 }
@@ -66,6 +68,10 @@ model UserSettings {
   notifyPeerReview    Boolean  @default(true)
   notifySubTaskAssign Boolean  @default(true)
   notifyNudge         Boolean  @default(true) // 독촉 알림 수신 여부
+  notifyApproval      Boolean  @default(true) // 결재 알림 수신 여부
+  notifyChat          Boolean  @default(true) // 채팅 알림 수신 여부
+  defaultWorkStart    String?  // 개인 기본 출근 시간 (예: "09:00")
+  defaultWorkEnd      String?  // 개인 기본 퇴근 시간 (예: "18:00")
   theme               String   @default("dark")
   heatmapColor        String   @default("green")
   widgetLayout        String?  // JSON: { layout, widgets: [{id, visible}] }
@@ -498,6 +504,7 @@ model ApprovalRequest {
   requesterId   String // 기안자 User.id
   projectId     String? // 프로젝트 연동 (옵션)
   attachmentUrl String? // 첨부 파일 URL
+  formData      String? // 카테고리별 상세 데이터 (JSON)
   steps         ApprovalStep[]
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
@@ -600,6 +607,11 @@ model ChatMessage {
   sender    User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
   content   String
   isEdited  Boolean  @default(false)
+  isPinned  Boolean  @default(false)
+  replyToId String?
+  replyTo   ChatMessage?  @relation("MessageReply", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies   ChatMessage[] @relation("MessageReply")
+  reactions ChatReaction[]
   fileUrl   String?
   fileName  String?
   fileSize  Int?
@@ -607,4 +619,37 @@ model ChatMessage {
   createdAt DateTime @default(now())
 
   @@index([roomId, createdAt])
+}
+
+model ChatReaction {
+  id        String      @id @default(cuid())
+  messageId String
+  message   ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emoji     String      // "👍", "❤️", "😂", etc.
+  createdAt DateTime    @default(now())
+
+  @@unique([messageId, userId, emoji])
+  @@index([messageId])
+}
+
+// ── 월간 목표 ──
+
+model MonthlyGoal {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  year        Int
+  month       Int      // 1~12
+  title       String
+  targetValue Int      @default(100) // 목표 수치 (예: 완료할 업무 수, 달성률 %)
+  currentValue Int     @default(0)   // 현재 달성 수치
+  unit        String   @default("%") // 단위 (%, 건, 점 등)
+  isCompleted Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, year, month, title])
+  @@index([userId, year, month])
 }

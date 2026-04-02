@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
     Folder,
     FolderOpen,
@@ -12,6 +12,10 @@ import {
     Loader2,
     FolderPlus,
     Upload,
+    Search,
+    ArrowUpDown,
+    X,
+    Plus,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -33,6 +37,8 @@ import {
     deleteDocument,
     deleteDocFolder,
     getDocuments,
+    searchDocuments,
+    addDocumentVersion,
 } from "@/app/actions/document";
 
 // ─── 타입 ─────────────────────────────────────────────────────────────────────
@@ -63,7 +69,18 @@ interface DocumentData {
     versions: DocVersionData[];
     createdAt: string;
     updatedAt: string;
+    folderName?: string;
 }
+
+// ─── 정렬 옵션 ───────────────────────────────────────────────────────────────
+
+type SortOption = "updatedAt" | "name" | "size" | "createdAt";
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+    { value: "updatedAt", label: "최근 수정순" },
+    { value: "createdAt", label: "등록순" },
+    { value: "name", label: "이름순" },
+    { value: "size", label: "크기순" },
+];
 
 // ─── 유틸 ─────────────────────────────────────────────────────────────────────
 
@@ -86,31 +103,74 @@ function getFileIcon(mimeType?: string) {
     return "📄";
 }
 
-// ─── 문서 상세 (버전 이력) ────────────────────────────────────────────────────
+// ─── 문서 상세 (버전 이력 + 새 버전 업로드) ──────────────────────────────────
 
 function DocumentDetailDialog({
     document,
     currentUserId,
     onDeleted,
+    onVersionAdded,
 }: {
     document: DocumentData;
     currentUserId: string;
     onDeleted: () => void;
+    onVersionAdded: () => void;
 }) {
     const [open, setOpen] = useState(false);
+    const [versionFile, setVersionFile] = useState<File | null>(null);
+    const [versionNote, setVersionNote] = useState("");
+    const [isVersionUploading, setIsVersionUploading] = useState(false);
+    const [showVersionUpload, setShowVersionUpload] = useState(false);
     const isOwner = document.uploaderId === currentUserId;
 
+    const handleVersionUpload = async () => {
+        if (!versionFile) return;
+        setIsVersionUploading(true);
+        try {
+            const formData = new FormData();
+            formData.append("file", versionFile);
+            const uploadRes = await fetch("/api/documents/upload", {
+                method: "POST",
+                body: formData,
+            });
+            const uploadData = await uploadRes.json();
+            if (!uploadData.url) {
+                alert("업로드에 실패했습니다.");
+                return;
+            }
+
+            const result = await addDocumentVersion({
+                documentId: document.id,
+                url: uploadData.url,
+                size: versionFile.size,
+                uploaderId: currentUserId,
+                note: versionNote || `v${document.versions.length + 1} 업데이트`,
+            });
+
+            if (result.success) {
+                setVersionFile(null);
+                setVersionNote("");
+                setShowVersionUpload(false);
+                onVersionAdded();
+            }
+        } finally {
+            setIsVersionUploading(false);
+        }
+    };
+
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setShowVersionUpload(false); }}>
             <DialogTrigger asChild>
                 <button className="w-full text-left">
-                    {/* 문서 행 */}
                     <div className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50 rounded-lg transition-colors group">
                         <span className="text-xl flex-shrink-0">{getFileIcon(document.mimeType)}</span>
                         <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate">{document.name}</p>
                             <p className="text-[11px] text-muted-foreground">
                                 {formatBytes(document.size)} · {format(new Date(document.updatedAt), "MM/dd HH:mm", { locale: ko })}
+                                {document.versions.length > 1 && (
+                                    <span className="ml-1 text-primary/70">v{document.versions.length}</span>
+                                )}
                             </p>
                         </div>
                         {document.visibility === "PRIVATE" && (
@@ -124,7 +184,7 @@ function DocumentDetailDialog({
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-base">
                         <span>{getFileIcon(document.mimeType)}</span>
-                        {document.name}
+                        <span className="truncate">{document.name}</span>
                     </DialogTitle>
                 </DialogHeader>
 
@@ -134,6 +194,7 @@ function DocumentDetailDialog({
                         <div>크기: {formatBytes(document.size)}</div>
                         <div>업로드: {format(new Date(document.createdAt), "yyyy.MM.dd HH:mm", { locale: ko })}</div>
                         <div>최종 수정: {format(new Date(document.updatedAt), "yyyy.MM.dd HH:mm", { locale: ko })}</div>
+                        {document.folderName && <div>폴더: {document.folderName}</div>}
                     </div>
 
                     {/* 최신 다운로드 */}
@@ -147,15 +208,78 @@ function DocumentDetailDialog({
                         최신 버전 다운로드
                     </a>
 
+                    {/* 새 버전 업로드 */}
+                    {isOwner && !showVersionUpload && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full gap-1.5"
+                            onClick={() => setShowVersionUpload(true)}
+                        >
+                            <Plus className="h-3.5 w-3.5" />
+                            새 버전 업로드
+                        </Button>
+                    )}
+
+                    {showVersionUpload && (
+                        <div className="space-y-2 p-3 bg-muted/50 rounded-lg border">
+                            <label
+                                htmlFor="version-file-upload"
+                                className="flex flex-col items-center gap-1.5 border-2 border-dashed rounded-lg p-4 cursor-pointer hover:border-primary/50 transition-colors"
+                            >
+                                <Upload className="h-5 w-5 text-muted-foreground" />
+                                <span className="text-xs text-muted-foreground">
+                                    {versionFile ? versionFile.name : "파일 선택"}
+                                </span>
+                                <input
+                                    id="version-file-upload"
+                                    type="file"
+                                    className="hidden"
+                                    onChange={(e) => setVersionFile(e.target.files?.[0] || null)}
+                                />
+                            </label>
+                            <Input
+                                placeholder="버전 메모 (선택)"
+                                value={versionNote}
+                                onChange={(e) => setVersionNote(e.target.value)}
+                                className="h-7 text-xs"
+                            />
+                            <div className="flex gap-2">
+                                <Button
+                                    size="sm"
+                                    className="flex-1 h-7 text-xs"
+                                    onClick={handleVersionUpload}
+                                    disabled={!versionFile || isVersionUploading}
+                                >
+                                    {isVersionUploading ? (
+                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                    ) : "업로드"}
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 text-xs"
+                                    onClick={() => { setShowVersionUpload(false); setVersionFile(null); setVersionNote(""); }}
+                                >
+                                    취소
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+
                     {/* 버전 이력 */}
-                    {document.versions.length > 1 && (
+                    {document.versions.length > 0 && (
                         <div>
-                            <h4 className="text-xs font-semibold text-muted-foreground mb-2">버전 이력</h4>
-                            <div className="space-y-1.5">
+                            <h4 className="text-xs font-semibold text-muted-foreground mb-2">
+                                버전 이력 ({document.versions.length})
+                            </h4>
+                            <div className="space-y-1.5 max-h-40 overflow-y-auto">
                                 {document.versions.map((v, idx) => (
                                     <div key={v.id} className="flex items-center gap-2 text-xs">
-                                        <span className="text-muted-foreground w-5">v{document.versions.length - idx}</span>
-                                        <span className="flex-1 text-muted-foreground">
+                                        <span className={`font-mono w-5 ${idx === 0 ? "text-primary font-bold" : "text-muted-foreground"}`}>
+                                            v{document.versions.length - idx}
+                                        </span>
+                                        <span className="flex-1 text-muted-foreground truncate">
                                             {format(new Date(v.createdAt), "MM/dd HH:mm", { locale: ko })}
                                             {v.note && ` · ${v.note}`}
                                         </span>
@@ -163,9 +287,9 @@ function DocumentDetailDialog({
                                             href={v.url}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="text-primary hover:underline"
+                                            className="text-primary hover:underline flex-shrink-0"
                                         >
-                                            다운로드
+                                            <Download className="h-3 w-3" />
                                         </a>
                                     </div>
                                 ))}
@@ -216,6 +340,15 @@ export default function DocumentsPage() {
     const [isUploadLoading, setIsUploadLoading] = useState(false);
     const [uploadOpen, setUploadOpen] = useState(false);
 
+    // 검색 상태
+    const [searchQuery, setSearchQuery] = useState("");
+    const [isSearching, setIsSearching] = useState(false);
+    const [searchResults, setSearchResults] = useState<DocumentData[] | null>(null);
+
+    // 정렬 상태
+    const [sortOption, setSortOption] = useState<SortOption>("updatedAt");
+    const [showSortMenu, setShowSortMenu] = useState(false);
+
     const loadDocuments = useCallback(async () => {
         if (!user) return;
         setIsLoading(true);
@@ -234,12 +367,54 @@ export default function DocumentsPage() {
         loadDocuments();
     }, [loadDocuments]);
 
+    // 검색 실행
+    const handleSearch = async () => {
+        if (!searchQuery.trim() || !user) {
+            setSearchResults(null);
+            return;
+        }
+        setIsSearching(true);
+        try {
+            const result = await searchDocuments(user.id, searchQuery.trim());
+            if (result.success && result.data) {
+                setSearchResults(result.data as DocumentData[]);
+            }
+        } finally {
+            setIsSearching(false);
+        }
+    };
+
+    const clearSearch = () => {
+        setSearchQuery("");
+        setSearchResults(null);
+    };
+
+    // 정렬된 문서 목록
+    const sortedDocuments = useMemo(() => {
+        const list = searchResults || documents;
+        return [...list].sort((a, b) => {
+            switch (sortOption) {
+                case "name":
+                    return a.name.localeCompare(b.name, "ko");
+                case "size":
+                    return (b.size || 0) - (a.size || 0);
+                case "createdAt":
+                    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                case "updatedAt":
+                default:
+                    return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+            }
+        });
+    }, [documents, searchResults, sortOption]);
+
     const enterFolder = (folder: DocFolderData) => {
+        clearSearch();
         setBreadcrumb((prev) => [...prev, { id: folder.id, name: folder.name }]);
         setCurrentFolderId(folder.id);
     };
 
     const goToBreadcrumb = (idx: number) => {
+        clearSearch();
         if (idx === -1) {
             setBreadcrumb([]);
             setCurrentFolderId(undefined);
@@ -272,7 +447,6 @@ export default function DocumentsPage() {
         if (!uploadFile || !user) return;
         setIsUploadLoading(true);
         try {
-            // Vercel Blob 업로드 API 호출
             const formData = new FormData();
             formData.append("file", uploadFile);
 
@@ -309,6 +483,8 @@ export default function DocumentsPage() {
 
     if (!user) return null;
 
+    const isSearchMode = searchResults !== null;
+
     return (
         <div className="min-h-screen bg-background text-foreground p-6 md:p-8">
             <header className="border-b pb-5 mb-6">
@@ -318,7 +494,6 @@ export default function DocumentsPage() {
                         <h1 className="text-2xl font-extrabold tracking-tight text-primary">자료실</h1>
                     </div>
                     <div className="flex items-center gap-2">
-                        {/* 파일 업로드 */}
                         <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
                             <DialogTrigger asChild>
                                 <Button size="sm" className="gap-1.5">
@@ -373,47 +548,124 @@ export default function DocumentsPage() {
                 </p>
             </header>
 
-            {/* 브레드크럼 */}
-            <div className="flex items-center gap-1 text-sm mb-4 flex-wrap">
-                <button
-                    className="text-primary hover:underline font-medium"
-                    onClick={() => goToBreadcrumb(-1)}
-                >
-                    자료실 홈
-                </button>
-                {breadcrumb.map((crumb, idx) => (
-                    <React.Fragment key={crumb.id}>
-                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+            {/* 검색 + 정렬 바 */}
+            <div className="flex items-center gap-2 mb-4">
+                <div className="relative flex-1 max-w-sm">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                        placeholder="문서 검색..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                        className="pl-8 h-8 text-sm pr-8"
+                    />
+                    {searchQuery && (
                         <button
-                            className="text-primary hover:underline font-medium"
-                            onClick={() => goToBreadcrumb(idx)}
+                            onClick={clearSearch}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                         >
-                            {crumb.name}
+                            <X className="h-3.5 w-3.5" />
                         </button>
-                    </React.Fragment>
-                ))}
-            </div>
-
-            {/* 폴더 생성 인라인 */}
-            <div className="flex items-center gap-2 mb-5">
-                <Input
-                    placeholder="새 폴더 이름"
-                    value={newFolderName}
-                    onChange={(e) => setNewFolderName(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleCreateFolder()}
-                    className="max-w-xs h-8 text-sm"
-                />
+                    )}
+                </div>
                 <Button
                     size="sm"
                     variant="outline"
-                    onClick={handleCreateFolder}
-                    disabled={!newFolderName.trim() || isFolderLoading}
+                    onClick={handleSearch}
+                    disabled={!searchQuery.trim() || isSearching}
                     className="h-8 gap-1"
                 >
-                    <FolderPlus className="h-3.5 w-3.5" />
-                    폴더 생성
+                    {isSearching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
+                    검색
                 </Button>
+
+                {/* 정렬 */}
+                <div className="relative ml-auto">
+                    <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 gap-1 text-xs"
+                        onClick={() => setShowSortMenu(!showSortMenu)}
+                    >
+                        <ArrowUpDown className="h-3.5 w-3.5" />
+                        {SORT_OPTIONS.find((o) => o.value === sortOption)?.label}
+                    </Button>
+                    {showSortMenu && (
+                        <div className="absolute right-0 top-full mt-1 bg-popover border rounded-lg shadow-lg z-20 py-1 min-w-[120px]">
+                            {SORT_OPTIONS.map((opt) => (
+                                <button
+                                    key={opt.value}
+                                    className={`w-full text-left px-3 py-1.5 text-xs hover:bg-muted/50 transition-colors ${
+                                        sortOption === opt.value ? "text-primary font-medium" : "text-muted-foreground"
+                                    }`}
+                                    onClick={() => { setSortOption(opt.value); setShowSortMenu(false); }}
+                                >
+                                    {opt.label}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
             </div>
+
+            {/* 검색 모드 표시 */}
+            {isSearchMode && (
+                <div className="flex items-center gap-2 mb-4 text-sm">
+                    <Badge variant="secondary" className="gap-1">
+                        <Search className="h-3 w-3" />
+                        &ldquo;{searchQuery}&rdquo; 검색 결과: {searchResults.length}건
+                    </Badge>
+                    <button onClick={clearSearch} className="text-xs text-primary hover:underline">
+                        검색 해제
+                    </button>
+                </div>
+            )}
+
+            {/* 브레드크럼 (검색 모드가 아닐 때) */}
+            {!isSearchMode && (
+                <>
+                    <div className="flex items-center gap-1 text-sm mb-4 flex-wrap">
+                        <button
+                            className="text-primary hover:underline font-medium"
+                            onClick={() => goToBreadcrumb(-1)}
+                        >
+                            자료실 홈
+                        </button>
+                        {breadcrumb.map((crumb, idx) => (
+                            <React.Fragment key={crumb.id}>
+                                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                                <button
+                                    className="text-primary hover:underline font-medium"
+                                    onClick={() => goToBreadcrumb(idx)}
+                                >
+                                    {crumb.name}
+                                </button>
+                            </React.Fragment>
+                        ))}
+                    </div>
+
+                    {/* 폴더 생성 인라인 */}
+                    <div className="flex items-center gap-2 mb-5">
+                        <Input
+                            placeholder="새 폴더 이름"
+                            value={newFolderName}
+                            onChange={(e) => setNewFolderName(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && handleCreateFolder()}
+                            className="max-w-xs h-8 text-sm"
+                        />
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={handleCreateFolder}
+                            disabled={!newFolderName.trim() || isFolderLoading}
+                            className="h-8 gap-1"
+                        >
+                            <FolderPlus className="h-3.5 w-3.5" />
+                            폴더 생성
+                        </Button>
+                    </div>
+                </>
+            )}
 
             {/* 탐색기 */}
             {isLoading ? (
@@ -422,15 +674,24 @@ export default function DocumentsPage() {
                 </div>
             ) : (
                 <div className="bg-card border rounded-xl overflow-hidden">
-                    {folders.length === 0 && documents.length === 0 ? (
+                    {(isSearchMode ? sortedDocuments.length === 0 : folders.length === 0 && sortedDocuments.length === 0) ? (
                         <div className="text-center py-16 text-muted-foreground">
-                            <Folder className="h-8 w-8 mx-auto mb-3 opacity-30" />
-                            <p className="text-sm">이 폴더는 비어 있습니다.</p>
+                            {isSearchMode ? (
+                                <>
+                                    <Search className="h-8 w-8 mx-auto mb-3 opacity-30" />
+                                    <p className="text-sm">검색 결과가 없습니다.</p>
+                                </>
+                            ) : (
+                                <>
+                                    <Folder className="h-8 w-8 mx-auto mb-3 opacity-30" />
+                                    <p className="text-sm">이 폴더는 비어 있습니다.</p>
+                                </>
+                            )}
                         </div>
                     ) : (
                         <>
-                            {/* 폴더 목록 */}
-                            {folders.map((folder) => (
+                            {/* 폴더 목록 (검색 모드가 아닐 때) */}
+                            {!isSearchMode && folders.map((folder) => (
                                 <div key={folder.id} className="group">
                                     <div className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50 cursor-pointer transition-colors border-b border-muted/30">
                                         <button
@@ -456,17 +717,28 @@ export default function DocumentsPage() {
                             ))}
 
                             {/* 문서 목록 */}
-                            {documents.map((doc) => (
+                            {sortedDocuments.map((doc) => (
                                 <div key={doc.id} className="border-b border-muted/30 last:border-b-0">
                                     <DocumentDetailDialog
                                         document={doc}
                                         currentUserId={user.id}
                                         onDeleted={loadDocuments}
+                                        onVersionAdded={loadDocuments}
                                     />
                                 </div>
                             ))}
                         </>
                     )}
+                </div>
+            )}
+
+            {/* 문서 수 표시 */}
+            {!isLoading && (
+                <div className="text-xs text-muted-foreground mt-3 text-right">
+                    {isSearchMode
+                        ? `검색 결과 ${sortedDocuments.length}건`
+                        : `폴더 ${folders.length}개 · 문서 ${sortedDocuments.length}개`
+                    }
                 </div>
             )}
         </div>

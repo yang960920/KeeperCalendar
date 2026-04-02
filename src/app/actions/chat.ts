@@ -154,7 +154,18 @@ export async function getMessages(roomId: string, limit: number = 50, cursor?: s
             include: {
                 sender: {
                     select: { id: true, name: true, profileImageUrl: true }
-                }
+                },
+                replyTo: {
+                    select: {
+                        id: true,
+                        content: true,
+                        senderId: true,
+                        sender: { select: { name: true } },
+                    },
+                },
+                reactions: {
+                    select: { emoji: true, userId: true },
+                },
             }
         };
 
@@ -165,10 +176,22 @@ export async function getMessages(roomId: string, limit: number = 50, cursor?: s
 
         const msgs = await (prisma as any).chatMessage.findMany(query);
 
-        const data = [...msgs].reverse().map((m: any) => ({
-            ...m,
-            createdAt: m.createdAt?.toISOString ? m.createdAt.toISOString() : String(m.createdAt)
-        }));
+        const data = [...msgs].reverse().map((m: any) => {
+            // 리액션 그룹핑 (emoji -> userId[])
+            const reactionsGrouped: Record<string, string[]> = {};
+            if (m.reactions) {
+                for (const r of m.reactions) {
+                    if (!reactionsGrouped[r.emoji]) reactionsGrouped[r.emoji] = [];
+                    reactionsGrouped[r.emoji].push(r.userId);
+                }
+            }
+            return {
+                ...m,
+                reactions: reactionsGrouped,
+                replyTo: m.replyTo || null,
+                createdAt: m.createdAt?.toISOString ? m.createdAt.toISOString() : String(m.createdAt),
+            };
+        });
 
         const nextCursor = msgs.length === limit ? msgs[0].id : null;
 
@@ -187,6 +210,7 @@ export async function sendMessage(data: {
     fileName?: string;
     fileSize?: number;
     fileType?: string;
+    replyToId?: string;
 }) {
     noStore();
     try {
@@ -210,16 +234,27 @@ export async function sendMessage(data: {
                 fileName: data.fileName || null,
                 fileSize: data.fileSize || null,
                 fileType: data.fileType || null,
+                replyToId: data.replyToId || null,
             },
             include: {
                 sender: {
                     select: { id: true, name: true, profileImageUrl: true }
-                }
+                },
+                replyTo: {
+                    select: {
+                        id: true,
+                        content: true,
+                        senderId: true,
+                        sender: { select: { name: true } },
+                    },
+                },
             }
         });
 
         const formattedMessage = {
             ...message,
+            reactions: {} as Record<string, string[]>,
+            replyTo: message.replyTo || null,
             createdAt: message.createdAt?.toISOString ? message.createdAt.toISOString() : String(message.createdAt),
         };
 
@@ -261,6 +296,147 @@ export async function markChatAsRead(roomId: string, userId: string) {
         return { success: true };
     } catch (error) {
         return handleError("읽음 처리에 실패했습니다.", error);
+    }
+}
+
+// ─── 메시지 삭제 ─────────────────────────────────────────────────────────────
+export async function deleteMessage(messageId: string, userId: string) {
+    noStore();
+    try {
+        const msg = await (prisma as any).chatMessage.findUnique({ where: { id: messageId } });
+        if (!msg) return { success: false, error: "메시지를 찾을 수 없습니다." };
+        if (msg.senderId !== userId) return { success: false, error: "본인 메시지만 삭제할 수 있습니다." };
+
+        await (prisma as any).chatMessage.delete({ where: { id: messageId } });
+
+        // 실시간 알림
+        const channelName = `chat-${msg.roomId}`;
+        await pusherServer.trigger(channelName, "delete-message", { messageId, roomId: msg.roomId });
+
+        return { success: true };
+    } catch (error) {
+        return handleError("메시지 삭제에 실패했습니다.", error);
+    }
+}
+
+// ─── 리액션 토글 ─────────────────────────────────────────────────────────────
+export async function toggleReaction(messageId: string, userId: string, emoji: string) {
+    noStore();
+    try {
+        const existing = await (prisma as any).chatReaction.findUnique({
+            where: { messageId_userId_emoji: { messageId, userId, emoji } },
+        });
+
+        let action: "added" | "removed";
+        if (existing) {
+            await (prisma as any).chatReaction.delete({ where: { id: existing.id } });
+            action = "removed";
+        } else {
+            await (prisma as any).chatReaction.create({
+                data: { messageId, userId, emoji },
+            });
+            action = "added";
+        }
+
+        // 현재 리액션 목록 조회
+        const reactions = await (prisma as any).chatReaction.findMany({
+            where: { messageId },
+            select: { emoji: true, userId: true },
+        });
+
+        // 이모지별 그룹핑
+        const grouped: Record<string, string[]> = {};
+        for (const r of reactions) {
+            if (!grouped[r.emoji]) grouped[r.emoji] = [];
+            grouped[r.emoji].push(r.userId);
+        }
+
+        const msg = await (prisma as any).chatMessage.findUnique({
+            where: { id: messageId },
+            select: { roomId: true },
+        });
+
+        if (msg) {
+            const channelName = `chat-${msg.roomId}`;
+            await pusherServer.trigger(channelName, "reaction-update", {
+                messageId,
+                reactions: grouped,
+            });
+        }
+
+        return { success: true, action, reactions: grouped };
+    } catch (error) {
+        return handleError("리액션 처리에 실패했습니다.", error);
+    }
+}
+
+// ─── 메시지 핀 토글 ──────────────────────────────────────────────────────────
+export async function togglePinMessage(messageId: string, roomId: string) {
+    noStore();
+    try {
+        const msg = await (prisma as any).chatMessage.findUnique({ where: { id: messageId } });
+        if (!msg) return { success: false, error: "메시지를 찾을 수 없습니다." };
+
+        const newPinned = !msg.isPinned;
+        await (prisma as any).chatMessage.update({
+            where: { id: messageId },
+            data: { isPinned: newPinned },
+        });
+
+        const channelName = `chat-${roomId}`;
+        await pusherServer.trigger(channelName, "pin-update", { messageId, isPinned: newPinned });
+
+        return { success: true, isPinned: newPinned };
+    } catch (error) {
+        return handleError("핀 설정에 실패했습니다.", error);
+    }
+}
+
+// ─── 핀된 메시지 조회 ────────────────────────────────────────────────────────
+export async function getPinnedMessages(roomId: string) {
+    noStore();
+    try {
+        const msgs = await (prisma as any).chatMessage.findMany({
+            where: { roomId, isPinned: true },
+            include: { sender: { select: { id: true, name: true, profileImageUrl: true } } },
+            orderBy: { createdAt: "desc" },
+        });
+
+        return {
+            success: true,
+            data: msgs.map((m: any) => ({
+                ...m,
+                createdAt: m.createdAt?.toISOString ? m.createdAt.toISOString() : String(m.createdAt),
+            })),
+        };
+    } catch (error) {
+        return handleError("핀 메시지 조회에 실패했습니다.", error);
+    }
+}
+
+// ─── 메시지 검색 ─────────────────────────────────────────────────────────────
+export async function searchMessages(roomId: string, query: string) {
+    noStore();
+    try {
+        const msgs = await (prisma as any).chatMessage.findMany({
+            where: {
+                roomId,
+                content: { contains: query, mode: "insensitive" },
+            },
+            include: { sender: { select: { id: true, name: true, profileImageUrl: true } } },
+            orderBy: { createdAt: "desc" },
+            take: 30,
+        });
+
+        return {
+            success: true,
+            data: msgs.map((m: any) => ({
+                ...m,
+                createdAt: m.createdAt?.toISOString ? m.createdAt.toISOString() : String(m.createdAt),
+            })),
+        };
+    } catch (error) {
+        return handleError("메시지 검색에 실패했습니다.", error);
     }
 }
 

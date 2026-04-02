@@ -10,6 +10,7 @@ import {
     MapPin,
     Users,
     Clock,
+    Filter,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -48,6 +49,7 @@ interface CalendarEventData {
     isAllDay: boolean;
     location?: string;
     creatorId: string;
+    creatorName?: string;
     requiresRsvp: boolean;
     recurrenceType: string;
     attendees: { userId: string; response: string }[];
@@ -222,6 +224,8 @@ export function SharedCalendar() {
     const [events, setEvents] = useState<CalendarEventData[]>([]);
     const [selectedEvent, setSelectedEvent] = useState<CalendarEventData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
+    const [showFilterMenu, setShowFilterMenu] = useState(false);
 
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth() + 1;
@@ -254,16 +258,22 @@ export function SharedCalendar() {
         return [...blank, ...days];
     }, [currentDate]);
 
+    // 필터링된 이벤트
+    const filteredEvents = useMemo(() => {
+        if (categoryFilter === "ALL") return events;
+        return events.filter((e) => e.category === categoryFilter);
+    }, [events, categoryFilter]);
+
     // 날짜별 이벤트 맵
     const eventsByDay = useMemo(() => {
         const map: Record<string, CalendarEventData[]> = {};
-        for (const event of events) {
+        for (const event of filteredEvents) {
             const dateKey = format(new Date(event.startTime), "yyyy-MM-dd");
             if (!map[dateKey]) map[dateKey] = [];
             map[dateKey].push(event);
         }
         return map;
-    }, [events]);
+    }, [filteredEvents]);
 
     const handleDelete = async (id: string) => {
         if (!user) return;
@@ -320,10 +330,56 @@ export function SharedCalendar() {
                     </button>
                 </div>
 
-                <CreateEventDialog
-                    currentUserId={user.id}
-                    onCreated={loadEvents}
-                />
+                <div className="flex items-center gap-2">
+                    {/* 카테고리 필터 */}
+                    <div className="relative">
+                        <button
+                            onClick={() => setShowFilterMenu(!showFilterMenu)}
+                            className={`flex items-center gap-1.5 text-xs border rounded-lg px-3 py-1.5 transition-colors ${
+                                categoryFilter !== "ALL"
+                                    ? "border-primary text-primary bg-primary/10"
+                                    : "text-muted-foreground hover:text-foreground hover:border-muted-foreground/30"
+                            }`}
+                        >
+                            <Filter className="h-3.5 w-3.5" />
+                            {categoryFilter === "ALL"
+                                ? "전체"
+                                : CATEGORY_CONFIG[categoryFilter]?.label || categoryFilter}
+                        </button>
+                        {showFilterMenu && (
+                            <>
+                                <div className="fixed inset-0 z-40" onClick={() => setShowFilterMenu(false)} />
+                                <div className="absolute right-0 top-full mt-1 z-50 bg-card border rounded-lg shadow-lg py-1 min-w-[120px]">
+                                    <button
+                                        onClick={() => { setCategoryFilter("ALL"); setShowFilterMenu(false); }}
+                                        className={`w-full text-left text-xs px-3 py-1.5 hover:bg-muted transition-colors ${
+                                            categoryFilter === "ALL" ? "text-primary font-semibold" : ""
+                                        }`}
+                                    >
+                                        전체 보기
+                                    </button>
+                                    {Object.entries(CATEGORY_CONFIG).map(([key, cfg]) => (
+                                        <button
+                                            key={key}
+                                            onClick={() => { setCategoryFilter(key); setShowFilterMenu(false); }}
+                                            className={`w-full text-left text-xs px-3 py-1.5 hover:bg-muted transition-colors flex items-center gap-2 ${
+                                                categoryFilter === key ? "text-primary font-semibold" : ""
+                                            }`}
+                                        >
+                                            <span className={`w-2 h-2 rounded-full ${cfg.dot}`} />
+                                            {cfg.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </>
+                        )}
+                    </div>
+
+                    <CreateEventDialog
+                        currentUserId={user.id}
+                        onCreated={loadEvents}
+                    />
+                </div>
             </div>
 
             {/* 요일 헤더 */}

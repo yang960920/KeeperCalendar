@@ -59,6 +59,8 @@ export default function OfficeDashboard() {
     const [editMode, setEditMode] = useState(false);
     const [loaded, setLoaded] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [dragIdx, setDragIdx] = useState<number | null>(null);
+    const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
     // DB에서 설정 로드
     useEffect(() => {
@@ -87,6 +89,23 @@ export default function OfficeDashboard() {
         setSaving(false);
         setEditMode(false);
     }, [user, layoutType, widgets]);
+
+    // 드래그 앤 드롭으로 위젯 순서 변경
+    const handleDragEnd = () => {
+        if (dragIdx === null || dragOverIdx === null || dragIdx === dragOverIdx) {
+            setDragIdx(null);
+            setDragOverIdx(null);
+            return;
+        }
+        setWidgets((prev) => {
+            const next = [...prev];
+            const [moved] = next.splice(dragIdx, 1);
+            next.splice(dragOverIdx, 0, moved);
+            return next;
+        });
+        setDragIdx(null);
+        setDragOverIdx(null);
+    };
 
     // 위젯 순서 이동
     const moveWidget = (index: number, dir: -1 | 1) => {
@@ -206,13 +225,21 @@ export default function OfficeDashboard() {
                                     return (
                                         <div
                                             key={w.id}
+                                            draggable
+                                            onDragStart={() => setDragIdx(idx)}
+                                            onDragOver={(e) => { e.preventDefault(); setDragOverIdx(idx); }}
+                                            onDragEnd={handleDragEnd}
                                             className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors ${
                                                 w.visible
                                                     ? "bg-card border-border"
                                                     : "bg-muted/20 border-transparent opacity-50"
+                                            } ${dragIdx === idx ? "opacity-40" : ""} ${
+                                                dragOverIdx === idx && dragIdx !== null && dragIdx !== idx
+                                                    ? "border-primary border-dashed"
+                                                    : ""
                                             }`}
                                         >
-                                            <GripVertical className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                            <GripVertical className="h-3.5 w-3.5 text-muted-foreground shrink-0 cursor-grab active:cursor-grabbing" />
                                             <span className="text-sm font-medium flex-1 truncate">{def.label}</span>
 
                                             {/* 위/아래 이동 */}

@@ -2,6 +2,8 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { createCalendarEvent } from "@/app/actions/calendar-event";
+import { archiveApprovalDocument } from "@/app/actions/document";
 
 // ─── 결재 신청 ────────────────────────────────────────────────────────────────
 
@@ -13,6 +15,7 @@ export async function createApprovalRequest(data: {
     approverIds: string[];   // 결재자 목록 (순서대로)
     projectId?: string;
     attachmentUrl?: string;
+    formData?: Record<string, any>; // 카테고리별 상세 데이터
 }) {
     try {
         if (!data.approverIds || data.approverIds.length === 0) {
@@ -28,6 +31,7 @@ export async function createApprovalRequest(data: {
                 requesterId: data.requesterId,
                 projectId: data.projectId || null,
                 attachmentUrl: data.attachmentUrl || null,
+                formData: data.formData ? JSON.stringify(data.formData) : null,
                 steps: {
                     create: data.approverIds.map((approverId, idx) => ({
                         approverId,
@@ -157,6 +161,13 @@ export async function processApprovalStep(
                         },
                     });
                 } catch (e) { /* ignore */ }
+
+                // ── 카테고리별 승인 후 자동화 ──
+                try {
+                    await handlePostApproval(request);
+                } catch (postErr) {
+                    console.error("[Approval] 후속 자동화 실패 (무시):", postErr);
+                }
             }
         }
 
@@ -237,6 +248,7 @@ export async function getMyApprovals(userId: string) {
                 requesterId: r.requesterId,
                 projectId: r.projectId,
                 attachmentUrl: r.attachmentUrl,
+                formData: r.formData ? JSON.parse(r.formData) : null,
                 steps: r.steps.map((s: any) => ({
                     id: s.id,
                     approverId: s.approverId,
@@ -261,5 +273,149 @@ export async function getMyApprovals(userId: string) {
     } catch (error: any) {
         console.error("Failed to get approvals:", error);
         return { success: false, data: { requested: [], toApprove: [] } };
+    }
+}
+
+// ─── 카테고리별 승인 후 자동화 ───────────────────────────────────────────────
+
+async function handlePostApproval(request: any) {
+    const formData = request.formData ? JSON.parse(request.formData) : {};
+    const requester = await prisma.user.findUnique({
+        where: { id: request.requesterId },
+        select: { name: true },
+    });
+    const requesterName = requester?.name || "";
+
+    switch (request.category) {
+        case "VACATION": {
+            // 휴가: 공유 캘린더에 VACATION 이벤트 생성 + Attendance 기록
+            const startDate = formData.startDate; // "YYYY-MM-DD"
+            const endDate = formData.endDate;     // "YYYY-MM-DD"
+            const vacationType = formData.vacationType || "연차"; // 연차/반차(오전)/반차(오후)/병가
+
+            if (startDate && endDate) {
+                // 캘린더 이벤트 생성
+                await createCalendarEvent({
+                    title: `[${vacationType}] ${requesterName}`,
+                    description: request.content,
+                    category: "VACATION",
+                    startTime: new Date(`${startDate}T00:00:00+09:00`).toISOString(),
+                    endTime: new Date(`${endDate}T23:59:59+09:00`).toISOString(),
+                    isAllDay: true,
+                    creatorId: request.requesterId,
+                    attendeeIds: [],
+                    requiresRsvp: false,
+                });
+
+                // Attendance 기록 생성 (기간 내 평일)
+                const start = new Date(`${startDate}T00:00:00+09:00`);
+                const end = new Date(`${endDate}T00:00:00+09:00`);
+                for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                    const dayOfWeek = d.getDay();
+                    if (dayOfWeek === 0 || dayOfWeek === 6) continue; // 주말 스킵
+                    const dateOnly = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+                    const existing = await prisma.attendance.findUnique({
+                        where: { userId_date: { userId: request.requesterId, date: dateOnly } },
+                    });
+                    if (!existing) {
+                        await prisma.attendance.create({
+                            data: {
+                                userId: request.requesterId,
+                                date: dateOnly,
+                                clockIn: new Date(`${dateOnly.toISOString().split("T")[0]}T09:00:00+09:00`),
+                                status: "PRESENT",
+                                workType: "VACATION",
+                            },
+                        });
+                    }
+                }
+            }
+            break;
+        }
+
+        case "OVERTIME": {
+            // 시간외근무: Attendance 기록에 overtime 표시
+            const overtimeDate = formData.overtimeDate;
+            const startTime = formData.startTime; // "HH:mm"
+            const endTime = formData.endTime;     // "HH:mm"
+
+            if (overtimeDate) {
+                await createCalendarEvent({
+                    title: `[시간외근무] ${requesterName}`,
+                    description: `${startTime || ""} ~ ${endTime || ""}\n${request.content}`,
+                    category: "OTHER",
+                    startTime: new Date(`${overtimeDate}T${startTime || "18:00"}:00+09:00`).toISOString(),
+                    endTime: new Date(`${overtimeDate}T${endTime || "21:00"}:00+09:00`).toISOString(),
+                    isAllDay: false,
+                    creatorId: request.requesterId,
+                    attendeeIds: [],
+                    requiresRsvp: false,
+                });
+            }
+            break;
+        }
+
+        case "BUSINESS_TRIP": {
+            // 출장: 공유 캘린더에 이벤트 생성
+            const tripStart = formData.startDate;
+            const tripEnd = formData.endDate;
+            const destination = formData.destination || "";
+
+            if (tripStart && tripEnd) {
+                await createCalendarEvent({
+                    title: `[출장] ${requesterName} - ${destination}`,
+                    description: request.content,
+                    category: "FIELD_WORK",
+                    startTime: new Date(`${tripStart}T00:00:00+09:00`).toISOString(),
+                    endTime: new Date(`${tripEnd}T23:59:59+09:00`).toISOString(),
+                    isAllDay: true,
+                    location: destination,
+                    creatorId: request.requesterId,
+                    attendeeIds: [],
+                    requiresRsvp: false,
+                });
+
+                // Attendance 기록 생성
+                const start = new Date(`${tripStart}T00:00:00+09:00`);
+                const end = new Date(`${tripEnd}T00:00:00+09:00`);
+                for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                    const dayOfWeek = d.getDay();
+                    if (dayOfWeek === 0 || dayOfWeek === 6) continue;
+                    const dateOnly = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+                    const existing = await prisma.attendance.findUnique({
+                        where: { userId_date: { userId: request.requesterId, date: dateOnly } },
+                    });
+                    if (!existing) {
+                        await prisma.attendance.create({
+                            data: {
+                                userId: request.requesterId,
+                                date: dateOnly,
+                                clockIn: new Date(`${dateOnly.toISOString().split("T")[0]}T09:00:00+09:00`),
+                                status: "PRESENT",
+                                workType: "BUSINESS_TRIP",
+                            },
+                        });
+                    }
+                }
+            }
+            break;
+        }
+
+        // EXPENSE, GENERAL: 후속 자동화 없음
+        default:
+            break;
+    }
+
+    // 모든 카테고리 공통: 결재 문서 자동 보관
+    try {
+        await archiveApprovalDocument({
+            approvalTitle: request.title,
+            category: request.category,
+            content: request.content || "",
+            requesterId: request.requesterId,
+            approvalId: request.id,
+        });
+    } catch (e) {
+        console.error("결재 문서 자동 보관 실패 (무시):", e);
     }
 }

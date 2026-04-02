@@ -145,6 +145,111 @@ export async function deleteDocument(documentId: string, userId: string) {
     }
 }
 
+// ─── 문서 검색 ───────────────────────────────────────────────────────────────
+
+export async function searchDocuments(userId: string, query: string) {
+    try {
+        const documents = await (prisma as any).document.findMany({
+            where: {
+                name: { contains: query, mode: "insensitive" },
+                OR: [
+                    { visibility: "PUBLIC" },
+                    { visibility: "PRIVATE", uploaderId: userId },
+                ],
+            },
+            include: {
+                versions: { orderBy: { createdAt: "desc" }, take: 5 },
+                folder: { select: { id: true, name: true } },
+            },
+            orderBy: { updatedAt: "desc" },
+            take: 50,
+        });
+
+        return {
+            success: true,
+            data: documents.map((d: any) => ({
+                ...d,
+                folderName: d.folder?.name || null,
+                createdAt: d.createdAt.toISOString(),
+                updatedAt: d.updatedAt?.toISOString() || null,
+                versions: d.versions?.map((v: any) => ({
+                    ...v,
+                    createdAt: v.createdAt.toISOString(),
+                })) || [],
+            })),
+        };
+    } catch (error: any) {
+        console.error("Failed to search documents:", error);
+        return { success: false, data: [] };
+    }
+}
+
+// ─── 결재 문서 자동 보관 ─────────────────────────────────────────────────────
+
+export async function archiveApprovalDocument(data: {
+    approvalTitle: string;
+    category: string;
+    content: string;
+    requesterId: string;
+    approvalId: string;
+}) {
+    try {
+        // "결재문서" 폴더를 찾거나 생성
+        let archiveFolder = await (prisma as any).docFolder.findFirst({
+            where: { name: "결재문서", parentId: null },
+        });
+        if (!archiveFolder) {
+            archiveFolder = await (prisma as any).docFolder.create({
+                data: { name: "결재문서", creatorId: data.requesterId },
+            });
+        }
+
+        // 카테고리별 하위 폴더
+        const categoryLabels: Record<string, string> = {
+            VACATION: "휴가", OVERTIME: "시간외근무", BUSINESS_TRIP: "출장",
+            EXPENSE: "지출결의", GENERAL: "일반기안",
+        };
+        const catLabel = categoryLabels[data.category] || "기타";
+        let catFolder = await (prisma as any).docFolder.findFirst({
+            where: { name: catLabel, parentId: archiveFolder.id },
+        });
+        if (!catFolder) {
+            catFolder = await (prisma as any).docFolder.create({
+                data: { name: catLabel, creatorId: data.requesterId, parentId: archiveFolder.id },
+            });
+        }
+
+        // 텍스트 기반 문서 생성 (결재 내용을 Blob 없이 텍스트 URL로 저장)
+        const dateStr = new Date().toISOString().split("T")[0];
+        const docName = `[${catLabel}] ${data.approvalTitle} (${dateStr}).txt`;
+
+        const doc = await (prisma as any).document.create({
+            data: {
+                name: docName,
+                mimeType: "text/plain",
+                size: Buffer.byteLength(data.content, "utf-8"),
+                currentUrl: `approval://${data.approvalId}`,
+                uploaderId: data.requesterId,
+                folderId: catFolder.id,
+                visibility: "PUBLIC",
+                versions: {
+                    create: {
+                        url: `approval://${data.approvalId}`,
+                        size: Buffer.byteLength(data.content, "utf-8"),
+                        uploaderId: data.requesterId,
+                        note: "결재 승인 자동 보관",
+                    },
+                },
+            },
+        });
+
+        return { success: true, data: doc };
+    } catch (error: any) {
+        console.error("Failed to archive approval document:", error);
+        return { success: false, error: "결재 문서 보관에 실패했습니다." };
+    }
+}
+
 // ─── 자료실 목록 조회 ─────────────────────────────────────────────────────────
 
 export async function getDocuments(userId: string, folderId?: string) {

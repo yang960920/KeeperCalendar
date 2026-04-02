@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
-import { User, Lock, Bell, Palette, Check, Upload } from "lucide-react";
+import { User, Lock, Bell, Palette, Check, Upload, Clock, MessageSquare, FileCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,6 +27,13 @@ const HEATMAP_PALETTES: Record<string, { label: string; colors: string[] }> = {
     orange: { label: "오렌지", colors: ["#7c2d12", "#ea580c", "#fb923c", "#fdba74"] },
 };
 
+const WORK_HOURS = Array.from({ length: 25 }, (_, i) => {
+    const h = Math.floor(i / 2 + 7); // 07:00 ~ 19:00
+    const m = i % 2 === 0 ? "00" : "30";
+    if (h > 19) return null;
+    return `${String(h).padStart(2, "0")}:${m}`;
+}).filter(Boolean) as string[];
+
 export default function SettingsPage() {
     const user = useStore(useAuthStore, (s) => s.user);
     const setProfileImage = useAuthStore((s) => s.setProfileImage);
@@ -50,6 +57,10 @@ export default function SettingsPage() {
         notifyPeerReview: true,
         notifySubTaskAssign: true,
         notifyNudge: true,
+        notifyApproval: true,
+        notifyChat: true,
+        defaultWorkStart: null as string | null,
+        defaultWorkEnd: null as string | null,
         theme: "dark",
         heatmapColor: "green",
     });
@@ -66,7 +77,11 @@ export default function SettingsPage() {
             ([profileRes, settingsRes]) => {
                 if (profileRes.success && profileRes.data) setProfile(profileRes.data);
                 if (settingsRes.success && settingsRes.data) {
-                    setSettings(settingsRes.data);
+                    setSettings({
+                        ...settingsRes.data,
+                        defaultWorkStart: settingsRes.data.defaultWorkStart || null,
+                        defaultWorkEnd: settingsRes.data.defaultWorkEnd || null,
+                    });
                     setHeatmapColorStore(settingsRes.data.heatmapColor);
                 }
                 setProfileLoading(false);
@@ -86,9 +101,7 @@ export default function SettingsPage() {
         const res = await changePassword(user.id, currentPw, newPw);
         if (res.success) {
             setPwMsg({ type: "success", text: "비밀번호가 변경되었습니다." });
-            setCurrentPw("");
-            setNewPw("");
-            setConfirmPw("");
+            setCurrentPw(""); setNewPw(""); setConfirmPw("");
         } else {
             setPwMsg({ type: "error", text: res.error || "변경에 실패했습니다." });
         }
@@ -108,7 +121,7 @@ export default function SettingsPage() {
                 const blob = await response.json();
                 await updateProfileImage(user.id, blob.url);
                 setProfile((p: any) => ({ ...p, profileImageUrl: blob.url }));
-                setProfileImage(blob.url); // auth store 동기화 → 사이드바 즉시 반영
+                setProfileImage(blob.url);
             } else {
                 alert("이미지 업로드에 실패했습니다.");
             }
@@ -123,7 +136,7 @@ export default function SettingsPage() {
         if (!user) return;
         const res = await updateUserSettings(user.id, settings);
         if (res.success) {
-            setHeatmapColorStore(settings.heatmapColor); // store 즉시 동기화
+            setHeatmapColorStore(settings.heatmapColor);
             setSaved(true);
             setTimeout(() => setSaved(false), 2000);
         }
@@ -143,19 +156,22 @@ export default function SettingsPage() {
         <div className="min-h-screen bg-background text-foreground p-6 md:p-10 max-w-4xl mx-auto">
             <div className="mb-8">
                 <h1 className="text-3xl font-bold tracking-tight">Keeper Settings</h1>
-                <p className="text-muted-foreground mt-1">계정, 알림, 화면 설정을 관리합니다.</p>
+                <p className="text-muted-foreground mt-1">계정, 알림, 근무, 화면 설정을 관리합니다.</p>
             </div>
 
             <Tabs defaultValue="account" className="space-y-6">
-                <TabsList className="grid w-full grid-cols-3 h-11">
-                    <TabsTrigger value="account" className="gap-2">
-                        <User className="h-4 w-4" /> 계정 관리
+                <TabsList className="grid w-full grid-cols-4 h-11">
+                    <TabsTrigger value="account" className="gap-2 text-xs sm:text-sm">
+                        <User className="h-4 w-4" /> 계정
                     </TabsTrigger>
-                    <TabsTrigger value="notifications" className="gap-2">
-                        <Bell className="h-4 w-4" /> 알림 설정
+                    <TabsTrigger value="notifications" className="gap-2 text-xs sm:text-sm">
+                        <Bell className="h-4 w-4" /> 알림
                     </TabsTrigger>
-                    <TabsTrigger value="display" className="gap-2">
-                        <Palette className="h-4 w-4" /> 화면 설정
+                    <TabsTrigger value="work" className="gap-2 text-xs sm:text-sm">
+                        <Clock className="h-4 w-4" /> 근무
+                    </TabsTrigger>
+                    <TabsTrigger value="display" className="gap-2 text-xs sm:text-sm">
+                        <Palette className="h-4 w-4" /> 화면
                     </TabsTrigger>
                 </TabsList>
 
@@ -170,7 +186,6 @@ export default function SettingsPage() {
                             <p className="text-sm text-muted-foreground">로딩 중...</p>
                         ) : profile ? (
                             <div className="flex items-start gap-6">
-                                {/* 아바타 */}
                                 <div className="flex flex-col items-center gap-2">
                                     <div className="relative group">
                                         {profile.profileImageUrl ? (
@@ -186,21 +201,13 @@ export default function SettingsPage() {
                                         )}
                                         <label className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity">
                                             <Upload className="h-5 w-5 text-white" />
-                                            <input
-                                                type="file"
-                                                accept="image/*"
-                                                className="hidden"
-                                                onChange={handleImageUpload}
-                                                disabled={uploading}
-                                            />
+                                            <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploading} />
                                         </label>
                                     </div>
                                     <span className="text-[10px] text-muted-foreground">
                                         {uploading ? "업로드 중..." : "클릭하여 변경"}
                                     </span>
                                 </div>
-
-                                {/* 정보 */}
                                 <div className="grid grid-cols-2 gap-x-8 gap-y-3 flex-1">
                                     <div>
                                         <span className="text-xs text-muted-foreground">이름</span>
@@ -233,35 +240,18 @@ export default function SettingsPage() {
                         <div className="grid gap-3 max-w-md">
                             <div className="space-y-1.5">
                                 <Label>현재 비밀번호</Label>
-                                <Input
-                                    type="password"
-                                    value={currentPw}
-                                    onChange={(e) => setCurrentPw(e.target.value)}
-                                    placeholder="현재 비밀번호 입력"
-                                />
+                                <Input type="password" value={currentPw} onChange={(e) => setCurrentPw(e.target.value)} placeholder="현재 비밀번호 입력" />
                             </div>
                             <div className="space-y-1.5">
                                 <Label>새 비밀번호</Label>
-                                <Input
-                                    type="password"
-                                    value={newPw}
-                                    onChange={(e) => setNewPw(e.target.value)}
-                                    placeholder="새 비밀번호 입력"
-                                />
+                                <Input type="password" value={newPw} onChange={(e) => setNewPw(e.target.value)} placeholder="새 비밀번호 입력" />
                             </div>
                             <div className="space-y-1.5">
                                 <Label>비밀번호 확인</Label>
-                                <Input
-                                    type="password"
-                                    value={confirmPw}
-                                    onChange={(e) => setConfirmPw(e.target.value)}
-                                    placeholder="새 비밀번호 다시 입력"
-                                />
+                                <Input type="password" value={confirmPw} onChange={(e) => setConfirmPw(e.target.value)} placeholder="새 비밀번호 다시 입력" />
                             </div>
                             {pwMsg && (
-                                <p className={`text-sm ${pwMsg.type === "success" ? "text-emerald-500" : "text-red-500"}`}>
-                                    {pwMsg.text}
-                                </p>
+                                <p className={`text-sm ${pwMsg.type === "success" ? "text-emerald-500" : "text-red-500"}`}>{pwMsg.text}</p>
                             )}
                             <Button onClick={handleChangePw} className="w-fit" disabled={!currentPw || !newPw || !confirmPw}>
                                 비밀번호 변경
@@ -283,7 +273,7 @@ export default function SettingsPage() {
                         {settingsLoading ? (
                             <p className="text-sm text-muted-foreground">로딩 중...</p>
                         ) : (
-                            <div className="space-y-5">
+                            <div className="space-y-4">
                                 {/* 마감일 리마인더 */}
                                 <div className="flex items-center justify-between rounded-lg border p-4">
                                     <div>
@@ -311,6 +301,36 @@ export default function SettingsPage() {
                                             onCheckedChange={(v: boolean) => setSettings((s) => ({ ...s, notifyDueDate: v }))}
                                         />
                                     </div>
+                                </div>
+
+                                {/* 결재 알림 */}
+                                <div className="flex items-center justify-between rounded-lg border p-4">
+                                    <div>
+                                        <p className="text-sm font-medium flex items-center gap-1.5">
+                                            <FileCheck className="h-3.5 w-3.5 text-primary" />
+                                            결재 알림
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">결재 요청, 승인, 반려 시 알림을 받습니다.</p>
+                                    </div>
+                                    <Switch
+                                        checked={settings.notifyApproval}
+                                        onCheckedChange={(v: boolean) => setSettings((s) => ({ ...s, notifyApproval: v }))}
+                                    />
+                                </div>
+
+                                {/* 채팅 알림 */}
+                                <div className="flex items-center justify-between rounded-lg border p-4">
+                                    <div>
+                                        <p className="text-sm font-medium flex items-center gap-1.5">
+                                            <MessageSquare className="h-3.5 w-3.5 text-primary" />
+                                            채팅 알림
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">새 메시지 수신 시 알림을 받습니다.</p>
+                                    </div>
+                                    <Switch
+                                        checked={settings.notifyChat}
+                                        onCheckedChange={(v: boolean) => setSettings((s) => ({ ...s, notifyChat: v }))}
+                                    />
                                 </div>
 
                                 {/* 피어 리뷰 */}
@@ -357,7 +377,114 @@ export default function SettingsPage() {
                     </div>
                 </TabsContent>
 
-                {/* === 탭 3: 화면 설정 === */}
+                {/* === 탭 3: 근무 설정 === */}
+                <TabsContent value="work" className="space-y-6">
+                    <div className="rounded-xl border bg-card p-6 space-y-6">
+                        <h2 className="text-lg font-semibold flex items-center gap-2">
+                            <Clock className="h-5 w-5" /> 근무 시간 설정
+                        </h2>
+                        <p className="text-sm text-muted-foreground -mt-2">
+                            개인 근무 시간을 설정합니다. 출퇴근 기록과 지각 판정에 사용됩니다.
+                        </p>
+
+                        {settingsLoading ? (
+                            <p className="text-sm text-muted-foreground">로딩 중...</p>
+                        ) : (
+                            <div className="space-y-5">
+                                {/* 출근 시간 */}
+                                <div className="flex items-center justify-between rounded-lg border p-4">
+                                    <div>
+                                        <p className="text-sm font-medium">출근 시간</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            기본: 09:00 {settings.defaultWorkStart && `(현재: ${settings.defaultWorkStart})`}
+                                        </p>
+                                    </div>
+                                    <Select
+                                        value={settings.defaultWorkStart || "09:00"}
+                                        onValueChange={(v) => setSettings((s) => ({ ...s, defaultWorkStart: v }))}
+                                    >
+                                        <SelectTrigger className="w-[100px] h-8 text-xs">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {WORK_HOURS.map(h => (
+                                                <SelectItem key={`start-${h}`} value={h}>{h}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                {/* 퇴근 시간 */}
+                                <div className="flex items-center justify-between rounded-lg border p-4">
+                                    <div>
+                                        <p className="text-sm font-medium">퇴근 시간</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            기본: 18:00 {settings.defaultWorkEnd && `(현재: ${settings.defaultWorkEnd})`}
+                                        </p>
+                                    </div>
+                                    <Select
+                                        value={settings.defaultWorkEnd || "18:00"}
+                                        onValueChange={(v) => setSettings((s) => ({ ...s, defaultWorkEnd: v }))}
+                                    >
+                                        <SelectTrigger className="w-[100px] h-8 text-xs">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {WORK_HOURS.map(h => (
+                                                <SelectItem key={`end-${h}`} value={h}>{h}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                {/* 근무 시간 요약 */}
+                                <div className="rounded-lg bg-muted/50 p-4">
+                                    <p className="text-xs text-muted-foreground mb-2">근무 시간 요약</p>
+                                    <div className="grid grid-cols-3 gap-4 text-center">
+                                        <div>
+                                            <p className="text-lg font-bold text-primary">
+                                                {settings.defaultWorkStart || "09:00"}
+                                            </p>
+                                            <p className="text-[10px] text-muted-foreground">출근</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-lg font-bold text-primary">
+                                                {settings.defaultWorkEnd || "18:00"}
+                                            </p>
+                                            <p className="text-[10px] text-muted-foreground">퇴근</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-lg font-bold text-primary">
+                                                {(() => {
+                                                    const start = settings.defaultWorkStart || "09:00";
+                                                    const end = settings.defaultWorkEnd || "18:00";
+                                                    const [sh, sm] = start.split(":").map(Number);
+                                                    const [eh, em] = end.split(":").map(Number);
+                                                    const diff = (eh * 60 + em) - (sh * 60 + sm) - 60; // 점심 1시간 제외
+                                                    return `${Math.floor(diff / 60)}h ${diff % 60 > 0 ? `${diff % 60}m` : ""}`.trim();
+                                                })()}
+                                            </p>
+                                            <p className="text-[10px] text-muted-foreground">실근무 (점심 제외)</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
+                                    <p className="text-xs text-amber-400">
+                                        근무 시간 변경은 변경 시점 이후의 출퇴근 기록에만 적용됩니다.
+                                        관리자가 별도로 설정한 근무 시간이 있으면 관리자 설정이 우선됩니다.
+                                    </p>
+                                </div>
+
+                                <Button onClick={handleSaveSettings} className="gap-2">
+                                    {saved ? <><Check className="h-4 w-4" /> 저장됨!</> : "근무 설정 저장"}
+                                </Button>
+                            </div>
+                        )}
+                    </div>
+                </TabsContent>
+
+                {/* === 탭 4: 화면 설정 === */}
                 <TabsContent value="display" className="space-y-6">
                     {/* 테마 */}
                     <div className="rounded-xl border bg-card p-6 space-y-4">
@@ -372,10 +499,11 @@ export default function SettingsPage() {
                                 <button
                                     key={t.value}
                                     onClick={() => handleThemeChange(t.value)}
-                                    className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all ${(settings.theme === t.value)
-                                        ? "border-primary bg-primary/5"
-                                        : "border-muted hover:border-muted-foreground/30"
-                                        }`}
+                                    className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all ${
+                                        settings.theme === t.value
+                                            ? "border-primary bg-primary/5"
+                                            : "border-muted hover:border-muted-foreground/30"
+                                    }`}
                                 >
                                     <span className="text-2xl">{t.emoji}</span>
                                     <span className="text-sm font-medium">{t.label}</span>
@@ -393,10 +521,11 @@ export default function SettingsPage() {
                                 <button
                                     key={key}
                                     onClick={() => setSettings((s) => ({ ...s, heatmapColor: key }))}
-                                    className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all ${settings.heatmapColor === key
-                                        ? "border-primary bg-primary/5"
-                                        : "border-muted hover:border-muted-foreground/30"
-                                        }`}
+                                    className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all ${
+                                        settings.heatmapColor === key
+                                            ? "border-primary bg-primary/5"
+                                            : "border-muted hover:border-muted-foreground/30"
+                                    }`}
                                 >
                                     <div className="flex gap-1">
                                         {palette.colors.map((c, i) => (

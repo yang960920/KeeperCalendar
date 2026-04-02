@@ -83,6 +83,10 @@ export async function getUserSettings(userId: string) {
                 notifyPeerReview: settings.notifyPeerReview,
                 notifySubTaskAssign: settings.notifySubTaskAssign,
                 notifyNudge: (settings as any).notifyNudge ?? true,
+                notifyApproval: (settings as any).notifyApproval ?? true,
+                notifyChat: (settings as any).notifyChat ?? true,
+                defaultWorkStart: (settings as any).defaultWorkStart || null,
+                defaultWorkEnd: (settings as any).defaultWorkEnd || null,
                 theme: settings.theme,
                 heatmapColor: settings.heatmapColor,
             },
@@ -135,6 +139,10 @@ export async function updateUserSettings(userId: string, data: {
     notifyPeerReview?: boolean;
     notifySubTaskAssign?: boolean;
     notifyNudge?: boolean;
+    notifyApproval?: boolean;
+    notifyChat?: boolean;
+    defaultWorkStart?: string | null;
+    defaultWorkEnd?: string | null;
     theme?: string;
     heatmapColor?: string;
 }) {
