@@ -15,6 +15,7 @@ export async function createCalendarEvent(data: {
     location?: string;
     creatorId: string;
     attendeeIds: string[];
+    requiresRsvp?: boolean;
     recurrenceType?: "NONE" | "DAILY" | "WEEKLY" | "BIWEEKLY" | "MONTHLY";
     recurrenceEnd?: string;
     projectId?: string;
@@ -30,6 +31,7 @@ export async function createCalendarEvent(data: {
                 isAllDay: data.isAllDay || false,
                 location: data.location || null,
                 creatorId: data.creatorId,
+                requiresRsvp: data.requiresRsvp || false,
                 recurrenceType: data.recurrenceType || "NONE",
                 recurrenceEnd: data.recurrenceEnd ? new Date(data.recurrenceEnd) : null,
                 projectId: data.projectId || null,
@@ -46,13 +48,17 @@ export async function createCalendarEvent(data: {
         if (data.attendeeIds.length > 0) {
             const recipients = data.attendeeIds.filter(id => id !== data.creatorId);
             if (recipients.length > 0) {
+                const notifTitle = data.requiresRsvp ? "📅 일정 참석 확인 요청" : "📅 일정 안내";
+                const notifMessage = data.requiresRsvp
+                    ? `"${data.title}" 일정에 초대되었습니다. 참석 여부를 확인해 주세요.`
+                    : `"${data.title}" 일정이 등록되었습니다.`;
                 try {
                     await prisma.notification.createMany({
                         data: recipients.map(userId => ({
                             userId,
                             type: "SYSTEM",
-                            title: "📅 일정 초대",
-                            message: `"${data.title}" 일정에 초대되었습니다.`,
+                            title: notifTitle,
+                            message: notifMessage,
                             senderId: data.creatorId,
                         })),
                     });
@@ -215,6 +221,7 @@ export async function getCalendarEvents(userId: string, year: number, month: num
                 isAllDay: event.isAllDay,
                 location: event.location,
                 creatorId: event.creatorId,
+                requiresRsvp: event.requiresRsvp,
                 recurrenceType: event.recurrenceType,
                 recurrenceEnd: event.recurrenceEnd?.toISOString() || null,
                 projectId: event.projectId,

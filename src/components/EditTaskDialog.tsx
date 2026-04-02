@@ -273,7 +273,7 @@ export const EditTaskDialog = ({ open, onOpenChange, task, readonly = false, edi
                                     await toggleSubTask(subTaskId);
                                 }}
                                 onAdd={async (data) => {
-                                    const res = await addSubTask(task.id, data);
+                                    const res = await addSubTask(task.id, { ...data, creatorId: user?.id });
                                     if (res.success && res.data) {
                                         addSubTaskLocal(task.id, {
                                             id: res.data.id,

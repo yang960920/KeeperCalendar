@@ -277,7 +277,7 @@ export default function SettingsPage() {
                             <Bell className="h-5 w-5" /> 알림 선호도
                         </h2>
                         <p className="text-sm text-muted-foreground -mt-2">
-                            실제 알림 발송은 추후 업데이트에서 지원됩니다. 현재는 선호도만 저장됩니다.
+                            각 알림의 수신 여부를 설정합니다. OFF 시 해당 알림이 발송되지 않습니다.
                         </p>
 
                         {settingsLoading ? (
@@ -368,7 +368,6 @@ export default function SettingsPage() {
                             {[
                                 { value: "dark", label: "다크", emoji: "🌙" },
                                 { value: "light", label: "라이트", emoji: "☀️" },
-                                { value: "system", label: "시스템", emoji: "💻" },
                             ].map((t) => (
                                 <button
                                     key={t.value}

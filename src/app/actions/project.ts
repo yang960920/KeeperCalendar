@@ -239,6 +239,25 @@ export async function closeProject(data: {
             console.error("[ActivityLog] 프로젝트 종료 로그 기록 실패:", logErr);
         }
 
+        // 피어 리뷰 알림 (COMPLETED일 때만)
+        if (data.status === "COMPLETED") {
+            try {
+                const allMemberIds = [
+                    project.creatorId,
+                    ...project.participants.map((p) => p.id),
+                ].filter((id, i, arr) => arr.indexOf(id) === i); // 중복 제거
+
+                const { sendPeerReviewNotification } = await import("@/app/actions/notification");
+                await sendPeerReviewNotification({
+                    recipientIds: allMemberIds,
+                    projectName: project.name,
+                    projectId: data.projectId,
+                });
+            } catch (reviewErr) {
+                console.error("[Notification] 피어 리뷰 알림 실패:", reviewErr);
+            }
+        }
+
         return { success: true, data: updated };
     } catch (error: any) {
         console.error("Failed to close project:", error);

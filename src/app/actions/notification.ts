@@ -2,7 +2,149 @@
 
 import { prisma } from "@/lib/prisma";
 
-// 독촉 알림 보내기 (24시간 쿨다운)
+// ─── 설정 기반 알림 필터 유틸 ──────────────────────────────────────────────────
+
+/**
+ * 특정 설정 필드가 false인 사용자를 걸러낸 뒤, 유효한 수신자 ID 목록을 반환
+ */
+async function filterByNotifySetting(
+    userIds: string[],
+    settingField: "notifyNudge" | "notifyDueDate" | "notifyPeerReview" | "notifySubTaskAssign"
+): Promise<string[]> {
+    if (userIds.length === 0) return [];
+    const blocked = await (prisma as any).userSettings.findMany({
+        where: { userId: { in: userIds }, [settingField]: false },
+        select: { userId: true },
+    });
+    const blockedSet = new Set(blocked.map((s: any) => s.userId));
+    return userIds.filter((id) => !blockedSet.has(id));
+}
+
+// ─── 하위업무 배정 알림 ────────────────────────────────────────────────────────
+
+export async function sendSubTaskAssignNotification(data: {
+    assigneeId: string;
+    taskTitle: string;
+    subTaskTitle: string;
+    taskId: string;
+    senderId: string;
+}) {
+    try {
+        const eligible = await filterByNotifySetting([data.assigneeId], "notifySubTaskAssign");
+        if (eligible.length === 0) return;
+
+        await (prisma as any).notification.create({
+            data: {
+                userId: data.assigneeId,
+                type: "SYSTEM",
+                title: "📌 하위업무 배정",
+                message: `"${data.taskTitle}" > "${data.subTaskTitle}" 하위업무가 배정되었습니다.`,
+                taskId: data.taskId,
+                senderId: data.senderId,
+            },
+        });
+    } catch (err) {
+        console.error("[Notification] 하위업무 배정 알림 실패:", err);
+    }
+}
+
+// ─── 피어 리뷰 요청 알림 ──────────────────────────────────────────────────────
+
+export async function sendPeerReviewNotification(data: {
+    recipientIds: string[];
+    projectName: string;
+    projectId: string;
+}) {
+    try {
+        const eligible = await filterByNotifySetting(data.recipientIds, "notifyPeerReview");
+        if (eligible.length === 0) return;
+
+        await (prisma as any).notification.createMany({
+            data: eligible.map((userId: string) => ({
+                userId,
+                type: "SYSTEM",
+                title: "⭐ 피어 리뷰 요청",
+                message: `"${data.projectName}" 프로젝트의 피어 리뷰를 작성해 주세요.`,
+                projectId: data.projectId,
+            })),
+        });
+    } catch (err) {
+        console.error("[Notification] 피어 리뷰 알림 실패:", err);
+    }
+}
+
+// ─── 마감일 리마인더 알림 (cron에서 호출) ─────────────────────────────────────
+
+export async function sendDueDateReminders() {
+    try {
+        // 알림 설정이 켜진 사용자의 설정 조회
+        const allSettings = await (prisma as any).userSettings.findMany({
+            where: { notifyDueDate: true },
+            select: { userId: true, notifyDueDays: true },
+        });
+
+        if (allSettings.length === 0) return { sent: 0 };
+
+        let totalSent = 0;
+
+        // notifyDueDays 그룹별로 처리 (1, 3, 7)
+        const dayGroups = new Map<number, string[]>();
+        for (const s of allSettings) {
+            const days = s.notifyDueDays || 1;
+            if (!dayGroups.has(days)) dayGroups.set(days, []);
+            dayGroups.get(days)!.push(s.userId);
+        }
+
+        for (const [days, userIds] of dayGroups) {
+            const targetDate = new Date();
+            targetDate.setDate(targetDate.getDate() + days);
+            const startOfDay = new Date(targetDate);
+            startOfDay.setHours(0, 0, 0, 0);
+            const endOfDay = new Date(targetDate);
+            endOfDay.setHours(23, 59, 59, 999);
+
+            // 해당 날짜에 마감인 업무 중 해당 사용자들이 담당인 것
+            const tasks = await prisma.task.findMany({
+                where: {
+                    status: { not: "DONE" },
+                    dueDate: { gte: startOfDay, lte: endOfDay },
+                    assignees: { some: { id: { in: userIds } } },
+                },
+                include: {
+                    assignees: { select: { id: true } },
+                    project: { select: { name: true } },
+                },
+            });
+
+            const notifications: any[] = [];
+            for (const task of tasks) {
+                for (const assignee of task.assignees) {
+                    if (userIds.includes(assignee.id)) {
+                        notifications.push({
+                            userId: assignee.id,
+                            type: "SYSTEM",
+                            title: "⏰ 마감일 리마인더",
+                            message: `"${task.title}" 업무 마감이 ${days === 1 ? "내일" : `${days}일 후`}입니다.${task.project ? ` (${task.project.name})` : ""}`,
+                            taskId: task.id,
+                        });
+                    }
+                }
+            }
+
+            if (notifications.length > 0) {
+                await (prisma as any).notification.createMany({ data: notifications });
+                totalSent += notifications.length;
+            }
+        }
+
+        return { sent: totalSent };
+    } catch (err) {
+        console.error("[Notification] 마감일 리마인더 실패:", err);
+        return { sent: 0, error: String(err) };
+    }
+}
+
+// ─── 독촉 알림 보내기 (24시간 쿨다운) ─────────────────────────────────────────
 export async function sendNudge(data: {
     senderId: string;
     taskId: string;
@@ -30,15 +172,7 @@ export async function sendNudge(data: {
         }
 
         // 수신자별 알림 설정 확인 (notifyNudge OFF인 사용자 제외)
-        const settings = await (prisma as any).userSettings.findMany({
-            where: {
-                userId: { in: data.recipientIds },
-                notifyNudge: false,
-            },
-            select: { userId: true },
-        });
-        const blockedIds = new Set(settings.map((s: any) => s.userId));
-        const eligibleIds = data.recipientIds.filter(id => !blockedIds.has(id));
+        const eligibleIds = await filterByNotifySetting(data.recipientIds, "notifyNudge");
 
         if (eligibleIds.length === 0) {
             return {

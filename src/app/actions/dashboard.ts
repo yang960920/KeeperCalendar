@@ -164,9 +164,14 @@ export async function getRecentTasks(userId: string) {
             where: {
                 assignees: { some: { id: userId } },
             },
-            include: {
+            select: {
+                id: true,
+                title: true,
+                status: true,
+                isUrgent: true,
                 project: { select: { name: true } },
                 assignees: { select: { id: true, name: true } },
+                updatedAt: true,
             },
             orderBy: { updatedAt: "desc" },
         });

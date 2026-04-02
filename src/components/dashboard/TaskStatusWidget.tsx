@@ -22,6 +22,7 @@ interface RecentTask {
     id: string;
     title: string;
     status: string;
+    isUrgent: boolean;
     project: { name: string } | null;
     assignees: { id: string; name: string }[];
 }
@@ -48,7 +49,9 @@ export function TaskStatusWidget() {
         });
     }, [user]);
 
-    const filteredTasks = filter ? allTasks.filter((t) => t.status === filter) : allTasks;
+    const filteredTasks = filter === "URGENT"
+        ? allTasks.filter((t) => t.isUrgent)
+        : filter ? allTasks.filter((t) => t.status === filter) : allTasks;
     const { items: pageItems, totalPages, currentPage } = paginate(filteredTasks, page, 4);
 
     const handleFilter = (status: string | null) => {
@@ -82,9 +85,7 @@ export function TaskStatusWidget() {
                 <FilterBadge label="진행" value={stats.inProgress} active={filter === "IN_PROGRESS"} onClick={() => handleFilter("IN_PROGRESS")} className="bg-blue-600/30 text-blue-300" />
                 <FilterBadge label="완료" value={stats.done} active={filter === "DONE"} onClick={() => handleFilter("DONE")} className="bg-emerald-600/30 text-emerald-300" />
                 {stats.urgent > 0 && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-red-600/30 text-red-300">
-                        <AlertTriangle className="h-3 w-3" /> 긴급 {stats.urgent}
-                    </span>
+                    <FilterBadge label="긴급" value={stats.urgent} active={filter === "URGENT"} onClick={() => handleFilter("URGENT")} className="bg-red-600/30 text-red-300" icon={<AlertTriangle className="h-3 w-3" />} />
                 )}
             </div>
 
@@ -126,7 +127,7 @@ export function TaskStatusWidget() {
     );
 }
 
-function FilterBadge({ label, value, active, onClick, className }: { label: string; value: number; active: boolean; onClick: () => void; className: string }) {
+function FilterBadge({ label, value, active, onClick, className, icon }: { label: string; value: number; active: boolean; onClick: () => void; className: string; icon?: React.ReactNode }) {
     return (
         <button
             onClick={onClick}
@@ -134,7 +135,7 @@ function FilterBadge({ label, value, active, onClick, className }: { label: stri
                 active ? "ring-2 ring-primary ring-offset-1 ring-offset-background" : "opacity-70 hover:opacity-100"
             }`}
         >
-            {label} {value}
+            {icon}{label} {value}
         </button>
     );
 }

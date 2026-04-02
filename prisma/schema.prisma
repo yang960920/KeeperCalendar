@@ -68,6 +68,7 @@ model UserSettings {
   notifyNudge         Boolean  @default(true) // 독촉 알림 수신 여부
   theme               String   @default("dark")
   heatmapColor        String   @default("green")
+  widgetLayout        String?  // JSON: { layout, widgets: [{id, visible}] }
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 }
@@ -444,6 +445,7 @@ model CalendarEvent {
   isAllDay       Boolean         @default(false)
   location       String?
   creatorId      String // User.id 참조 (직접 relation 없음)
+  requiresRsvp   Boolean         @default(false) // true=참석확인형, false=공지형
   recurrenceType RecurrenceType  @default(NONE)
   recurrenceEnd  DateTime? // 반복 종료일
   projectId      String? // 프로젝트 연동 (옵션)

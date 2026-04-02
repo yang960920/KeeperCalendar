@@ -48,6 +48,7 @@ interface CalendarEventData {
     isAllDay: boolean;
     location?: string;
     creatorId: string;
+    requiresRsvp: boolean;
     recurrenceType: string;
     attendees: { userId: string; response: string }[];
     myResponse: string;
@@ -80,9 +81,16 @@ function EventDetailPopover({
                 {/* 헤더 */}
                 <div className="flex items-start justify-between mb-3">
                     <div>
-                        <Badge className={`${cat.bg} ${cat.text} border-0 text-xs mb-1.5`}>
-                            {cat.label}
-                        </Badge>
+                        <div className="flex items-center gap-1.5 mb-1.5">
+                            <Badge className={`${cat.bg} ${cat.text} border-0 text-xs`}>
+                                {cat.label}
+                            </Badge>
+                            {event.requiresRsvp ? (
+                                <Badge className="bg-indigo-500/20 text-indigo-400 border-0 text-[10px]">참석확인</Badge>
+                            ) : event.attendees.length > 0 ? (
+                                <Badge className="bg-slate-500/20 text-slate-400 border-0 text-[10px]">공지</Badge>
+                            ) : null}
+                        </div>
                         <h3 className="font-bold text-base leading-tight">{event.title}</h3>
                     </div>
                     <button
@@ -121,18 +129,35 @@ function EventDetailPopover({
                     <div className="mb-4">
                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2">
                             <Users className="h-3.5 w-3.5" />
-                            <span>참석자 {event.attendees.length}명</span>
+                            <span>
+                                {event.requiresRsvp ? "참석자" : "대상자"} {event.attendees.length}명
+                                {event.requiresRsvp && (
+                                    <span className="ml-1.5 text-[10px]">
+                                        (수락 {event.attendees.filter(a => a.response === "ACCEPTED").length} / 거절 {event.attendees.filter(a => a.response === "DECLINED").length} / 미응답 {event.attendees.filter(a => a.response === "PENDING").length})
+                                    </span>
+                                )}
+                            </span>
                         </div>
                         <div className="flex flex-wrap gap-1.5">
                             {event.attendees.map((a) => {
-                                const resp = RESPONSE_CONFIG[a.response] || RESPONSE_CONFIG.PENDING;
+                                if (event.requiresRsvp) {
+                                    const resp = RESPONSE_CONFIG[a.response] || RESPONSE_CONFIG.PENDING;
+                                    return (
+                                        <div
+                                            key={a.userId}
+                                            className="inline-flex items-center gap-1 bg-muted/60 rounded-full px-2 py-0.5 text-xs"
+                                        >
+                                            <span className="font-medium">{a.userId}</span>
+                                            <span className={`${resp.color} text-[10px]`}>({resp.label})</span>
+                                        </div>
+                                    );
+                                }
                                 return (
                                     <div
                                         key={a.userId}
-                                        className="inline-flex items-center gap-1 bg-muted/60 rounded-full px-2 py-0.5 text-xs"
+                                        className="inline-flex items-center bg-muted/60 rounded-full px-2 py-0.5 text-xs"
                                     >
                                         <span className="font-medium">{a.userId}</span>
-                                        <span className={`${resp.color} text-[10px]`}>({resp.label})</span>
                                     </div>
                                 );
                             })}
@@ -142,7 +167,7 @@ function EventDetailPopover({
 
                 {/* 액션 버튼 */}
                 <div className="flex items-center gap-2 flex-wrap">
-                    {!isCreator && (
+                    {!isCreator && event.requiresRsvp && (
                         <>
                             <Button
                                 size="sm"
@@ -169,6 +194,9 @@ function EventDetailPopover({
                                 거절
                             </Button>
                         </>
+                    )}
+                    {!isCreator && !event.requiresRsvp && (
+                        <p className="text-[11px] text-muted-foreground flex-1">공지 일정 (참석 확인 불필요)</p>
                     )}
                     {isCreator && (
                         <Button

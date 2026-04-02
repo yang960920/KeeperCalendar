@@ -287,6 +287,7 @@ export async function addSubTask(taskId: string, data: {
     assigneeId?: string;
     dueDate?: string;
     endDate?: string;
+    creatorId?: string;
 }) {
     try {
         const subTask = await prisma.subTask.create({
@@ -299,6 +300,26 @@ export async function addSubTask(taskId: string, data: {
                 endDate: data.endDate ? new Date(data.endDate) : null,
             },
         });
+
+        // 배정자가 있으면 알림 발송
+        if (data.assigneeId && data.creatorId && data.assigneeId !== data.creatorId) {
+            try {
+                const task = await prisma.task.findUnique({
+                    where: { id: taskId },
+                    select: { title: true },
+                });
+                const { sendSubTaskAssignNotification } = await import("@/app/actions/notification");
+                await sendSubTaskAssignNotification({
+                    assigneeId: data.assigneeId,
+                    taskTitle: task?.title || "",
+                    subTaskTitle: data.title,
+                    taskId,
+                    senderId: data.creatorId,
+                });
+            } catch (notifyErr) {
+                console.error("[Notification] 하위업무 배정 알림 실패:", notifyErr);
+            }
+        }
 
         revalidatePath("/");
         revalidatePath("/admin/tracking");

@@ -93,6 +93,41 @@ export async function getUserSettings(userId: string) {
     }
 }
 
+// 위젯 레이아웃 조회
+export async function getWidgetLayout(userId: string) {
+    try {
+        const settings = await prisma.userSettings.findUnique({
+            where: { userId },
+            select: { widgetLayout: true },
+        });
+        if (settings?.widgetLayout) {
+            return { success: true, data: JSON.parse(settings.widgetLayout) };
+        }
+        return { success: true, data: null };
+    } catch (error) {
+        console.error("Failed to get widget layout:", error);
+        return { success: false, data: null };
+    }
+}
+
+// 위젯 레이아웃 저장
+export async function saveWidgetLayout(userId: string, layout: {
+    layoutType: string;
+    widgets: { id: string; visible: boolean }[];
+}) {
+    try {
+        await prisma.userSettings.upsert({
+            where: { userId },
+            create: { userId, widgetLayout: JSON.stringify(layout) },
+            update: { widgetLayout: JSON.stringify(layout) },
+        });
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to save widget layout:", error);
+        return { success: false, error: "위젯 배치 저장에 실패했습니다." };
+    }
+}
+
 // 설정 업데이트
 export async function updateUserSettings(userId: string, data: {
     notifyDueDate?: boolean;
