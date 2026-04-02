@@ -1026,8 +1026,6 @@ export default function ApprovalsPage() {
         loadData();
     }, [loadData]);
 
-    if (!user) return null;
-
     const currentList = useMemo(() => {
         let list: ApprovalData[];
         if (tab === "toApprove") list = data.toApprove;
@@ -1039,6 +1037,8 @@ export default function ApprovalsPage() {
         }
         return list;
     }, [tab, data, statusFilter]);
+
+    if (!user) return null;
 
     return (
         <div className="min-h-screen bg-background text-foreground p-6 md:p-8">
