@@ -16,7 +16,7 @@ import {
     TableRow
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { createEmployee, getEmployees, getDepartments } from "@/app/actions/employee";
+import { createEmployee, getEmployees, getDepartments, assignEmployeeCodes } from "@/app/actions/employee";
 import { EditEmployeeDialog } from "@/components/admin/EditEmployeeDialog";
 
 export default function AdminEmployeesPage() {
@@ -120,7 +120,8 @@ export default function AdminEmployeesPage() {
         setIsSubmitting(false);
 
         if (result.success) {
-            alert(`${name}님 등록 완료 (ID: ${name}, PW: ${birthDate})`);
+            const empCode = result.data?.employeeCode || "";
+            alert(`${name}님 등록 완료\n사원번호: ${empCode}\nID: ${name} / PW: ${birthDate}`);
             // 초기화
             setName("");
             setBirthDate("");
@@ -279,13 +280,33 @@ export default function AdminEmployeesPage() {
                         <h2 className="text-xl font-semibold text-white">
                             전체 사원 명부
                         </h2>
-                        <div className="w-64">
-                            <Input
-                                placeholder="사원명 또는 ID 검색..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="bg-zinc-800 border-zinc-700 text-white"
-                            />
+                        <div className="flex items-center gap-3">
+                            {users.some(u => !u.employeeCode) && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700"
+                                    onClick={async () => {
+                                        const result = await assignEmployeeCodes();
+                                        if (result.success) {
+                                            alert(result.message);
+                                            loadData();
+                                        } else {
+                                            alert(result.error);
+                                        }
+                                    }}
+                                >
+                                    사원번호 일괄 부여
+                                </Button>
+                            )}
+                            <div className="w-64">
+                                <Input
+                                    placeholder="사원명 또는 ID 검색..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="bg-zinc-800 border-zinc-700 text-white"
+                                />
+                            </div>
                         </div>
                     </div>
 
@@ -293,6 +314,7 @@ export default function AdminEmployeesPage() {
                         <Table>
                             <TableHeader className="bg-zinc-800/50">
                                 <TableRow className="border-zinc-800 hover:bg-transparent">
+                                    <TableHead className="text-zinc-400 w-[80px]">사원번호</TableHead>
                                     <TableHead className="text-zinc-400 w-[120px]">이름 (ID)</TableHead>
                                     <TableHead className="text-zinc-400 w-[150px]">부서</TableHead>
                                     <TableHead className="text-zinc-400 w-[120px]">이력서</TableHead>
@@ -303,18 +325,19 @@ export default function AdminEmployeesPage() {
                             <TableBody>
                                 {loading && (
                                     <TableRow>
-                                        <TableCell colSpan={5} className="text-center text-zinc-500 p-4">데이터를 불러오는 중입니다...</TableCell>
+                                        <TableCell colSpan={6} className="text-center text-zinc-500 p-4">데이터를 불러오는 중입니다...</TableCell>
                                     </TableRow>
                                 )}
                                 {!loading && filteredUsers.length === 0 && (
                                     <TableRow>
-                                        <TableCell colSpan={5} className="text-center text-zinc-500 p-4">
+                                        <TableCell colSpan={6} className="text-center text-zinc-500 p-4">
                                             {searchTerm ? "검색 결과가 없습니다." : "등록된 사원이 없습니다."}
                                         </TableCell>
                                     </TableRow>
                                 )}
                                 {!loading && pagedUsers.map((user) => (
                                     <TableRow key={user.id} className="border-zinc-800 hover:bg-zinc-800/50 transition-colors">
+                                        <TableCell className="text-zinc-400 font-mono text-xs">{user.employeeCode || "-"}</TableCell>
                                         <TableCell className="font-medium text-white">{user.name}</TableCell>
                                         <TableCell className="text-zinc-300">{user.department?.name || "-"}</TableCell>
                                         <TableCell>

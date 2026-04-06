@@ -67,6 +67,27 @@ export async function seedDepartments() {
 /**
  * 새로운 사원을 등록합니다.
  */
+/**
+ * 다음 사원번호를 자동 생성합니다. (H-001, H-002, ...)
+ */
+async function generateEmployeeCode(): Promise<string> {
+    const lastUser = await prisma.user.findFirst({
+        where: { employeeCode: { not: null } },
+        orderBy: { employeeCode: "desc" },
+        select: { employeeCode: true },
+    });
+
+    if (!lastUser?.employeeCode) {
+        return "H-001";
+    }
+
+    const lastNum = parseInt(lastUser.employeeCode.split("-")[1], 10);
+    return `H-${String(lastNum + 1).padStart(3, "0")}`;
+}
+
+/**
+ * 새로운 사원을 등록합니다.
+ */
 export async function createEmployee(data: {
     name: string;
     birthDate: string;
@@ -84,11 +105,14 @@ export async function createEmployee(data: {
             return { success: false, error: "이미 존재하는 이름(ID)입니다." };
         }
 
+        const employeeCode = await generateEmployeeCode();
+
         const newUser = await prisma.user.create({
             data: {
                 id: data.name,
                 name: data.name,
                 password: data.birthDate,
+                employeeCode,
                 role: data.role === "NONE" ? "PARTICIPANT" : data.role,
                 departmentId: data.departmentId === "none" ? null : data.departmentId,
                 resumeUrl: data.resumeUrl || null,
@@ -100,6 +124,48 @@ export async function createEmployee(data: {
     } catch (error) {
         console.error("Error creating employee:", error);
         return { success: false, error: "사원 등록 중 서버 오류가 발생했습니다." };
+    }
+}
+
+/**
+ * 기존 사원 중 사원번호가 없는 사원에게 일괄 부여합니다.
+ * 입사일(createdAt) 순으로 번호를 부여합니다.
+ */
+export async function assignEmployeeCodes() {
+    try {
+        const usersWithoutCode = await prisma.user.findMany({
+            where: { employeeCode: null },
+            orderBy: { createdAt: "asc" },
+        });
+
+        if (usersWithoutCode.length === 0) {
+            return { success: true, message: "모든 사원에게 사원번호가 이미 부여되어 있습니다.", assigned: 0 };
+        }
+
+        // 현재 가장 높은 번호 확인
+        const lastUser = await prisma.user.findFirst({
+            where: { employeeCode: { not: null } },
+            orderBy: { employeeCode: "desc" },
+            select: { employeeCode: true },
+        });
+
+        let nextNum = lastUser?.employeeCode
+            ? parseInt(lastUser.employeeCode.split("-")[1], 10) + 1
+            : 1;
+
+        for (const user of usersWithoutCode) {
+            await prisma.user.update({
+                where: { id: user.id },
+                data: { employeeCode: `H-${String(nextNum).padStart(3, "0")}` },
+            });
+            nextNum++;
+        }
+
+        revalidatePath("/admin/employees");
+        return { success: true, message: `${usersWithoutCode.length}명에게 사원번호를 부여했습니다.`, assigned: usersWithoutCode.length };
+    } catch (error) {
+        console.error("Error assigning employee codes:", error);
+        return { success: false, error: "사원번호 부여 중 오류가 발생했습니다." };
     }
 }
 

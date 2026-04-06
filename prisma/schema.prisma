@@ -24,6 +24,7 @@ model User {
   id                   String             @id // Login ID (예: '홍길동')
   name                 String
   password             String // 비밀번호 (기본: 생년월일 6자리)
+  employeeCode         String?            @unique // 사원번호 (예: 'H-001'), 시스템 간 연동 키
   role                 Role               @default(PARTICIPANT)
   departmentId         String?
   department           Department?        @relation(fields: [departmentId], references: [id])
