@@ -413,19 +413,32 @@ async function htmlToPdfBlob(htmlString: string): Promise<Blob> {
     const html2canvas = (await import("html2canvas")).default;
     const { jsPDF } = await import("jspdf");
 
-    const container = document.createElement("div");
-    container.innerHTML = htmlString;
-    container.style.position = "fixed";
-    container.style.top = "-10000px";
-    container.style.left = "0";
-    container.style.width = "794px";
-    container.style.background = "#fff";
-    document.body.appendChild(container);
+    // iframe으로 격리하여 페이지 CSS(lab() 등)가 html2canvas에 영향 주지 않도록 함
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.top = "-20000px";
+    iframe.style.left = "-20000px";
+    iframe.style.width = "794px";
+    iframe.style.height = "1200px";
+    iframe.style.border = "none";
+    iframe.style.visibility = "hidden";
+    document.body.appendChild(iframe);
+
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!iframeDoc) {
+        document.body.removeChild(iframe);
+        throw new Error("iframe 생성 실패");
+    }
+
+    iframeDoc.open();
+    iframeDoc.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>*{margin:0;padding:0;box-sizing:border-box}body{background:#fff;color:#000;font-family:'Malgun Gothic',sans-serif}</style></head><body>${htmlString}</body></html>`);
+    iframeDoc.close();
 
     // 렌더링 대기
-    await new Promise((r) => setTimeout(r, 100));
+    await new Promise((r) => setTimeout(r, 200));
 
-    const canvas = await html2canvas(container, {
+    const target = iframeDoc.body;
+    const canvas = await html2canvas(target, {
         scale: 2,
         useCORS: true,
         logging: false,
@@ -433,7 +446,7 @@ async function htmlToPdfBlob(htmlString: string): Promise<Blob> {
         windowWidth: 794,
     });
 
-    document.body.removeChild(container);
+    document.body.removeChild(iframe);
 
     const imgData = canvas.toDataURL("image/jpeg", 0.92);
     const pdf = new jsPDF("p", "mm", "a4");
