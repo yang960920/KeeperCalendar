@@ -434,6 +434,8 @@ export default function ApprovalsPage() {
     const [searchQuery, setSearchQuery] = useState<string>("");
     const [isDownloading, setIsDownloading] = useState(false);
     const [downloadProgress, setDownloadProgress] = useState("");
+    const [selectMode, setSelectMode] = useState(false);
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
     const loadData = useCallback(async () => {
         if (!user) return;
@@ -491,12 +493,39 @@ export default function ApprovalsPage() {
         return list;
     }, [tab, data, statusFilter, categoryFilter, searchQuery, employees]);
 
+    const toggleSelectMode = () => {
+        if (selectMode) {
+            setSelectMode(false);
+            setSelectedIds(new Set());
+        } else {
+            setSelectMode(true);
+        }
+    };
+
+    const toggleSelect = (id: string) => {
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedIds.size === currentList.length) {
+            setSelectedIds(new Set());
+        } else {
+            setSelectedIds(new Set(currentList.map((a) => a.id)));
+        }
+    };
+
     const handleDownload = async () => {
-        if (currentList.length === 0 || isDownloading) return;
+        const targets = currentList.filter((a) => selectedIds.has(a.id));
+        if (targets.length === 0 || isDownloading) return;
         setIsDownloading(true);
-        setDownloadProgress(`0 / ${currentList.length}`);
+        setDownloadProgress(`0 / ${targets.length}`);
         try {
-            await downloadApprovals(currentList, employees, (current, total) => {
+            await downloadApprovals(targets, employees, (current, total) => {
                 setDownloadProgress(`${current} / ${total}`);
             });
         } catch (e) {
@@ -505,6 +534,8 @@ export default function ApprovalsPage() {
         } finally {
             setIsDownloading(false);
             setDownloadProgress("");
+            setSelectMode(false);
+            setSelectedIds(new Set());
         }
     };
 
@@ -521,31 +552,66 @@ export default function ApprovalsPage() {
                         </h1>
                     </div>
                     <div className="flex items-center gap-2">
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            className="gap-1.5"
-                            disabled={isDownloading || currentList.length === 0}
-                            onClick={handleDownload}
-                        >
-                            {isDownloading ? (
-                                <>
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                    {downloadProgress}
-                                </>
-                            ) : (
-                                <>
+                        {selectMode ? (
+                            <>
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="gap-1.5 text-muted-foreground"
+                                    onClick={toggleSelectMode}
+                                    disabled={isDownloading}
+                                >
+                                    <X className="h-4 w-4" />
+                                    취소
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="gap-1.5"
+                                    onClick={toggleSelectAll}
+                                    disabled={isDownloading}
+                                >
+                                    {selectedIds.size === currentList.length ? "전체 해제" : "전체 선택"}
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    className="gap-1.5"
+                                    disabled={isDownloading || selectedIds.size === 0}
+                                    onClick={handleDownload}
+                                >
+                                    {isDownloading ? (
+                                        <>
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                            {downloadProgress}
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Download className="h-4 w-4" />
+                                            다운로드 ({selectedIds.size})
+                                        </>
+                                    )}
+                                </Button>
+                            </>
+                        ) : (
+                            <>
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="gap-1.5"
+                                    disabled={currentList.length === 0}
+                                    onClick={toggleSelectMode}
+                                >
                                     <Download className="h-4 w-4" />
-                                    다운로드 ({currentList.length})
-                                </>
-                            )}
-                        </Button>
-                        <Link href="/approvals/new">
-                            <Button size="sm" className="gap-1.5">
-                                <FilePlus className="h-4 w-4" />
-                                기안하기
-                            </Button>
-                        </Link>
+                                    다운로드
+                                </Button>
+                                <Link href="/approvals/new">
+                                    <Button size="sm" className="gap-1.5">
+                                        <FilePlus className="h-4 w-4" />
+                                        기안하기
+                                    </Button>
+                                </Link>
+                            </>
+                        )}
                     </div>
                 </div>
                 <p className="text-sm text-muted-foreground mt-1">
@@ -657,13 +723,30 @@ export default function ApprovalsPage() {
             ) : (
                 <div className="grid gap-2">
                     {currentList.map((approval) => (
-                        <ApprovalDetailDialog
-                            key={approval.id}
-                            approval={approval}
-                            currentUserId={user.id}
-                            employees={employees}
-                            onAction={loadData}
-                        />
+                        <div key={approval.id} className="flex items-start gap-2">
+                            {selectMode && (
+                                <button
+                                    onClick={() => toggleSelect(approval.id)}
+                                    className="mt-4 shrink-0 flex items-center justify-center w-5 h-5 rounded border border-muted-foreground/40 transition-colors hover:border-primary"
+                                    style={{
+                                        background: selectedIds.has(approval.id) ? "hsl(var(--primary))" : "transparent",
+                                        borderColor: selectedIds.has(approval.id) ? "hsl(var(--primary))" : undefined,
+                                    }}
+                                >
+                                    {selectedIds.has(approval.id) && (
+                                        <CheckCircle2 className="h-4 w-4 text-primary-foreground" />
+                                    )}
+                                </button>
+                            )}
+                            <div className="flex-1 min-w-0">
+                                <ApprovalDetailDialog
+                                    approval={approval}
+                                    currentUserId={user.id}
+                                    employees={employees}
+                                    onAction={loadData}
+                                />
+                            </div>
+                        </div>
                     ))}
                 </div>
             )}
