@@ -28,7 +28,6 @@ export async function POST(request: Request) {
         const {
           title,
           content,
-          category,
           requesterEmployeeCode,
           approverEmployeeCodes,
           formData,
@@ -58,25 +57,33 @@ export async function POST(request: Request) {
           );
         }
 
-        // 결재 요청 생성
-        const approval = await (prisma as any).approvalRequest.create({
-          data: {
-            title: title || "[과제 지원] 정부과제",
-            content: content || "",
-            category: category || "GRANT_APPLICATION",
-            status: "PENDING",
-            requesterId: requester.id,
-            formData: formData ? JSON.stringify(formData) : null,
-            steps: {
-              create: approvers.map((approver, idx) => ({
-                approverId: approver.id,
-                stepOrder: idx + 1,
-                status: idx === 0 ? "PENDING" : "WAITING",
-              })),
-            },
-          },
-          include: { steps: true },
-        });
+        // Raw SQL로 결재 요청 생성 (Prisma Client 캐시 enum 문제 우회)
+        const approvalId = `wh_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        const formDataStr = formData ? JSON.stringify(formData) : null;
+
+        await prisma.$executeRawUnsafe(
+          `INSERT INTO "ApprovalRequest" (id, title, content, category, status, "requesterId", "formData", "createdAt", "updatedAt")
+           VALUES ($1, $2, $3, 'GRANT_APPLICATION'::"ApprovalCategory", 'PENDING'::"ApprovalStatus", $4, $5, NOW(), NOW())`,
+          approvalId,
+          title || "[과제 지원] 정부과제",
+          content || "",
+          requester.id,
+          formDataStr,
+        );
+
+        // 결재 단계 생성
+        for (let idx = 0; idx < approvers.length; idx++) {
+          const stepId = `ws_${Date.now()}_${Math.random().toString(36).slice(2, 8)}_${idx}`;
+          await prisma.$executeRawUnsafe(
+            `INSERT INTO "ApprovalStep" (id, "requestId", "approverId", "stepOrder", status)
+             VALUES ($1, $2, $3, $4, $5::"StepStatus")`,
+            stepId,
+            approvalId,
+            approvers[idx].id,
+            idx + 1,
+            idx === 0 ? "PENDING" : "WAITING",
+          );
+        }
 
         // 첫 결재자에게 알림
         if (approvers[0]) {
@@ -94,7 +101,7 @@ export async function POST(request: Request) {
         return NextResponse.json({
           ok: true,
           event,
-          approvalId: approval.id,
+          approvalId,
         });
       }
 
