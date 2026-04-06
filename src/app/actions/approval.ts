@@ -122,14 +122,16 @@ export async function processApprovalStep(
                 });
             } catch (e) { /* ignore */ }
 
-            // GRANT_APPLICATION 반려 시 gov-grant-assistant에 알림
-            if (request.category === "GRANT_APPLICATION") {
+            // 정부과제 반려 시 gov-grant-assistant에 알림
+            {
                 const formData = request.formData ? JSON.parse(request.formData) : {};
-                await sendWebhookToGrantAssistant("approval.rejected", {
-                    approvalId: request.id,
-                    category: request.category,
-                    formData,
-                }).catch(() => {});
+                if (formData.source === "GRANT_APPLICATION") {
+                    await sendWebhookToGrantAssistant("approval.rejected", {
+                        approvalId: request.id,
+                        category: "GRANT_APPLICATION",
+                        formData,
+                    }).catch(() => {});
+                }
             }
 
         } else {
@@ -411,19 +413,18 @@ async function handlePostApproval(request: any) {
             break;
         }
 
-        case "GRANT_APPLICATION": {
-            // 정부과제 지원 승인 → gov-grant-assistant에 Webhook 전송
-            await sendWebhookToGrantAssistant("approval.approved", {
-                approvalId: request.id,
-                category: request.category,
-                formData,
-            });
+        // EXPENSE: 후속 자동화 없음
+        default: {
+            // GENERAL 카테고리이지만 source가 GRANT_APPLICATION인 경우 → 정부과제 연동
+            if (formData.source === "GRANT_APPLICATION") {
+                await sendWebhookToGrantAssistant("approval.approved", {
+                    approvalId: request.id,
+                    category: "GRANT_APPLICATION",
+                    formData,
+                }).catch(() => {});
+            }
             break;
         }
-
-        // EXPENSE, GENERAL: 후속 자동화 없음
-        default:
-            break;
     }
 
     // 모든 카테고리 공통: 결재 문서 자동 보관

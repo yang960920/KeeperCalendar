@@ -826,7 +826,7 @@ function ApprovalDetailDialog({
                             {statusConf.label}
                         </Badge>
                         <Badge variant="outline" className="text-xs">
-                            {CATEGORY_OPTIONS.find((c) => c.value === approval.category)?.label}
+                            {CATEGORY_OPTIONS.find((c) => c.value === (approval.formData?.source === "GRANT_APPLICATION" ? "GRANT_APPLICATION" : approval.category))?.label || approval.category}
                         </Badge>
                         <span className="text-xs text-muted-foreground">기안: {requesterName}</span>
                         <span className="text-xs text-muted-foreground ml-auto">
@@ -835,7 +835,7 @@ function ApprovalDetailDialog({
                     </div>
 
                     {/* 카테고리별 상세 정보 */}
-                    <FormDataDetail category={approval.category} formData={approval.formData} />
+                    <FormDataDetail category={approval.formData?.source === "GRANT_APPLICATION" ? "GRANT_APPLICATION" : approval.category} formData={approval.formData} />
 
                     {/* 내용 */}
                     <div className="bg-muted/40 rounded-xl p-4 text-sm whitespace-pre-wrap">
@@ -942,7 +942,9 @@ function ApprovalCard({
 }) {
     const statusConf = STATUS_CONFIG[approval.status];
     const StatusIcon = statusConf.icon;
-    const catOption = CATEGORY_OPTIONS.find((c) => c.value === approval.category);
+    const isGrantApp = approval.formData?.source === "GRANT_APPLICATION";
+    const effectiveCategory = isGrantApp ? "GRANT_APPLICATION" : approval.category;
+    const catOption = CATEGORY_OPTIONS.find((c) => c.value === effectiveCategory);
     const CatIcon = catOption?.icon || FileText;
     const catLabel = catOption?.label || approval.category;
     const requesterName = employees.find((e) => e.id === approval.requesterId)?.name || "";
@@ -951,7 +953,7 @@ function ApprovalCard({
     const summary = useMemo(() => {
         const fd = approval.formData;
         if (!fd) return null;
-        switch (approval.category) {
+        switch (effectiveCategory) {
             case "VACATION":
                 return fd.startDate && fd.endDate ? `${fd.startDate} ~ ${fd.endDate}` : null;
             case "OVERTIME":

@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
  *
  * 이벤트:
  * - grant.apply_request: 과제 공고 지원 결재 요청 생성
+ * - migrate.fix_enum: 기존 GRANT_APPLICATION → GENERAL 마이그레이션 (1회용)
  */
 export async function POST(request: Request) {
   const secret = request.headers.get("x-webhook-secret");
@@ -23,6 +24,17 @@ export async function POST(request: Request) {
 
   try {
     switch (event) {
+      // 기존 GRANT_APPLICATION 레코드를 GENERAL로 변환 (1회용)
+      case "migrate.fix_enum": {
+        const count = await prisma.$executeRawUnsafe(
+          `UPDATE "ApprovalRequest"
+           SET category = 'GENERAL'::"ApprovalCategory",
+               "formData" = COALESCE("formData"::text, '{}')::jsonb || '{"source":"GRANT_APPLICATION"}'::jsonb
+           WHERE category = 'GRANT_APPLICATION'::"ApprovalCategory"`
+        );
+        return NextResponse.json({ ok: true, event, migratedCount: count });
+      }
+
       // 과제 공고 지원 → 결재 요청 자동 생성
       case "grant.apply_request": {
         const {
@@ -57,33 +69,28 @@ export async function POST(request: Request) {
           );
         }
 
-        // Raw SQL로 결재 요청 생성 (Prisma Client 캐시 enum 문제 우회)
-        const approvalId = `wh_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-        const formDataStr = formData ? JSON.stringify(formData) : null;
+        // formData에 source 표시 추가 + GENERAL 카테고리로 저장
+        const enrichedFormData = { ...formData, source: "GRANT_APPLICATION" };
+        const formDataStr = JSON.stringify(enrichedFormData);
 
-        await prisma.$executeRawUnsafe(
-          `INSERT INTO "ApprovalRequest" (id, title, content, category, status, "requesterId", "formData", "createdAt", "updatedAt")
-           VALUES ($1, $2, $3, 'GRANT_APPLICATION'::"ApprovalCategory", 'PENDING'::"ApprovalStatus", $4, $5, NOW(), NOW())`,
-          approvalId,
-          title || "[과제 지원] 정부과제",
-          content || "",
-          requester.id,
-          formDataStr,
-        );
-
-        // 결재 단계 생성
-        for (let idx = 0; idx < approvers.length; idx++) {
-          const stepId = `ws_${Date.now()}_${Math.random().toString(36).slice(2, 8)}_${idx}`;
-          await prisma.$executeRawUnsafe(
-            `INSERT INTO "ApprovalStep" (id, "requestId", "approverId", "stepOrder", status)
-             VALUES ($1, $2, $3, $4, $5::"StepStatus")`,
-            stepId,
-            approvalId,
-            approvers[idx].id,
-            idx + 1,
-            idx === 0 ? "PENDING" : "WAITING",
-          );
-        }
+        const approval = await (prisma as any).approvalRequest.create({
+          data: {
+            title: title || "[과제 지원] 정부과제",
+            content: content || "",
+            category: "GENERAL",
+            status: "PENDING",
+            requesterId: requester.id,
+            formData: formDataStr,
+            steps: {
+              create: approvers.map((approver: any, idx: number) => ({
+                approverId: approver.id,
+                stepOrder: idx + 1,
+                status: idx === 0 ? "PENDING" : "WAITING",
+              })),
+            },
+          },
+          include: { steps: true },
+        });
 
         // 첫 결재자에게 알림
         if (approvers[0]) {
@@ -101,7 +108,7 @@ export async function POST(request: Request) {
         return NextResponse.json({
           ok: true,
           event,
-          approvalId,
+          approvalId: approval.id,
         });
       }
 
