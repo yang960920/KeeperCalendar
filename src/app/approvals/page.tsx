@@ -727,14 +727,16 @@ export default function ApprovalsPage() {
                             {selectMode && (
                                 <button
                                     onClick={() => toggleSelect(approval.id)}
-                                    className="mt-4 shrink-0 flex items-center justify-center w-5 h-5 rounded border border-muted-foreground/40 transition-colors hover:border-primary"
-                                    style={{
-                                        background: selectedIds.has(approval.id) ? "hsl(var(--primary))" : "transparent",
-                                        borderColor: selectedIds.has(approval.id) ? "hsl(var(--primary))" : undefined,
-                                    }}
+                                    className={`mt-4 shrink-0 flex items-center justify-center w-5 h-5 rounded border-2 transition-colors ${
+                                        selectedIds.has(approval.id)
+                                            ? "bg-emerald-500 border-emerald-500"
+                                            : "border-muted-foreground/40 hover:border-primary"
+                                    }`}
                                 >
                                     {selectedIds.has(approval.id) && (
-                                        <CheckCircle2 className="h-4 w-4 text-primary-foreground" />
+                                        <svg className="w-3.5 h-3.5 text-white" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M2.5 6L5 8.5L9.5 3.5" />
+                                        </svg>
                                     )}
                                 </button>
                             )}
