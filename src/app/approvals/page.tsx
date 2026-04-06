@@ -428,6 +428,8 @@ export default function ApprovalsPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [tab, setTab] = useState<"toApprove" | "requested" | "all">("toApprove");
     const [statusFilter, setStatusFilter] = useState<string>("ALL");
+    const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
+    const [searchQuery, setSearchQuery] = useState<string>("");
 
     const loadData = useCallback(async () => {
         if (!user) return;
@@ -465,8 +467,25 @@ export default function ApprovalsPage() {
         if (statusFilter !== "ALL") {
             list = list.filter((a) => a.status === statusFilter);
         }
+        if (categoryFilter !== "ALL") {
+            list = list.filter((a) => {
+                const effectiveCat = a.formData?.source === "GRANT_APPLICATION" ? "GRANT_APPLICATION" : a.category;
+                return effectiveCat === categoryFilter;
+            });
+        }
+        if (searchQuery.trim()) {
+            const q = searchQuery.toLowerCase();
+            list = list.filter((a) => {
+                const requesterName = employees.find((e) => e.id === a.requesterId)?.name || "";
+                return (
+                    a.title.toLowerCase().includes(q) ||
+                    a.content.toLowerCase().includes(q) ||
+                    requesterName.toLowerCase().includes(q)
+                );
+            });
+        }
         return list;
-    }, [tab, data, statusFilter]);
+    }, [tab, data, statusFilter, categoryFilter, searchQuery, employees]);
 
     if (!user) return null;
 
@@ -492,8 +511,8 @@ export default function ApprovalsPage() {
                 </p>
             </header>
 
-            {/* 탭 + 상태 필터 */}
-            <div className="flex items-center justify-between border-b mb-6">
+            {/* 탭 */}
+            <div className="flex items-center border-b mb-4">
                 <div className="flex items-center gap-1">
                     <button
                         onClick={() => setTab("toApprove")}
@@ -522,6 +541,40 @@ export default function ApprovalsPage() {
                         )}
                     </button>
                 </div>
+            </div>
+
+            {/* 검색 + 필터 */}
+            <div className="flex flex-wrap items-center gap-2 mb-5">
+                <div className="relative flex-1 min-w-[180px] max-w-xs">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                        placeholder="제목, 내용, 기안자 검색..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-9 h-8 text-xs"
+                    />
+                    {searchQuery && (
+                        <button
+                            onClick={() => setSearchQuery("")}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        >
+                            <X className="h-3 w-3" />
+                        </button>
+                    )}
+                </div>
+                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                    <SelectTrigger className="w-[120px] h-8 text-xs">
+                        <SelectValue placeholder="전체 분류" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="ALL">전체 분류</SelectItem>
+                        {CATEGORY_OPTIONS.map((c) => (
+                            <SelectItem key={c.value} value={c.value}>
+                                {c.label}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
                     <SelectTrigger className="w-[120px] h-8 text-xs">
                         <SelectValue placeholder="전체 상태" />
@@ -535,6 +588,14 @@ export default function ApprovalsPage() {
                         ))}
                     </SelectContent>
                 </Select>
+                {(categoryFilter !== "ALL" || statusFilter !== "ALL" || searchQuery) && (
+                    <button
+                        onClick={() => { setCategoryFilter("ALL"); setStatusFilter("ALL"); setSearchQuery(""); }}
+                        className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                        필터 초기화
+                    </button>
+                )}
             </div>
 
             {/* 목록 */}
@@ -545,7 +606,11 @@ export default function ApprovalsPage() {
             ) : currentList.length === 0 ? (
                 <div className="text-center py-16 text-muted-foreground">
                     <FileText className="h-8 w-8 mx-auto mb-3 opacity-30" />
-                    <p className="text-sm">결재 항목이 없습니다.</p>
+                    <p className="text-sm">
+                        {searchQuery || categoryFilter !== "ALL" || statusFilter !== "ALL"
+                            ? "검색 결과가 없습니다."
+                            : "결재 항목이 없습니다."}
+                    </p>
                 </div>
             ) : (
                 <div className="grid gap-2">
