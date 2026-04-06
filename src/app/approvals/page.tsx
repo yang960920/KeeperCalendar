@@ -83,7 +83,8 @@ const CATEGORY_OPTIONS = [
     { value: "OVERTIME",      label: "시간외근무",  icon: Clock },
     { value: "BUSINESS_TRIP", label: "출장",       icon: MapPin },
     { value: "EXPENSE",       label: "지출결의",    icon: DollarSign },
-    { value: "GENERAL",       label: "일반기안",    icon: FileText },
+    { value: "GENERAL",           label: "일반기안",    icon: FileText },
+    { value: "GRANT_APPLICATION", label: "정부과제",    icon: FileText },
 ];
 
 const VACATION_TYPES = ["연차", "반차(오전)", "반차(오후)", "병가", "경조", "기타"];
@@ -488,6 +489,13 @@ function FormDataDetail({ category, formData }: { category: string; formData?: R
             if (formData.amount) items.push({ label: "금액", value: `${Number(formData.amount).toLocaleString()}원` });
             if (formData.expenseDate) items.push({ label: "사용일", value: formData.expenseDate });
             if (formData.receiptType) items.push({ label: "증빙", value: formData.receiptType });
+            break;
+        case "GRANT_APPLICATION":
+            if (formData.project_name) items.push({ label: "과제명", value: formData.project_name });
+            if (formData.funding_agency) items.push({ label: "주관기관", value: formData.funding_agency });
+            if (formData.deadline) items.push({ label: "마감일", value: formData.deadline });
+            if (formData.product_line) items.push({ label: "제품라인", value: formData.product_line });
+            if (formData.url) items.push({ label: "공고링크", value: "원문 보기" });
             break;
     }
 
@@ -952,6 +960,8 @@ function ApprovalCard({
                 return fd.destination || null;
             case "EXPENSE":
                 return fd.amount ? `${Number(fd.amount).toLocaleString()}원` : null;
+            case "GRANT_APPLICATION":
+                return fd.project_name || fd.funding_agency || null;
             default:
                 return null;
         }
