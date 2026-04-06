@@ -16,6 +16,7 @@ import {
     MapPin,
     DollarSign,
     Clock,
+    Download,
 } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
@@ -45,6 +46,7 @@ import {
     getMyApprovals,
 } from "@/app/actions/approval";
 import { getEmployees } from "@/app/actions/employee";
+import { downloadApprovals } from "./pdf-utils";
 
 // ─── 타입 ─────────────────────────────────────────────────────────────────────
 
@@ -430,6 +432,8 @@ export default function ApprovalsPage() {
     const [statusFilter, setStatusFilter] = useState<string>("ALL");
     const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
     const [searchQuery, setSearchQuery] = useState<string>("");
+    const [isDownloading, setIsDownloading] = useState(false);
+    const [downloadProgress, setDownloadProgress] = useState("");
 
     const loadData = useCallback(async () => {
         if (!user) return;
@@ -487,6 +491,23 @@ export default function ApprovalsPage() {
         return list;
     }, [tab, data, statusFilter, categoryFilter, searchQuery, employees]);
 
+    const handleDownload = async () => {
+        if (currentList.length === 0 || isDownloading) return;
+        setIsDownloading(true);
+        setDownloadProgress(`0 / ${currentList.length}`);
+        try {
+            await downloadApprovals(currentList, employees, (current, total) => {
+                setDownloadProgress(`${current} / ${total}`);
+            });
+        } catch (e) {
+            console.error("PDF 다운로드 실패:", e);
+            alert("PDF 다운로드 중 오류가 발생했습니다.");
+        } finally {
+            setIsDownloading(false);
+            setDownloadProgress("");
+        }
+    };
+
     if (!user) return null;
 
     return (
@@ -499,12 +520,33 @@ export default function ApprovalsPage() {
                             전자결재
                         </h1>
                     </div>
-                    <Link href="/approvals/new">
-                        <Button size="sm" className="gap-1.5">
-                            <FilePlus className="h-4 w-4" />
-                            기안하기
+                    <div className="flex items-center gap-2">
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1.5"
+                            disabled={isDownloading || currentList.length === 0}
+                            onClick={handleDownload}
+                        >
+                            {isDownloading ? (
+                                <>
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    {downloadProgress}
+                                </>
+                            ) : (
+                                <>
+                                    <Download className="h-4 w-4" />
+                                    다운로드 ({currentList.length})
+                                </>
+                            )}
                         </Button>
-                    </Link>
+                        <Link href="/approvals/new">
+                            <Button size="sm" className="gap-1.5">
+                                <FilePlus className="h-4 w-4" />
+                                기안하기
+                            </Button>
+                        </Link>
+                    </div>
                 </div>
                 <p className="text-sm text-muted-foreground mt-1">
                     결재 신청, 처리, 현황을 한 곳에서 관리하세요.
