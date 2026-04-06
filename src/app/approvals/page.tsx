@@ -81,9 +81,9 @@ interface Employee {
 const CATEGORY_OPTIONS = [
     { value: "VACATION",      label: "휴가",       icon: Calendar },
     { value: "OVERTIME",      label: "시간외근무",  icon: Clock },
-    { value: "BUSINESS_TRIP", label: "출장",       icon: MapPin },
+    { value: "BUSINESS_TRIP", label: "외근보고",    icon: MapPin },
     { value: "EXPENSE",       label: "지출결의",    icon: DollarSign },
-    { value: "GENERAL",           label: "일반기안",    icon: FileText },
+    { value: "GENERAL",           label: "품의서",      icon: FileText },
     { value: "GRANT_APPLICATION", label: "정부과제",    icon: FileText },
 ];
 
