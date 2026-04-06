@@ -122,6 +122,16 @@ export async function processApprovalStep(
                 });
             } catch (e) { /* ignore */ }
 
+            // GRANT_APPLICATION 반려 시 gov-grant-assistant에 알림
+            if (request.category === "GRANT_APPLICATION") {
+                const formData = request.formData ? JSON.parse(request.formData) : {};
+                await sendWebhookToGrantAssistant("approval.rejected", {
+                    approvalId: request.id,
+                    category: request.category,
+                    formData,
+                }).catch(() => {});
+            }
+
         } else {
             // 승인: 다음 단계 확인
             const nextStep = request.steps.find(
@@ -401,6 +411,16 @@ async function handlePostApproval(request: any) {
             break;
         }
 
+        case "GRANT_APPLICATION": {
+            // 정부과제 지원 승인 → gov-grant-assistant에 Webhook 전송
+            await sendWebhookToGrantAssistant("approval.approved", {
+                approvalId: request.id,
+                category: request.category,
+                formData,
+            });
+            break;
+        }
+
         // EXPENSE, GENERAL: 후속 자동화 없음
         default:
             break;
@@ -417,5 +437,43 @@ async function handlePostApproval(request: any) {
         });
     } catch (e) {
         console.error("결재 문서 자동 보관 실패 (무시):", e);
+    }
+}
+
+// ─── gov-grant-assistant Webhook 발신 ──────────────────────────────────────
+
+async function sendWebhookToGrantAssistant(
+    event: string,
+    data: Record<string, any>,
+): Promise<boolean> {
+    const url = process.env.GRANT_ASSISTANT_WEBHOOK_URL;
+    const secret = process.env.WEBHOOK_SECRET;
+
+    if (!url || !secret) {
+        console.warn("[Webhook] GRANT_ASSISTANT_WEBHOOK_URL 또는 WEBHOOK_SECRET 미설정");
+        return false;
+    }
+
+    try {
+        const res = await fetch(url, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "x-webhook-secret": secret,
+            },
+            body: JSON.stringify({ event, data }),
+            signal: AbortSignal.timeout(10000),
+        });
+
+        if (!res.ok) {
+            console.error(`[Webhook] gov-grant-assistant 응답 오류: ${res.status}`);
+            return false;
+        }
+
+        console.log(`[Webhook] gov-grant-assistant 전송 성공: ${event}`);
+        return true;
+    } catch (e) {
+        console.error("[Webhook] gov-grant-assistant 전송 실패:", e);
+        return false;
     }
 }
