@@ -160,6 +160,28 @@
       </ul>
     </td>
   </tr>
+  <tr>
+    <td width="50%">
+      <h3>📝 전자결재 시스템</h3>
+      <ul>
+        <li><b>6종 카테고리</b>: 품의서, 지출결의서, 외근보고서, 휴가, 시간외근무, 정부과제</li>
+        <li>카테고리별 <b>문서형 양식</b> (엑셀 스타일 테이블 폼)</li>
+        <li>자동 계산: 수량×단가=공급가, 공급가×10%=VAT, 합계 자동산출</li>
+        <li>다단계 결재선 (순차 승인/반려)</li>
+        <li><b>Webhook 연동</b>: 외부 시스템 결재 요청 수신 및 승인/반려 전송</li>
+      </ul>
+    </td>
+    <td width="50%">
+      <h3>📥 결재 문서 PDF 다운로드</h3>
+      <ul>
+        <li>결재 목록에서 <b>체크박스 선택</b> → PDF 변환 다운로드</li>
+        <li>카테고리별 HTML 템플릿 → html2canvas + jsPDF 변환</li>
+        <li>단건: PDF 직접 다운로드 / 2건 이상: <b>ZIP 번들</b> 다운로드</li>
+        <li>파일명 = 문서 제목 자동 매칭</li>
+        <li>텍스트 검색 + 카테고리·상태 <b>필터링</b></li>
+      </ul>
+    </td>
+  </tr>
 </table>
 
 ---
@@ -205,6 +227,15 @@
         <img src="https://img.shields.io/badge/@react--pdf/renderer-E34F26?logo=adobeacrobatreader&logoColor=white" alt="react-pdf"/>
       </td>
       <td>서버사이드 PDF 생성 (한글 폰트 임베딩)</td>
+    </tr>
+    <tr>
+      <td><b>📥 PDF Export</b></td>
+      <td>
+        <img src="https://img.shields.io/badge/jsPDF-E34F26?logo=adobeacrobatreader&logoColor=white" alt="jsPDF"/>
+        <img src="https://img.shields.io/badge/html2canvas-4285F4?logo=html5&logoColor=white" alt="html2canvas"/>
+        <img src="https://img.shields.io/badge/JSZip-F7DF1E?logo=files&logoColor=black" alt="JSZip"/>
+      </td>
+      <td>전자결재 문서 PDF 변환 + ZIP 번들 다운로드</td>
     </tr>
     <tr>
       <td><b>📈 Charts</b></td>
@@ -270,6 +301,10 @@ keeper-calendar/
 │   │   ├── 📂 login/              # 🔐 일반 사원 로그인
 │   │   ├── 📂 projects/           # 🗂️ 프로젝트 목록 & 상세
 │   │   ├── 📂 yearly/            # 🔥 연간 히트맵 & 통계
+│   │   ├── 📂 approvals/          # 📝 전자결재
+│   │   │   ├── page.tsx           #    결재 목록 + 검색/필터 + PDF 다운로드
+│   │   │   ├── new/page.tsx       #    기안 작성 (문서형 양식)
+│   │   │   └── pdf-utils.ts       #    PDF 변환 유틸리티
 │   │   ├── 📂 settings/          # ⚙️ 개인 알림 설정
 │   │   ├── 📂 admin/             # 🛡️ 관리자 전용
 │   │   │   ├── employees/        #    사원 관리
@@ -282,6 +317,7 @@ keeper-calendar/
 │   │   │   ├── dashboard.ts      #    🏠 대시보드 위젯 데이터
 │   │   │   ├── attendance.ts     #    ⏱️ 출퇴근 관리
 │   │   │   ├── report.ts         #    📄 리포트 생성/발송/이력
+│   │   │   ├── approval.ts        #    📝 전자결재 CRUD + 결재처리
 │   │   │   ├── notification.ts   #    🔔 알림 (독촉/마감)
 │   │   │   ├── ai-chat.ts        #    🤖 AI 어시스턴트
 │   │   │   └── ...
@@ -417,6 +453,26 @@ erDiagram
         string reviewerId FK
         int score
     }
+    ApprovalRequest {
+        string id PK
+        string title
+        string content
+        enum category
+        enum status
+        string requesterId FK
+        string formData "JSON"
+    }
+    ApprovalStep {
+        string id PK
+        string requestId FK
+        string approverId FK
+        int stepOrder
+        enum status
+        string comment
+    }
+    User ||--o{ ApprovalRequest : requests
+    ApprovalRequest ||--o{ ApprovalStep : has
+    User ||--o{ ApprovalStep : approves
 ```
 
 ---
@@ -561,6 +617,17 @@ npm run dev
   - **낙관적 업데이트 (Optimistic UI)**: 메시지와 파일을 보내는 즉시 UI에 가상 객체(uploading) 상태로 반영하고, Pusher 이벤트 수신 구조를 개편하여 기존 `revalidatePath`로 인한 렌더링 깜빡임을 완전히 근절.
   - **Pusher Client Singleton 패턴**: Next.js HMR(핫 모듈 교체) 환경 및 잦은 재렌더링 시 Pusher 인스턴스가 무한 증식하는 메모리 누수를 `globalThis` 패턴으로 차단하여 소켓 연결 안정성 100% 확보.
   - **Native Scroll & 무한 스크롤(Pagination)**: 동적 이미지 높이와 충돌하던 UI 라이브러리 스크롤러를 제거. 마우스 휠 업(올리기) 시 과거 메시지를 50개씩 부드럽게 무한 추가 로딩하는 핸들러(`scrollTop === 0`)를 네이티브 CSS와 연동하여 말풍선 레이아웃 붕괴 문제까지 완벽 해결.
+
+### 9️⃣ 전자결재 시스템 구축 및 PDF 다운로드 (Electronic Approval & PDF Export)
+- **이슈**: 사내 품의서, 지출결의서, 외근보고서 등을 종이 기반으로 처리하던 프로세스를 디지털화할 필요가 있었음.
+- **해결**:
+  - **6종 카테고리별 문서형 양식** 구현: 품의서(GENERAL), 지출결의서(EXPENSE), 외근보고서(BUSINESS_TRIP), 휴가(VACATION), 시간외근무(OVERTIME), 정부과제(GRANT_APPLICATION). HTML 테이블 기반 엑셀 스타일 폼으로 실제 사내 문서 양식과 동일한 레이아웃 재현.
+  - **자동 계산 로직**: 지출결의서의 수량×단가=공급가액, 공급가×10%=세액(VAT), 합계 자동산출을 `useMemo`로 실시간 반영. 동적 행 추가/삭제(계정, 지출내역, 일정 등).
+  - **다단계 결재선**: 순차 승인/반려 워크플로우(WAITING→PENDING→APPROVED/REJECTED). 결재자 지정 UI(ApproverPicker).
+  - **검색/필터**: 텍스트 검색 + 카테고리 필터 + 상태 필터로 결재 목록 클라이언트 사이드 필터링.
+  - **PDF 다운로드**: 체크박스 선택 방식으로 원하는 결재 건만 선택 후 PDF 변환. `html2canvas` + `jsPDF`로 카테고리별 HTML 템플릿을 PDF로 변환하되, **iframe 격리 렌더링**으로 다크모드 CSS(`lab()` 색상 함수)와의 충돌 해결. 2건 이상은 `JSZip`으로 ZIP 번들 다운로드.
+  - **Webhook 연동**: 외부 시스템(정부과제 공고 등)에서 결재 요청을 수신하고 승인/반려 결과를 전송하는 API 엔드포인트 구축.
+  - **DB 설계**: `formData: String?` 필드에 JSON을 저장하여 카테고리별 상이한 폼 데이터를 스키마 변경 없이 유연하게 수용. 기존 데이터와 신규 데이터 포맷 호환성 처리.
 
 ---
 
