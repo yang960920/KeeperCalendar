@@ -46,7 +46,7 @@ export async function getDepartments() {
  */
 export async function seedDepartments() {
     try {
-        const departments = ['대표이사 (CEO)', '경영지원본부', 'R&D센터', '사업총괄본부'];
+        const departments = ['대표이사 (CEO)', '경영지원본부', 'R&D센터', '사업총괄본부', '동탄사업부', '포천사업부'];
 
         for (const name of departments) {
             await prisma.department.upsert({
