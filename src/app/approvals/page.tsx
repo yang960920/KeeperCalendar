@@ -17,6 +17,9 @@ import {
     DollarSign,
     Clock,
     Download,
+    Paperclip,
+    File as FileIcon,
+    ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
@@ -59,6 +62,14 @@ interface ApprovalStep {
     actedAt?: string;
 }
 
+interface ApprovalAttachmentData {
+    id: string;
+    name: string;
+    url: string;
+    size: number;
+    type: string;
+}
+
 interface ApprovalData {
     id: string;
     title: string;
@@ -69,6 +80,7 @@ interface ApprovalData {
     projectId?: string;
     formData?: Record<string, any>;
     steps: ApprovalStep[];
+    attachments?: ApprovalAttachmentData[];
     createdAt: string;
 }
 
@@ -261,6 +273,43 @@ function ApprovalDetailDialog({
                     <div className="bg-muted/40 rounded-xl p-4 text-sm whitespace-pre-wrap">
                         {approval.content}
                     </div>
+
+                    {/* 첨부파일 */}
+                    {approval.attachments && approval.attachments.length > 0 && (
+                        <div>
+                            <h4 className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
+                                <Paperclip className="h-3 w-3" />
+                                첨부파일 ({approval.attachments.length})
+                            </h4>
+                            <div className="space-y-1.5">
+                                {approval.attachments.map((att) => (
+                                    <a
+                                        key={att.id}
+                                        href={att.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        download={att.name}
+                                        className="flex items-center gap-2.5 p-2.5 bg-muted/40 rounded-lg border hover:bg-muted/60 transition-colors group"
+                                    >
+                                        <FileIcon className="h-4 w-4 text-blue-500 shrink-0" />
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">
+                                                {att.name}
+                                            </p>
+                                            <p className="text-[10px] text-muted-foreground">
+                                                {att.size < 1024
+                                                    ? `${att.size} B`
+                                                    : att.size < 1024 * 1024
+                                                    ? `${(att.size / 1024).toFixed(1)} KB`
+                                                    : `${(att.size / (1024 * 1024)).toFixed(1)} MB`}
+                                            </p>
+                                        </div>
+                                        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0" />
+                                    </a>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                     {/* 결재 흐름 */}
                     <div>

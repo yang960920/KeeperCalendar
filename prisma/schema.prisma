@@ -479,6 +479,7 @@ enum ApprovalCategory {
   BUSINESS_TRIP // 출장
   EXPENSE // 지출결의
   GENERAL // 일반기안
+  GRANT_APPLICATION // 정부과제 지원 (gov-grant-assistant 연동)
 }
 
 enum ApprovalStatus {
@@ -497,18 +498,33 @@ enum StepStatus {
 }
 
 model ApprovalRequest {
-  id            String           @id @default(cuid())
+  id            String               @id @default(cuid())
   title         String
   content       String // 결재 내용 (텍스트)
-  category      ApprovalCategory @default(GENERAL)
-  status        ApprovalStatus   @default(PENDING)
+  category      ApprovalCategory     @default(GENERAL)
+  status        ApprovalStatus       @default(PENDING)
   requesterId   String // 기안자 User.id
   projectId     String? // 프로젝트 연동 (옵션)
-  attachmentUrl String? // 첨부 파일 URL
+  attachmentUrl String? // 첨부 파일 URL (레거시, 단일)
   formData      String? // 카테고리별 상세 데이터 (JSON)
   steps         ApprovalStep[]
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+  attachments   ApprovalAttachment[]
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+}
+
+// 결재 첨부파일 (다중 대용량 파일)
+model ApprovalAttachment {
+  id        String          @id @default(cuid())
+  requestId String
+  request   ApprovalRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  name      String // 원본 파일명
+  url       String // Vercel Blob URL
+  size      Int // 바이트 단위
+  type      String // MIME 타입
+  createdAt DateTime        @default(now())
+
+  @@index([requestId])
 }
 
 model ApprovalStep {

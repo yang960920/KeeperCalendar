@@ -16,6 +16,9 @@ import {
     ArrowLeft,
     Plus,
     Trash2,
+    Paperclip,
+    Upload,
+    File as FileIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -177,6 +180,31 @@ function BusinessTripDocFormFields({
     const followups: any[] = formData.followups || [];
     const tripExpenses: any[] = formData.tripExpenses || [];
 
+    // 다음 우편번호 API 스크립트 로드
+    useEffect(() => {
+        if (document.getElementById("daum-postcode-script")) return;
+        const script = document.createElement("script");
+        script.id = "daum-postcode-script";
+        script.src = "//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
+        script.async = true;
+        document.head.appendChild(script);
+    }, []);
+
+    // 주소 검색 팝업
+    const openPostcode = () => {
+        const daum = (window as any).daum;
+        if (!daum?.Postcode) {
+            alert("주소 검색 서비스를 불러오는 중입니다. 잠시 후 다시 시도해주세요.");
+            return;
+        }
+        new daum.Postcode({
+            oncomplete: (data: any) => {
+                const address = data.roadAddress || data.jibunAddress;
+                onChange({ ...formData, location: address });
+            },
+        }).open();
+    };
+
     // 시간 차이 계산
     const calcDuration = (start: string, end: string) => {
         if (!start || !end) return "";
@@ -299,8 +327,24 @@ function BusinessTripDocFormFields({
                             <div className="w-9 h-9 rounded-lg bg-emerald-500 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">L</div>
                             <div className="flex-1 space-y-1.5">
                                 <div className="text-xs text-slate-400 font-medium">외근 장소</div>
-                                <input className={`${DOC_INPUT} text-sm font-medium`} placeholder="주소 또는 장소명" value={formData.location || ""} onChange={(e) => onChange({ ...formData, location: e.target.value })} />
-                                <input className={`${DOC_INPUT} text-xs`} placeholder="상세 장소 (건물명 등)" value={formData.locationDetail || ""} onChange={(e) => onChange({ ...formData, locationDetail: e.target.value })} />
+                                <div className="flex items-center gap-1.5">
+                                    <input
+                                        className={`${DOC_INPUT} text-sm font-medium flex-1 cursor-pointer`}
+                                        placeholder="클릭하여 주소 검색"
+                                        value={formData.location || ""}
+                                        readOnly
+                                        onClick={openPostcode}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={openPostcode}
+                                        className="shrink-0 px-2.5 py-1.5 text-xs font-medium rounded-md border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
+                                    >
+                                        <Search className="h-3.5 w-3.5 inline -mt-0.5 mr-1" />
+                                        주소 검색
+                                    </button>
+                                </div>
+                                <input className={`${DOC_INPUT} text-xs`} placeholder="상세 장소 (건물명, 층수 등)" value={formData.locationDetail || ""} onChange={(e) => onChange({ ...formData, locationDetail: e.target.value })} />
                             </div>
                         </div>
                         {/* 방문 기관 */}
@@ -497,7 +541,7 @@ function BusinessTripDocFormFields({
                                         <tr key={i} className={i % 2 === 1 ? "bg-slate-50/50 dark:bg-slate-800/30" : ""}>
                                             <td className={`${TD} text-center text-xs font-semibold text-slate-500 px-2`}>{i + 1}</td>
                                             <td className={TD}>
-                                                <select className={`${DOC_INPUT} text-xs cursor-pointer`} value={exp.category || ""} onChange={(e) => updateTripExpense(i, "category", e.target.value)}>
+                                                <select className={`${DOC_SELECT} text-xs`} value={exp.category || ""} onChange={(e) => updateTripExpense(i, "category", e.target.value)}>
                                                     <option value="">선택</option>
                                                     <option value="교통비">교통비</option>
                                                     <option value="식비">식비</option>
@@ -513,7 +557,7 @@ function BusinessTripDocFormFields({
                                                 <input className={`${DOC_INPUT} text-xs text-right font-semibold`} type="number" placeholder="0" value={exp.amount || ""} onChange={(e) => updateTripExpense(i, "amount", e.target.value)} />
                                             </td>
                                             <td className={TD}>
-                                                <select className={`${DOC_INPUT} text-xs cursor-pointer`} value={exp.payMethod || "법인카드"} onChange={(e) => updateTripExpense(i, "payMethod", e.target.value)}>
+                                                <select className={`${DOC_SELECT} text-xs`} value={exp.payMethod || "법인카드"} onChange={(e) => updateTripExpense(i, "payMethod", e.target.value)}>
                                                     <option value="법인카드">법인카드</option>
                                                     <option value="개인카드">개인카드</option>
                                                     <option value="현금">현금</option>
@@ -567,6 +611,7 @@ function BusinessTripDocFormFields({
 // ─── 품의서 (GENERAL) 문서형 폼 ──────────────────────────────────────────────
 
 const DOC_INPUT = "w-full border-0 border-b border-dashed border-slate-300 dark:border-slate-600 bg-transparent px-1 py-1 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:border-primary focus:outline-none transition-colors";
+const DOC_SELECT = `${DOC_INPUT} cursor-pointer [&>option]:bg-white [&>option]:text-slate-900 dark:[&>option]:bg-slate-800 dark:[&>option]:text-slate-100`;
 
 function GeneralFormFields({
     formData,
@@ -715,7 +760,7 @@ function GeneralFormFields({
                                         <div className="flex items-center gap-2">
                                             <span className="font-medium text-slate-700 dark:text-slate-300 whitespace-nowrap text-sm">4. 지급방법 :</span>
                                             <select
-                                                className={`${DOC_INPUT} cursor-pointer`}
+                                                className={DOC_SELECT}
                                                 value={formData.paymentMethod || "법인카드"}
                                                 onChange={(e) => onChange({ ...formData, paymentMethod: e.target.value })}
                                             >
@@ -1291,6 +1336,8 @@ export default function NewApprovalPage() {
         paymentAmount: "", paymentMethod: "법인카드", paymentDate: "",
         estimatedCost: "", budgetCategory: "", notes: "", project: "",
     });
+    const [attachments, setAttachments] = useState<{ name: string; url: string; size: number; type: string }[]>([]);
+    const [uploadingFiles, setUploadingFiles] = useState(false);
 
     // 직원 목록 로드
     useEffect(() => {
@@ -1311,6 +1358,7 @@ export default function NewApprovalPage() {
     // 카테고리 변경 시 formData 초기화
     const handleCategoryChange = (cat: string) => {
         setForm({ ...form, category: cat });
+        setAttachments([]);
         switch (cat) {
             case "VACATION":
                 setFormData({ vacationType: "연차", startDate: "", endDate: "" });
@@ -1369,6 +1417,40 @@ export default function NewApprovalPage() {
             setForm((prev) => ({ ...prev, title: autoTitle }));
         }
     }, [autoTitle]);
+
+    // 첨부파일 업로드 핸들러
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+        setUploadingFiles(true);
+        try {
+            const fd = new FormData();
+            Array.from(files).forEach((f) => fd.append("files", f));
+            const res = await fetch("/api/approvals/upload", { method: "POST", body: fd });
+            if (!res.ok) throw new Error("Upload failed");
+            const data = await res.json();
+            setAttachments((prev) => [...prev, ...data.files]);
+        } catch (err) {
+            console.error("파일 업로드 실패:", err);
+            alert("파일 업로드에 실패했습니다.");
+        } finally {
+            setUploadingFiles(false);
+            e.target.value = "";
+        }
+    };
+
+    const removeAttachment = (idx: number) => {
+        setAttachments((prev) => prev.filter((_, i) => i !== idx));
+    };
+
+    const formatFileSize = (bytes: number) => {
+        if (bytes < 1024) return `${bytes} B`;
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    };
+
+    // 파일 첨부 대상 카테고리
+    const showAttachments = ["GENERAL", "EXPENSE", "BUSINESS_TRIP", "GRANT_APPLICATION"].includes(form.category);
 
     const toggleApprover = (id: string) => {
         setApproverIds((prev) =>
@@ -1523,6 +1605,7 @@ export default function NewApprovalPage() {
                 requesterId: user.id,
                 approverIds,
                 formData,
+                attachments: attachments.length > 0 ? attachments : undefined,
             });
             if (result.success) {
                 router.push("/approvals");
@@ -1692,6 +1775,72 @@ export default function NewApprovalPage() {
                                         className="w-full text-sm bg-background border rounded-lg px-4 py-3 resize-none focus:outline-none focus:ring-2 focus:ring-ring"
                                     />
                                 </div>
+                            </div>
+                        </section>
+                    )}
+
+                    {/* 첨부파일 (품의서, 지출결의서, 외근보고서, 정부과제) */}
+                    {showAttachments && (
+                        <section>
+                            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
+                                <Paperclip className="inline h-4 w-4 mr-1.5 -mt-0.5" />
+                                첨부파일
+                            </h2>
+                            <div className="p-5 bg-muted/30 rounded-xl border border-dashed space-y-3">
+                                <label
+                                    className={`flex items-center justify-center gap-2 py-4 px-4 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
+                                        uploadingFiles
+                                            ? "border-muted-foreground/30 bg-muted/50 cursor-wait"
+                                            : "border-muted-foreground/20 hover:border-primary/50 hover:bg-primary/5"
+                                    }`}
+                                >
+                                    {uploadingFiles ? (
+                                        <>
+                                            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                                            <span className="text-sm text-muted-foreground">업로드 중...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Upload className="h-5 w-5 text-muted-foreground" />
+                                            <span className="text-sm text-muted-foreground">
+                                                클릭하여 파일 선택 (다중 선택 가능)
+                                            </span>
+                                        </>
+                                    )}
+                                    <input
+                                        type="file"
+                                        multiple
+                                        className="hidden"
+                                        onChange={handleFileUpload}
+                                        disabled={uploadingFiles}
+                                    />
+                                </label>
+                                {attachments.length > 0 && (
+                                    <div className="space-y-2">
+                                        {attachments.map((file, idx) => (
+                                            <div
+                                                key={idx}
+                                                className="flex items-center gap-3 p-3 bg-background rounded-lg border"
+                                            >
+                                                <FileIcon className="h-4 w-4 text-blue-500 shrink-0" />
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-medium truncate">{file.name}</p>
+                                                    <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeAttachment(idx)}
+                                                    className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                                                >
+                                                    <X className="h-4 w-4" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                        <p className="text-xs text-muted-foreground text-right">
+                                            총 {attachments.length}개 파일
+                                        </p>
+                                    </div>
+                                )}
                             </div>
                         </section>
                     )}

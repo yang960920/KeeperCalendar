@@ -16,6 +16,7 @@ export async function createApprovalRequest(data: {
     projectId?: string;
     attachmentUrl?: string;
     formData?: Record<string, any>; // 카테고리별 상세 데이터
+    attachments?: { name: string; url: string; size: number; type: string }[]; // 다중 첨부파일
 }) {
     try {
         if (!data.approverIds || data.approverIds.length === 0) {
@@ -36,11 +37,23 @@ export async function createApprovalRequest(data: {
                     create: data.approverIds.map((approverId, idx) => ({
                         approverId,
                         stepOrder: idx + 1,
-                        status: idx === 0 ? "PENDING" : "WAITING", // 첫 결재자만 PENDING
+                        status: idx === 0 ? "PENDING" : "WAITING",
                     })),
                 },
+                ...(data.attachments && data.attachments.length > 0
+                    ? {
+                          attachments: {
+                              create: data.attachments.map((att) => ({
+                                  name: att.name,
+                                  url: att.url,
+                                  size: att.size,
+                                  type: att.type,
+                              })),
+                          },
+                      }
+                    : {}),
             },
-            include: { steps: { orderBy: { stepOrder: "asc" } } },
+            include: { steps: { orderBy: { stepOrder: "asc" } }, attachments: true },
         });
 
         // 첫 결재자에게 알림
@@ -231,7 +244,7 @@ export async function getMyApprovals(userId: string) {
         // 내가 신청한 결재
         const requested = await (prisma as any).approvalRequest.findMany({
             where: { requesterId: userId },
-            include: { steps: { orderBy: { stepOrder: "asc" } } },
+            include: { steps: { orderBy: { stepOrder: "asc" } }, attachments: true },
             orderBy: { createdAt: "desc" },
         });
 
@@ -246,7 +259,7 @@ export async function getMyApprovals(userId: string) {
                 },
                 status: { in: ["PENDING", "IN_PROGRESS"] },
             },
-            include: { steps: { orderBy: { stepOrder: "asc" } } },
+            include: { steps: { orderBy: { stepOrder: "asc" } }, attachments: true },
             orderBy: { createdAt: "desc" },
         });
 
@@ -268,6 +281,13 @@ export async function getMyApprovals(userId: string) {
                     status: s.status,
                     comment: s.comment,
                     actedAt: s.actedAt?.toISOString() || null,
+                })),
+                attachments: (r.attachments || []).map((a: any) => ({
+                    id: a.id,
+                    name: a.name,
+                    url: a.url,
+                    size: a.size,
+                    type: a.type,
                 })),
                 createdAt: r.createdAt.toISOString(),
                 updatedAt: r.updatedAt.toISOString(),
