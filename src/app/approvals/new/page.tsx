@@ -412,7 +412,7 @@ function BusinessTripDocFormFields({
 
                 {/* ── 방문 일정 ── */}
                 <div className="px-6 sm:px-8 mb-6">
-                    <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center justify-between mb-1">
                         <div className={SL.replace("mb-3", "mb-0")}>방문 일정</div>
                         {schedules.length < 8 && (
                             <button type="button" onClick={addScheduleRow} className="flex items-center gap-1 text-xs text-primary hover:underline">
@@ -420,6 +420,7 @@ function BusinessTripDocFormFields({
                             </button>
                         )}
                     </div>
+                    <p className="text-xs text-muted-foreground mb-3">여러 곳을 방문한 경우 행을 추가하여 각 방문지별로 작성해주세요.</p>
                     <div className="overflow-x-auto -mx-6 px-6 sm:-mx-8 sm:px-8">
                         <table className="w-full border-collapse text-sm min-w-[640px]">
                             <thead>
@@ -428,7 +429,7 @@ function BusinessTripDocFormFields({
                                     <th className={`${DARK_TH} w-[130px]`}>시간</th>
                                     <th className={`${DARK_TH} w-[140px]`}>장소 / 대상</th>
                                     <th className={DARK_TH}>수행 내용</th>
-                                    <th className={`${DARK_TH} w-[130px]`}>결과</th>
+                                    <th className={`${DARK_TH} w-[130px]`}>비고</th>
                                     <th className={`${DARK_TH} w-[28px]`}></th>
                                 </tr>
                             </thead>
@@ -446,7 +447,7 @@ function BusinessTripDocFormFields({
                                             <input className={`${DOC_INPUT} text-xs`} placeholder="수행 내용" value={s.content || ""} onChange={(e) => updateSchedule(i, "content", e.target.value)} />
                                         </td>
                                         <td className={TD}>
-                                            <input className={`${DOC_INPUT} text-xs`} placeholder="결과" value={s.result || ""} onChange={(e) => updateSchedule(i, "result", e.target.value)} />
+                                            <input className={`${DOC_INPUT} text-xs`} placeholder="추가 방문지, 메모 등" value={s.result || ""} onChange={(e) => updateSchedule(i, "result", e.target.value)} />
                                         </td>
                                         <td className={`${TD} text-center`}>
                                             {schedules.length > 1 && (
@@ -2483,7 +2484,7 @@ export default function NewApprovalPage() {
             if (formData.schedules?.some((s: any) => s.content?.trim())) {
                 lines.push("\n[방문 일정]");
                 formData.schedules.forEach((s: any, i: number) => {
-                    if (s.content?.trim()) lines.push(`${i + 1}. ${s.time || ""} ${s.location || ""} - ${s.content}${s.result ? ` → ${s.result}` : ""}`);
+                    if (s.content?.trim()) lines.push(`${i + 1}. ${s.time || ""} ${s.location || ""} - ${s.content}${s.result ? ` (${s.result})` : ""}`);
                 });
             }
             if (formData.achievements) lines.push(`\n[업무 수행 결과]\n${formData.achievements}`);

@@ -310,7 +310,7 @@ function renderBusinessTrip(a: PdfApproval, emps: PdfEmployee[]): string {
     let scheduleHtml = "";
     if (schedules.some((s: any) => s.content)) {
         scheduleHtml = `<div class="sl">방문 일정</div><table class="ft"><thead><tr>
-            <th class="dth" style="width:36px">No.</th><th class="dth" style="width:120px">시간</th><th class="dth" style="width:130px">장소 / 대상</th><th class="dth">수행 내용</th><th class="dth" style="width:120px">결과</th>
+            <th class="dth" style="width:36px">No.</th><th class="dth" style="width:120px">시간</th><th class="dth" style="width:130px">장소 / 대상</th><th class="dth">수행 내용</th><th class="dth" style="width:120px">비고</th>
         </tr></thead><tbody>`;
         schedules.forEach((s: any, i: number) => {
             if (s.content) scheduleHtml += `<tr><td class="c">${i + 1}</td><td class="c">${s.time || ""}</td><td>${s.location || ""}</td><td>${s.content}</td><td>${s.result || ""}</td></tr>`;
