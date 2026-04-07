@@ -56,6 +56,7 @@ const CATEGORY_OPTIONS = [
     { value: "INSPECTION",        label: "납품/검수",   icon: ClipboardCheck, desc: "납품/검수확인서 (입고증)" },
     { value: "TAX_INVOICE",       label: "세금계산서",  icon: FileText,       desc: "세금계산서 발행 요청" },
     { value: "EXPENDITURE_PLAN", label: "지출계획",   icon: DollarSign,     desc: "자금 지출계획서" },
+    { value: "PERSONAL_EXPENSE", label: "개인경비",  icon: DollarSign,     desc: "개인경비 사용 청구" },
 ];
 
 const VACATION_TYPES = ["연차", "반차(오전)", "반차(오후)", "병가", "경조", "기타"];
@@ -1233,6 +1234,178 @@ function ExpenditurePlanFormFields({
     );
 }
 
+// ─── 개인경비 사용 청구서 (PERSONAL_EXPENSE) 문서형 폼 ─────────────────────────
+
+function PersonalExpenseFormFields({
+    formData,
+    onChange,
+    userName,
+    userDepartment,
+}: {
+    formData: Record<string, any>;
+    onChange: (data: Record<string, any>) => void;
+    userName: string;
+    userDepartment: string;
+}) {
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}. ${String(today.getMonth() + 1).padStart(2, "0")}. ${String(today.getDate()).padStart(2, "0")}`;
+
+    const items: any[] = formData.expenseItems || [];
+
+    const TH = "border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 px-4 py-2.5 text-center font-medium text-slate-600 dark:text-slate-400";
+    const TD = "border border-slate-300 dark:border-slate-600 px-1 py-0.5";
+    const DARK_TH = "bg-slate-800 dark:bg-slate-900 text-white text-xs font-medium px-2 py-2.5 border border-slate-700";
+    const SL = "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 pl-3 border-l-[3px] border-slate-800 dark:border-slate-400";
+
+    const updateItem = (i: number, field: string, value: string) => {
+        const next = items.map((it: any, idx: number) => (idx === i ? { ...it, [field]: value } : it));
+        onChange({ ...formData, expenseItems: next });
+    };
+    const addItemRow = () => {
+        if (items.length >= 11) return;
+        onChange({ ...formData, expenseItems: [...items, { content: "", amount: "", note: "" }] });
+    };
+    const removeItemRow = (i: number) => {
+        if (items.length <= 1) return;
+        onChange({ ...formData, expenseItems: items.filter((_: any, idx: number) => idx !== i) });
+    };
+
+    // 합계 계산
+    const totalAmount = useMemo(() => {
+        return items.reduce((sum: number, it: any) => sum + (Number(it.amount) || 0), 0);
+    }, [items]);
+
+    return (
+        <div className="rounded-xl border overflow-hidden shadow-sm">
+            {/* ── 문서 헤더 ── */}
+            <div className="bg-slate-800 text-white px-6 sm:px-8 py-6 flex justify-between items-center">
+                <h2 className="text-2xl font-bold tracking-[0.15em]">개인경비 사용 청구서</h2>
+                <div className="text-right text-sm text-slate-400 leading-relaxed">
+                    기 안 일 : <span className="text-white font-medium">{dateStr}</span>
+                </div>
+            </div>
+
+            <div className="bg-background">
+                {/* ── 안내 문구 ── */}
+                <div className="px-6 sm:px-8 pt-6 mb-4">
+                    <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg p-4 text-xs text-red-700 dark:text-red-400 space-y-1">
+                        <p className="font-bold text-sm">* 다음 내용을 꼭 확인 후 작성부탁드립니다.</p>
+                        <p>1. 전월 1일 ~ 말일 중 회사 업무로 인해 사용한 개인 비용 지출 건은 차월 15일까지 종합하여 청구서 작성</p>
+                        <p>2. 청구하는 사용분에 대한 영수증 반드시 첨부 (No에 맞추어 파일명 수정: 예시 1.jpg)</p>
+                        <p>3. 청구하는 사용분에 대한 정확한 내용 작성</p>
+                    </div>
+                </div>
+
+                {/* ── 합계 / 계좌 정보 ── */}
+                <div className="px-6 sm:px-8 mb-6">
+                    <table className="w-full border-collapse text-sm">
+                        <tbody>
+                            <tr>
+                                <th className={`${TH} w-[100px]`} style={{ backgroundColor: '#ccc' }}>합계</th>
+                                <td className="border border-slate-300 dark:border-slate-600 px-4 py-2.5 text-right font-bold tabular-nums">
+                                    {totalAmount > 0 ? `${totalAmount.toLocaleString()}원` : ""}
+                                </td>
+                                <th className={`${TH} w-[130px]`} style={{ backgroundColor: '#ccc' }}>
+                                    <div>계좌번호</div>
+                                    <div className="text-xs">(은행명/예금주)</div>
+                                </th>
+                                <td className="border border-slate-300 dark:border-slate-600 px-2 py-2.5" colSpan={2}>
+                                    <input className={DOC_INPUT} placeholder="예: 국민은행 000-000-00-000000 / 홍길동" value={formData.bankAccount || ""} onChange={(e) => onChange({ ...formData, bankAccount: e.target.value })} />
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* ── 내역 테이블 ── */}
+                <div className="px-6 sm:px-8 mb-6">
+                    <div className="flex items-center justify-between mb-3">
+                        <div className={SL.replace("mb-3", "mb-0")}>청구 내역</div>
+                        {items.length < 11 && (
+                            <button type="button" onClick={addItemRow} className="flex items-center gap-1 text-xs text-primary hover:underline">
+                                <Plus className="h-3 w-3" /> 행 추가
+                            </button>
+                        )}
+                    </div>
+                    <div className="overflow-x-auto -mx-6 px-6 sm:-mx-8 sm:px-8">
+                        <table className="w-full border-collapse text-sm min-w-[600px]">
+                            <thead>
+                                <tr>
+                                    <th className={`${DARK_TH} w-[50px]`}>No.</th>
+                                    <th className={DARK_TH}>내용</th>
+                                    <th className={`${DARK_TH} w-[130px]`}>금액</th>
+                                    <th className={`${DARK_TH} w-[140px]`}>비고</th>
+                                    <th className={`${DARK_TH} w-[28px]`}></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {items.map((it: any, i: number) => (
+                                    <tr key={i} className={i % 2 === 1 ? "bg-slate-50/50 dark:bg-slate-800/30" : ""}>
+                                        <td className={`${TD} text-center text-xs font-semibold text-slate-500 px-2`}>{i + 1}</td>
+                                        <td className={TD}>
+                                            <input className={`${DOC_INPUT} text-xs`} placeholder="사용 내용" value={it.content || ""} onChange={(e) => updateItem(i, "content", e.target.value)} />
+                                        </td>
+                                        <td className={TD}>
+                                            <input className={`${DOC_INPUT} text-xs text-right font-semibold`} type="number" placeholder="" value={it.amount || ""} onChange={(e) => updateItem(i, "amount", e.target.value)} />
+                                        </td>
+                                        <td className={TD}>
+                                            <input className={`${DOC_INPUT} text-xs`} placeholder="" value={it.note || ""} onChange={(e) => updateItem(i, "note", e.target.value)} />
+                                        </td>
+                                        <td className={`${TD} text-center`}>
+                                            {items.length > 1 && (
+                                                <button type="button" onClick={() => removeItemRow(i)} className="text-slate-400 hover:text-red-500 transition-colors">
+                                                    <Trash2 className="h-3 w-3" />
+                                                </button>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                                {/* 합계 행 */}
+                                <tr className="bg-slate-100 dark:bg-slate-800">
+                                    <td colSpan={2} className="border border-slate-300 dark:border-slate-600 text-right px-4 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-400">
+                                        합 계
+                                    </td>
+                                    <td className="border border-slate-300 dark:border-slate-600 text-right px-2 py-2.5 text-sm font-bold tabular-nums">
+                                        {totalAmount > 0 ? totalAmount.toLocaleString() : ""}
+                                    </td>
+                                    <td colSpan={2} className="border border-slate-300 dark:border-slate-600"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {/* ── 특이사항 ── */}
+                <div className="px-6 sm:px-8 mb-6">
+                    <div className={SL}>특이사항</div>
+                    <textarea
+                        className="w-full border border-slate-300 dark:border-slate-600 rounded-lg bg-transparent px-3 py-2 text-sm placeholder:text-slate-400 focus:border-primary focus:outline-none transition-colors min-h-[80px]"
+                        placeholder="특이사항을 입력하세요"
+                        value={formData.specialNote || ""}
+                        onChange={(e) => onChange({ ...formData, specialNote: e.target.value })}
+                    />
+                </div>
+
+                {/* ── 하단 서명 미리보기 ── */}
+                <div className="text-center px-6 sm:px-8 pb-8 text-sm text-slate-500 dark:text-slate-400 leading-loose">
+                    <p>위와 같은 금액을 청구하오니, 결재하여 주시기 바랍니다.</p>
+                    <p className="font-medium text-slate-700 dark:text-slate-300 mt-2">
+                        {dateStr.replace(/\. /g, "년 ").replace(/\.$/, "") + "일"}
+                    </p>
+                    <p className="mt-1">
+                        <span className="text-slate-400">{userDepartment}</span>
+                        &nbsp;&nbsp;
+                        <span className="font-semibold text-slate-800 dark:text-slate-200 text-base">
+                            {userName.split("").join(" ")}
+                        </span>
+                        <span className="text-slate-400 ml-2">(인)</span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ─── 품의서 (GENERAL) 문서형 폼 ──────────────────────────────────────────────
 
 function GeneralFormFields({
@@ -1815,11 +1988,13 @@ function ApproverPicker({
     currentUserId,
     selected,
     onToggle,
+    lockedIds = [],
 }: {
     employees: Employee[];
     currentUserId: string;
     selected: string[];
     onToggle: (id: string) => void;
+    lockedIds?: string[];
 }) {
     const [search, setSearch] = useState("");
     const [expandedDepts, setExpandedDepts] = useState<Set<string>>(new Set());
@@ -1865,13 +2040,18 @@ function ApproverPicker({
                 <div className="flex items-center gap-2 flex-wrap p-3 bg-muted/40 rounded-lg">
                     {selected.map((id, idx) => {
                         const emp = availableEmployees.find((e) => e.id === id);
+                        const isLocked = lockedIds.includes(id);
                         return (
-                            <div key={id} className="flex items-center gap-1.5 bg-primary/10 border border-primary/20 rounded-full px-3 py-1 text-sm">
-                                <span className="text-primary font-bold">{idx + 1}</span>
+                            <div key={id} className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-sm ${isLocked ? "bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700" : "bg-primary/10 border border-primary/20"}`}>
+                                <span className={`font-bold ${isLocked ? "text-amber-600 dark:text-amber-400" : "text-primary"}`}>{idx + 1}</span>
                                 <span className="font-medium">{emp?.name}</span>
-                                <button type="button" onClick={() => onToggle(id)}>
-                                    <X className="h-3 w-3 text-muted-foreground" />
-                                </button>
+                                {isLocked ? (
+                                    <span className="text-[10px] text-amber-600 dark:text-amber-400 ml-1">자동</span>
+                                ) : (
+                                    <button type="button" onClick={() => onToggle(id)}>
+                                        <X className="h-3 w-3 text-muted-foreground" />
+                                    </button>
+                                )}
                             </div>
                         );
                     })}
@@ -2034,6 +2214,12 @@ export default function NewApprovalPage() {
                     planItems: [{ date: "", category: "", detail: "", amount: "", note: "" }],
                 });
                 break;
+            case "PERSONAL_EXPENSE":
+                setFormData({
+                    bankAccount: "", specialNote: "",
+                    expenseItems: [{ content: "", amount: "", note: "" }],
+                });
+                break;
             default:
                 setFormData({});
         }
@@ -2060,6 +2246,43 @@ export default function NewApprovalPage() {
             setForm((prev) => ({ ...prev, title: autoTitle }));
         }
     }, [autoTitle]);
+
+    // ── 금액 100만원 이상 시 대표(한승우) 결재선 자동 추가 ──
+    const CEO_ID = "한승우";
+    useEffect(() => {
+        if (!user || user.id === CEO_ID) return; // 본인이 대표면 스킵
+
+        let totalAmount = 0;
+        switch (form.category) {
+            case "EXPENSE":
+                totalAmount = (formData.expenses || []).reduce((s: number, e: any) => s + ((Number(e.qty) || 0) * (Number(e.unitPrice) || 0)), 0);
+                break;
+            case "INSPECTION":
+                totalAmount = (formData.items || []).reduce((s: number, it: any) => s + ((Number(it.qty) || 0) * (Number(it.unitPrice) || 0)), 0);
+                break;
+            case "TAX_INVOICE":
+                totalAmount = (formData.taxItems || []).reduce((s: number, it: any) => {
+                    const supply = (Number(it.qty) || 0) * (Number(it.unitPrice) || 0);
+                    return s + supply + Math.round(supply * 0.1);
+                }, 0);
+                break;
+            case "EXPENDITURE_PLAN":
+                totalAmount = (formData.planItems || []).reduce((s: number, it: any) => s + (Number(it.amount) || 0), 0);
+                break;
+            case "PERSONAL_EXPENSE":
+                totalAmount = (formData.expenseItems || []).reduce((s: number, it: any) => s + (Number(it.amount) || 0), 0);
+                break;
+            default:
+                return; // 금액 기반 카테고리가 아니면 스킵
+        }
+
+        const ceoExists = employees.some((e) => e.id === CEO_ID);
+        if (!ceoExists) return;
+
+        if (totalAmount >= 1000000 && !approverIds.includes(CEO_ID)) {
+            setApproverIds((prev) => [...prev, CEO_ID]);
+        }
+    }, [form.category, formData, employees, user]);
 
     // 첨부파일 업로드 핸들러
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -2093,9 +2316,38 @@ export default function NewApprovalPage() {
     };
 
     // 파일 첨부 대상 카테고리
-    const showAttachments = ["GENERAL", "EXPENSE", "BUSINESS_TRIP", "GRANT_APPLICATION", "INSPECTION", "TAX_INVOICE", "EXPENDITURE_PLAN"].includes(form.category);
+    const showAttachments = ["GENERAL", "EXPENSE", "BUSINESS_TRIP", "GRANT_APPLICATION", "INSPECTION", "TAX_INVOICE", "EXPENDITURE_PLAN", "PERSONAL_EXPENSE"].includes(form.category);
+
+    // 금액 기반 자동 추가 대상인지 계산
+    const ceoAutoRequired = useMemo(() => {
+        if (!user || user.id === CEO_ID) return false;
+        let total = 0;
+        switch (form.category) {
+            case "EXPENSE":
+                total = (formData.expenses || []).reduce((s: number, e: any) => s + ((Number(e.qty) || 0) * (Number(e.unitPrice) || 0)), 0);
+                break;
+            case "INSPECTION":
+                total = (formData.items || []).reduce((s: number, it: any) => s + ((Number(it.qty) || 0) * (Number(it.unitPrice) || 0)), 0);
+                break;
+            case "TAX_INVOICE":
+                total = (formData.taxItems || []).reduce((s: number, it: any) => {
+                    const supply = (Number(it.qty) || 0) * (Number(it.unitPrice) || 0);
+                    return s + supply + Math.round(supply * 0.1);
+                }, 0);
+                break;
+            case "EXPENDITURE_PLAN":
+                total = (formData.planItems || []).reduce((s: number, it: any) => s + (Number(it.amount) || 0), 0);
+                break;
+            case "PERSONAL_EXPENSE":
+                total = (formData.expenseItems || []).reduce((s: number, it: any) => s + (Number(it.amount) || 0), 0);
+                break;
+        }
+        return total >= 1000000;
+    }, [form.category, formData, user]);
 
     const toggleApprover = (id: string) => {
+        // 대표님이 금액 조건으로 자동 추가된 경우 해제 불가
+        if (id === CEO_ID && ceoAutoRequired && approverIds.includes(id)) return;
         setApproverIds((prev) =>
             prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
         );
@@ -2119,13 +2371,15 @@ export default function NewApprovalPage() {
                 return formData.taxItems?.some((it: any) => it.company?.trim() || it.product?.trim());
             case "EXPENDITURE_PLAN":
                 return formData.planItems?.some((it: any) => it.category?.trim() || it.detail?.trim());
+            case "PERSONAL_EXPENSE":
+                return formData.expenseItems?.some((it: any) => it.content?.trim() || Number(it.amount) > 0);
             default:
                 return true;
         }
     };
 
     // GENERAL 품의서: formData → title/content 자동 구성
-    const isDocumentForm = form.category === "GENERAL" || form.category === "EXPENSE" || form.category === "BUSINESS_TRIP" || form.category === "INSPECTION" || form.category === "TAX_INVOICE" || form.category === "EXPENDITURE_PLAN";
+    const isDocumentForm = form.category === "GENERAL" || form.category === "EXPENSE" || form.category === "BUSINESS_TRIP" || form.category === "INSPECTION" || form.category === "TAX_INVOICE" || form.category === "EXPENDITURE_PLAN" || form.category === "PERSONAL_EXPENSE";
 
     const composeGeneralContent = (fd: Record<string, any>): string => {
         const lines: string[] = [];
@@ -2182,6 +2436,7 @@ export default function NewApprovalPage() {
         if (form.category === "INSPECTION") return !!formData.docTitle?.trim() && formData.items?.some((it: any) => it.name?.trim());
         if (form.category === "TAX_INVOICE") return formData.taxItems?.some((it: any) => it.company?.trim() || it.product?.trim());
         if (form.category === "EXPENDITURE_PLAN") return formData.planItems?.some((it: any) => it.category?.trim() || it.detail?.trim());
+        if (form.category === "PERSONAL_EXPENSE") return formData.expenseItems?.some((it: any) => it.content?.trim() || Number(it.amount) > 0);
         return !!form.title.trim() && !!form.content.trim();
     })();
 
@@ -2312,6 +2567,22 @@ export default function NewApprovalPage() {
                 }
             });
             lines.push(`\n합계: ₩${cumTotal.toLocaleString()}`);
+            submitContent = lines.join("\n");
+        } else if (form.category === "PERSONAL_EXPENSE") {
+            submitTitle = "개인경비 사용 청구서";
+            const lines: string[] = [];
+            if (formData.bankAccount) lines.push(`계좌정보: ${formData.bankAccount}`);
+            lines.push("\n[청구 내역]");
+            let total = 0;
+            formData.expenseItems?.forEach((it: any, i: number) => {
+                if (it.content?.trim() || Number(it.amount) > 0) {
+                    const amt = Number(it.amount) || 0;
+                    total += amt;
+                    lines.push(`${i + 1}. ${it.content || ""} / ${amt.toLocaleString()}원${it.note ? ` (${it.note})` : ""}`);
+                }
+            });
+            lines.push(`\n합계: ₩${total.toLocaleString()}`);
+            if (formData.specialNote) lines.push(`\n특이사항: ${formData.specialNote}`);
             submitContent = lines.join("\n");
         }
 
@@ -2527,6 +2798,18 @@ export default function NewApprovalPage() {
                         </section>
                     )}
 
+                    {/* 2-h. 개인경비 사용 청구서 (PERSONAL_EXPENSE) */}
+                    {form.category === "PERSONAL_EXPENSE" && (
+                        <section>
+                            <PersonalExpenseFormFields
+                                formData={formData}
+                                onChange={setFormData}
+                                userName={userName}
+                                userDepartment={userDepartment}
+                            />
+                        </section>
+                    )}
+
                     {/* 3. 제목 & 내용 (문서형 폼이 아닌 경우에만) */}
                     {!isDocumentForm && (
                         <section>
@@ -2633,11 +2916,18 @@ export default function NewApprovalPage() {
                         <p className="text-xs text-muted-foreground mb-4">
                             결재자를 순서대로 선택하세요. 선택한 순서대로 결재가 진행됩니다.
                         </p>
+                        {ceoAutoRequired && (
+                            <p className="text-xs text-amber-600 dark:text-amber-400 mb-3 flex items-center gap-1">
+                                <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                총 금액이 100만원 이상이므로 대표 결재가 자동 추가됩니다.
+                            </p>
+                        )}
                         <ApproverPicker
                             employees={employees}
                             currentUserId={user.id}
                             selected={approverIds}
                             onToggle={toggleApprover}
+                            lockedIds={ceoAutoRequired ? [CEO_ID] : []}
                         />
                     </section>
 

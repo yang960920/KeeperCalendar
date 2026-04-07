@@ -210,6 +210,7 @@ export async function archiveApprovalDocument(data: {
             EXPENSE: "지출결의", GENERAL: "일반기안", INSPECTION: "납품검수",
             TAX_INVOICE: "세금계산서",
             EXPENDITURE_PLAN: "자금지출계획",
+            PERSONAL_EXPENSE: "개인경비청구",
         };
         const catLabel = categoryLabels[data.category] || "기타";
         let catFolder = await (prisma as any).docFolder.findFirst({

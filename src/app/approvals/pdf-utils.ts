@@ -53,6 +53,7 @@ const categoryLabel: Record<string, string> = {
     INSPECTION: "납품/검수확인서",
     TAX_INVOICE: "세금계산서 발행 요청서",
     EXPENDITURE_PLAN: "자금 지출계획서",
+    PERSONAL_EXPENSE: "개인경비 사용 청구서",
 };
 
 // ─── 공통 CSS ──────────────────────────────────────────────────────────────────
@@ -469,6 +470,42 @@ function renderExpenditurePlan(a: PdfApproval, emps: PdfEmployee[]): string {
     return `${headerHtml}${itemsHtml}`;
 }
 
+// ─── 개인경비 사용 청구서 (PERSONAL_EXPENSE) ────────────────────────────────────
+
+function renderPersonalExpense(a: PdfApproval, emps: PdfEmployee[]): string {
+    const fd = a.formData || {};
+    const items: any[] = fd.expenseItems || [];
+
+    // 합계 / 계좌 정보
+    let total = 0;
+    items.forEach((it: any) => { total += Number(it.amount) || 0; });
+
+    const summaryHtml = `<table class="ft" style="margin-bottom:20px;">
+        <tr><th style="width:100px;background:#ccc;" class="c">합계</th><td class="r bold" style="width:300px;">${total > 0 ? fmtNum(total) + "원" : ""}</td><th style="width:130px;background:#ccc;" class="c">계좌번호<br/>(은행명/예금주)</th><td>${fd.bankAccount || ""}</td></tr>
+    </table>`;
+
+    // 청구 내역 테이블
+    let itemsHtml = `<div class="sl">청구 내역</div><table class="ft"><thead><tr>
+        <th class="dth" style="width:50px">No.</th><th class="dth">내용</th>
+        <th class="dth" style="width:130px">금액</th><th class="dth" style="width:140px">비고</th>
+    </tr></thead><tbody>`;
+    items.forEach((it: any, i: number) => {
+        if (it.content || Number(it.amount) > 0) {
+            const amt = Number(it.amount) || 0;
+            itemsHtml += `<tr><td class="c">${i + 1}</td><td>${it.content || ""}</td><td class="r bold">${amt > 0 ? fmtNum(amt) : ""}</td><td>${it.note || ""}</td></tr>`;
+        }
+    });
+    itemsHtml += `<tr class="sub"><td colspan="2" class="r" style="padding-right:14px;">합 계</td><td class="r bold">${total > 0 ? fmtNum(total) : ""}</td><td></td></tr></tbody></table>`;
+
+    // 특이사항
+    let noteHtml = "";
+    if (fd.specialNote) {
+        noteHtml = `<div class="sl">특이사항</div><table class="ft"><tr><td style="padding:10px;min-height:60px;">${fd.specialNote}</td></tr></table>`;
+    }
+
+    return `${renderWriterInfo(a, emps)}${summaryHtml}${itemsHtml}${noteHtml}`;
+}
+
 // ─── 일반 (VACATION, OVERTIME, GRANT_APPLICATION) ──────────────────────────────
 
 function renderGeneric(a: PdfApproval, emps: PdfEmployee[]): string {
@@ -541,6 +578,10 @@ function renderDocument(approval: PdfApproval, employees: PdfEmployee[]): string
         case "EXPENDITURE_PLAN":
             bodyContent = renderExpenditurePlan(approval, employees);
             closingText = "위와 같이 자금 지출계획서를 제출하오니 승인하여 주시기 바랍니다.";
+            break;
+        case "PERSONAL_EXPENSE":
+            bodyContent = renderPersonalExpense(approval, employees);
+            closingText = "위와 같은 금액을 청구하오니, 결재하여 주시기 바랍니다.";
             break;
         default:
             bodyContent = renderGeneric(approval, employees);

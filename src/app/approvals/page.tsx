@@ -103,6 +103,7 @@ const CATEGORY_OPTIONS = [
     { value: "INSPECTION",        label: "납품/검수",    icon: ClipboardCheck },
     { value: "TAX_INVOICE",       label: "세금계산서",   icon: FileText },
     { value: "EXPENDITURE_PLAN", label: "지출계획",     icon: DollarSign },
+    { value: "PERSONAL_EXPENSE", label: "개인경비",    icon: DollarSign },
 ];
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
@@ -170,6 +171,9 @@ function FormDataDetail({ category, formData }: { category: string; formData?: R
             break;
         case "EXPENDITURE_PLAN":
             if (formData.planDate) items.push({ label: "작성일", value: formData.planDate });
+            break;
+        case "PERSONAL_EXPENSE":
+            if (formData.bankAccount) items.push({ label: "계좌", value: formData.bankAccount });
             break;
     }
 

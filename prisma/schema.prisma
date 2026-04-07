@@ -483,6 +483,7 @@ enum ApprovalCategory {
   INSPECTION // 검수/검사 조서
   TAX_INVOICE // 세금계산서 발행 요청서
   EXPENDITURE_PLAN // 자금 지출계획서
+  PERSONAL_EXPENSE // 개인경비 사용 청구서
 }
 
 enum ApprovalStatus {

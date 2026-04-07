@@ -10,7 +10,7 @@ import { archiveApprovalDocument } from "@/app/actions/document";
 export async function createApprovalRequest(data: {
     title: string;
     content: string;
-    category: "VACATION" | "OVERTIME" | "BUSINESS_TRIP" | "EXPENSE" | "GENERAL" | "INSPECTION" | "TAX_INVOICE" | "EXPENDITURE_PLAN";
+    category: "VACATION" | "OVERTIME" | "BUSINESS_TRIP" | "EXPENSE" | "GENERAL" | "INSPECTION" | "TAX_INVOICE" | "EXPENDITURE_PLAN" | "PERSONAL_EXPENSE";
     requesterId: string;
     approverIds: string[];   // 결재자 목록 (순서대로)
     projectId?: string;
@@ -388,7 +388,10 @@ async function handlePostApproval(request: any) {
         }
 
         case "BUSINESS_TRIP": {
-            // 외근/출장: 공유 캘린더에 이벤트 생성
+            // 외근/출장: 공유 캘린더에 이벤트 생성 + 근태 처리
+            // ※ 외근 사전 신청(FieldWorkRequest)과 중복 방지:
+            //   - 이미 FIELD_PLANNED 근태가 있으면 BUSINESS_TRIP으로 업그레이드
+            //   - 이미 같은 날짜의 FIELD_WORK 캘린더 이벤트가 있으면 캘린더 중복 생성 안 함
             const tripStart = formData.tripStartDate || formData.startDate;
             const tripEnd = formData.tripEndDate || formData.endDate || tripStart;
             const location = formData.location || formData.destination || "";
@@ -397,20 +400,48 @@ async function handlePostApproval(request: any) {
                 const isMultiDay = tripEnd && tripStart !== tripEnd;
                 const label = isMultiDay ? "출장" : "외근";
 
-                await createCalendarEvent({
-                    title: `[${label}] ${requesterName} - ${location}`,
-                    description: request.content,
-                    category: "FIELD_WORK",
-                    startTime: new Date(`${tripStart}T00:00:00+09:00`).toISOString(),
-                    endTime: new Date(`${tripEnd || tripStart}T23:59:59+09:00`).toISOString(),
-                    isAllDay: true,
-                    location,
-                    creatorId: request.requesterId,
-                    attendeeIds: [],
-                    requiresRsvp: false,
+                // 캘린더: 해당 기간에 이미 외근 사전 신청으로 등록된 이벤트가 있는지 확인
+                const tripStartDate = new Date(`${tripStart}T00:00:00+09:00`);
+                const tripEndDate = new Date(`${tripEnd || tripStart}T23:59:59+09:00`);
+                const existingCalEvent = await (prisma as any).calendarEvent.findFirst({
+                    where: {
+                        creatorId: request.requesterId,
+                        category: "FIELD_WORK",
+                        startTime: { gte: tripStartDate },
+                        endTime: { lte: new Date(tripEndDate.getTime() + 24 * 60 * 60 * 1000) },
+                    },
                 });
 
-                // Attendance 기록 생성
+                if (existingCalEvent) {
+                    // 기존 이벤트를 결재 보고서 내용으로 업데이트
+                    await (prisma as any).calendarEvent.update({
+                        where: { id: existingCalEvent.id },
+                        data: {
+                            title: `[${label}] ${requesterName} - ${location}`,
+                            description: request.content,
+                            startTime: tripStartDate,
+                            endTime: tripEndDate,
+                            isAllDay: true,
+                            location,
+                        },
+                    });
+                } else {
+                    // 기존 이벤트 없으면 새로 생성
+                    await createCalendarEvent({
+                        title: `[${label}] ${requesterName} - ${location}`,
+                        description: request.content,
+                        category: "FIELD_WORK",
+                        startTime: tripStartDate.toISOString(),
+                        endTime: tripEndDate.toISOString(),
+                        isAllDay: true,
+                        location,
+                        creatorId: request.requesterId,
+                        attendeeIds: [],
+                        requiresRsvp: false,
+                    });
+                }
+
+                // Attendance: 기간 내 평일마다 처리
                 const start = new Date(`${tripStart}T00:00:00+09:00`);
                 const end = new Date(`${tripEnd || tripStart}T00:00:00+09:00`);
                 for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
@@ -420,7 +451,15 @@ async function handlePostApproval(request: any) {
                     const existing = await prisma.attendance.findUnique({
                         where: { userId_date: { userId: request.requesterId, date: dateOnly } },
                     });
-                    if (!existing) {
+                    if (existing) {
+                        // 외근 사전 신청(FIELD_PLANNED/FIELD_EMERGENCY)으로 이미 있으면 → BUSINESS_TRIP으로 업그레이드
+                        if (existing.workType === "FIELD_PLANNED" || existing.workType === "FIELD_EMERGENCY") {
+                            await prisma.attendance.update({
+                                where: { id: existing.id },
+                                data: { workType: "BUSINESS_TRIP" },
+                            });
+                        }
+                    } else {
                         await prisma.attendance.create({
                             data: {
                                 userId: request.requesterId,
