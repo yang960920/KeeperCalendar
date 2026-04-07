@@ -1127,17 +1127,19 @@ function ExpenditurePlanFormFields({
                     <table className="w-full border-collapse text-sm">
                         <tbody>
                             <tr>
-                                <th className={`${TH} w-[100px]`} style={{ backgroundColor: '#ccc' }}>작 성 일</th>
+                                <th className={`${TH} w-[90px] whitespace-nowrap`} style={{ backgroundColor: '#ccc' }}>작 성 일</th>
                                 <td className="border border-slate-300 dark:border-slate-600 px-4 py-2.5">
                                     <input type="date" className={DOC_INPUT} value={formData.planDate || ""} onChange={(e) => onChange({ ...formData, planDate: e.target.value })} />
                                 </td>
-                                <th className={`${TH} w-[100px]`} style={{ backgroundColor: '#ccc' }}>부 서 명</th>
+                                <th className={`${TH} w-[90px] whitespace-nowrap`} style={{ backgroundColor: '#ccc' }}>부 서 명</th>
                                 <td className="border border-slate-300 dark:border-slate-600 px-4 py-2.5 font-medium">{userDepartment}</td>
-                                <th className={`${TH} w-[100px]`} style={{ backgroundColor: '#ccc' }}>직 급</th>
+                            </tr>
+                            <tr>
+                                <th className={`${TH} w-[90px] whitespace-nowrap`} style={{ backgroundColor: '#ccc' }}>직 급</th>
                                 <td className="border border-slate-300 dark:border-slate-600 px-4 py-2.5">
                                     <input className={DOC_INPUT} placeholder="직급" value={formData.position || ""} onChange={(e) => onChange({ ...formData, position: e.target.value })} />
                                 </td>
-                                <th className={`${TH} w-[100px]`} style={{ backgroundColor: '#ccc' }}>성 명</th>
+                                <th className={`${TH} w-[90px] whitespace-nowrap`} style={{ backgroundColor: '#ccc' }}>성 명</th>
                                 <td className="border border-slate-300 dark:border-slate-600 px-4 py-2.5 font-medium">{userName}</td>
                             </tr>
                         </tbody>
