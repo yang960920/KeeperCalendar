@@ -68,6 +68,9 @@ export const MonthlyTaskList = ({ year, month }: MonthlyTaskListProps) => {
             const parentProject = projects.find((p: any) => p.id === task.projectId);
             if (parentProject && parentProject.creatorId === currentUser.id) return true;
 
+            // 4. 내가 프로젝트 참여자인지 확인 (관리자 열람 포함)
+            if (parentProject && parentProject.participantIds?.includes(currentUser.id)) return true;
+
             return false;
         });
 

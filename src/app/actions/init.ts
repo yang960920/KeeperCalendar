@@ -2,12 +2,17 @@
 
 import { prisma } from "@/lib/prisma";
 
+// 프로젝트 전체 열람 권한이 있는 관리자 ID 목록 (서버 전용, 클라이언트 미노출)
+const PROJECT_ADMIN_IDS = ["양현준", "유경성", "김권찬", "한승우", "진호열"];
+
 export async function getInitialData(userId: string) {
     try {
-        // 1. Fetch User's Projects
-        // 내 거나 내가 참여자인 프로젝트 모두
+        const isAdmin = PROJECT_ADMIN_IDS.includes(userId);
+
+        // 1. Fetch Projects
+        // 관리자: 모든 프로젝트 / 일반: 내 거나 내가 참여자인 프로젝트
         const projects = await prisma.project.findMany({
-            where: {
+            where: isAdmin ? {} : {
                 OR: [
                     { creatorId: userId },
                     { participants: { some: { id: userId } } }
@@ -40,11 +45,17 @@ export async function getInitialData(userId: string) {
         });
 
         // Format to match Zustand store interfaces
-        const formattedProjects = projects.map(p => ({
+        // 관리자인 경우 participantIds에 본인 ID를 주입하여 클라이언트 필터 통과
+        const formattedProjects = projects.map(p => {
+            const participantIds = p.participants.map((u: any) => u.id);
+            if (isAdmin && !participantIds.includes(userId) && p.creatorId !== userId) {
+                participantIds.push(userId);
+            }
+            return {
             id: p.id,
             title: p.name,
             creatorId: p.creatorId,
-            participantIds: p.participants.map((u: any) => u.id),
+            participantIds,
             createdAt: p.createdAt.toISOString(),
             endDate: p.endDate.toISOString(),
             status: (p as any).status || "ACTIVE",
@@ -53,7 +64,8 @@ export async function getInitialData(userId: string) {
             closeSummary: (p as any).closeSummary || undefined,
             closeReportUrl: (p as any).closeReportUrl || undefined,
             closeReportName: (p as any).closeReportName || undefined,
-        }));
+        };
+        });
 
         const formattedTasks = tasks.map(t => ({
             id: t.id,
