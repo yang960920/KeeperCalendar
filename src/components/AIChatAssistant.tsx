@@ -6,8 +6,8 @@ import { useTaskStore, Task } from "@/store/useTaskStore";
 import { useProjectStore } from "@/store/useProjectStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useStore } from "@/hooks/useStore";
-import { askAI } from "@/app/actions/ai-chat";
-import { aiCreateTask } from "@/app/actions/ai-chat";
+import { askAI, aiCreateTask } from "@/app/actions/ai-chat";
+import { getInitialData } from "@/app/actions/init";
 import { Button } from "@/components/ui/button";
 
 type PresetType = "weekly_report" | "deadline_alert" | "delayed_tasks" | "task_summary" | "free";
@@ -152,6 +152,13 @@ export const AIChatAssistant = ({ projectId }: AIChatAssistantProps) => {
 
             if (result.success) {
                 setTaskForm({ startDate: "", endDate: "", description: "" });
+                // DB에서 생성된 Task를 클라이언트 스토어에 동기화
+                try {
+                    const refreshed = await getInitialData(user.id);
+                    if (refreshed.success) {
+                        useTaskStore.setState({ tasks: refreshed.tasks });
+                    }
+                } catch {}
             }
         } catch {
             setMessages(prev => [...prev, {
