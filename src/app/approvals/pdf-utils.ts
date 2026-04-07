@@ -52,6 +52,7 @@ const categoryLabel: Record<string, string> = {
     EXPENSE: "지 출 결 의 서", GENERAL: "품 의 서", GRANT_APPLICATION: "정부과제 신청서",
     INSPECTION: "납품/검수확인서",
     TAX_INVOICE: "세금계산서 발행 요청서",
+    EXPENDITURE_PLAN: "자금 지출계획서",
 };
 
 // ─── 공통 CSS ──────────────────────────────────────────────────────────────────
@@ -434,6 +435,40 @@ function renderTaxInvoice(a: PdfApproval, emps: PdfEmployee[]): string {
     return `${renderWriterInfo(a, emps)}${issueDateHtml}${itemsHtml}${managerHtml}`;
 }
 
+// ─── 자금 지출계획서 (EXPENDITURE_PLAN) ──────────────────────────────────────
+
+function renderExpenditurePlan(a: PdfApproval, emps: PdfEmployee[]): string {
+    const fd = a.formData || {};
+    const items: any[] = fd.planItems || [];
+    const requester = emps.find((e) => e.id === a.requesterId);
+    const name = requester?.name || "";
+    const dept = requester?.departmentName || "";
+    const position = fd.position || "";
+    const planDate = fd.planDate || fmtDate(a.createdAt);
+
+    // 작성자 정보 (원본 HTML 형식)
+    const headerHtml = `<table class="ft" style="margin-bottom:20px;">
+        <tr><th style="width:100px;background:#ccc;">작 성 일</th><td class="c">${planDate}</td><th style="width:100px;background:#ccc;">부 서 명</th><td class="c">${dept}</td><th style="width:80px;background:#ccc;">직 급</th><td class="c">${position}</td><th style="width:80px;background:#ccc;">성 명</th><td class="c">${name}</td></tr>
+    </table>`;
+
+    // 지출 내역 테이블
+    let itemsHtml = `<div class="sl">지출 내역</div><table class="ft"><thead><tr>
+        <th class="dth" style="width:36px">No.</th><th class="dth" style="width:100px">날 짜</th><th class="dth" style="width:110px">지출항목</th>
+        <th class="dth">세부내역</th><th class="dth" style="width:100px">지출금액</th><th class="dth" style="width:100px">지출누적금액</th><th class="dth" style="width:80px">비고</th>
+    </tr></thead><tbody>`;
+    let cumTotal = 0;
+    items.forEach((it: any, i: number) => {
+        if (it.category || it.detail) {
+            const amt = Number(it.amount) || 0;
+            cumTotal += amt;
+            itemsHtml += `<tr><td class="c">${i + 1}</td><td class="c">${it.date || ""}</td><td>${it.category || ""}</td><td>${it.detail || ""}</td><td class="r bold">${amt > 0 ? fmtNum(amt) : ""}</td><td class="r bold">${cumTotal > 0 ? fmtNum(cumTotal) : ""}</td><td>${it.note || ""}</td></tr>`;
+        }
+    });
+    itemsHtml += `<tr class="sub"><td colspan="4" class="r" style="padding-right:14px;">합 계</td><td class="r bold">${cumTotal > 0 ? fmtNum(cumTotal) : ""}</td><td colspan="2"></td></tr></tbody></table>`;
+
+    return `${headerHtml}${itemsHtml}`;
+}
+
 // ─── 일반 (VACATION, OVERTIME, GRANT_APPLICATION) ──────────────────────────────
 
 function renderGeneric(a: PdfApproval, emps: PdfEmployee[]): string {
@@ -502,6 +537,10 @@ function renderDocument(approval: PdfApproval, employees: PdfEmployee[]): string
         case "TAX_INVOICE":
             bodyContent = renderTaxInvoice(approval, employees);
             closingText = "위와 같이 세금계산서 발행을 요청하오니 처리하여 주시기 바랍니다.";
+            break;
+        case "EXPENDITURE_PLAN":
+            bodyContent = renderExpenditurePlan(approval, employees);
+            closingText = "위와 같이 자금 지출계획서를 제출하오니 승인하여 주시기 바랍니다.";
             break;
         default:
             bodyContent = renderGeneric(approval, employees);

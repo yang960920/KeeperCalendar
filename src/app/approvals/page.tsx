@@ -102,6 +102,7 @@ const CATEGORY_OPTIONS = [
     { value: "GRANT_APPLICATION", label: "정부과제",    icon: FileText },
     { value: "INSPECTION",        label: "납품/검수",    icon: ClipboardCheck },
     { value: "TAX_INVOICE",       label: "세금계산서",   icon: FileText },
+    { value: "EXPENDITURE_PLAN", label: "지출계획",     icon: DollarSign },
 ];
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
@@ -166,6 +167,9 @@ function FormDataDetail({ category, formData }: { category: string; formData?: R
             if (formData.issueDate) items.push({ label: "발행일", value: formData.issueDate });
             if (formData.manager) items.push({ label: "담당자", value: formData.manager });
             if (formData.managerContact) items.push({ label: "연락처", value: formData.managerContact });
+            break;
+        case "EXPENDITURE_PLAN":
+            if (formData.planDate) items.push({ label: "작성일", value: formData.planDate });
             break;
     }
 

@@ -10,7 +10,7 @@ import { archiveApprovalDocument } from "@/app/actions/document";
 export async function createApprovalRequest(data: {
     title: string;
     content: string;
-    category: "VACATION" | "OVERTIME" | "BUSINESS_TRIP" | "EXPENSE" | "GENERAL" | "INSPECTION" | "TAX_INVOICE";
+    category: "VACATION" | "OVERTIME" | "BUSINESS_TRIP" | "EXPENSE" | "GENERAL" | "INSPECTION" | "TAX_INVOICE" | "EXPENDITURE_PLAN";
     requesterId: string;
     approverIds: string[];   // 결재자 목록 (순서대로)
     projectId?: string;

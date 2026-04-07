@@ -55,6 +55,7 @@ const CATEGORY_OPTIONS = [
     { value: "GRANT_APPLICATION", label: "정부과제",    icon: FileText,   desc: "정부과제 신청" },
     { value: "INSPECTION",        label: "납품/검수",   icon: ClipboardCheck, desc: "납품/검수확인서 (입고증)" },
     { value: "TAX_INVOICE",       label: "세금계산서",  icon: FileText,       desc: "세금계산서 발행 요청" },
+    { value: "EXPENDITURE_PLAN", label: "지출계획",   icon: DollarSign,     desc: "자금 지출계획서" },
 ];
 
 const VACATION_TYPES = ["연차", "반차(오전)", "반차(오후)", "병가", "경조", "기타"];
@@ -1058,6 +1059,180 @@ function TaxInvoiceFormFields({
     );
 }
 
+// ─── 자금 지출계획서 (EXPENDITURE_PLAN) 문서형 폼 ───────────────────────────
+
+function ExpenditurePlanFormFields({
+    formData,
+    onChange,
+    userName,
+    userDepartment,
+}: {
+    formData: Record<string, any>;
+    onChange: (data: Record<string, any>) => void;
+    userName: string;
+    userDepartment: string;
+}) {
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}. ${String(today.getMonth() + 1).padStart(2, "0")}. ${String(today.getDate()).padStart(2, "0")}`;
+
+    const items: any[] = formData.planItems || [];
+
+    const TH = "border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 px-4 py-2.5 text-center font-medium text-slate-600 dark:text-slate-400";
+    const TD = "border border-slate-300 dark:border-slate-600 px-1 py-0.5";
+    const DARK_TH = "bg-slate-800 dark:bg-slate-900 text-white text-xs font-medium px-2 py-2.5 border border-slate-700";
+    const SL = "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 pl-3 border-l-[3px] border-slate-800 dark:border-slate-400";
+
+    const updateItem = (i: number, field: string, value: string) => {
+        const next = items.map((it: any, idx: number) => (idx === i ? { ...it, [field]: value } : it));
+        onChange({ ...formData, planItems: next });
+    };
+    const addItemRow = () => {
+        if (items.length >= 12) return;
+        onChange({ ...formData, planItems: [...items, { date: "", category: "", detail: "", amount: "", note: "" }] });
+    };
+    const removeItemRow = (i: number) => {
+        if (items.length <= 1) return;
+        onChange({ ...formData, planItems: items.filter((_: any, idx: number) => idx !== i) });
+    };
+
+    // 누적 금액 계산
+    const cumulative = useMemo(() => {
+        let running = 0;
+        return items.map((it: any) => {
+            const amt = Number(it.amount) || 0;
+            if (amt > 0) {
+                running += amt;
+                return { amount: amt, cumulative: running, hasValue: true };
+            }
+            return { amount: 0, cumulative: running, hasValue: false };
+        });
+    }, [items]);
+
+    const totalAmount = cumulative.length > 0 ? cumulative[cumulative.length - 1].cumulative : 0;
+
+    return (
+        <div className="rounded-xl border overflow-hidden shadow-sm">
+            {/* ── 문서 헤더 ── */}
+            <div className="bg-slate-800 text-white px-6 sm:px-8 py-6 flex justify-between items-center">
+                <h2 className="text-2xl font-bold tracking-[0.15em]">자금 지출계획서</h2>
+                <div className="text-right text-sm text-slate-400 leading-relaxed">
+                    기 안 일 : <span className="text-white font-medium">{dateStr}</span>
+                </div>
+            </div>
+
+            <div className="bg-background">
+                {/* ── 작성자 정보 ── */}
+                <div className="px-6 sm:px-8 pt-6 mb-6">
+                    <table className="w-full border-collapse text-sm">
+                        <tbody>
+                            <tr>
+                                <th className={`${TH} w-[100px]`} style={{ backgroundColor: '#ccc' }}>작 성 일</th>
+                                <td className="border border-slate-300 dark:border-slate-600 px-4 py-2.5">
+                                    <input type="date" className={DOC_INPUT} value={formData.planDate || ""} onChange={(e) => onChange({ ...formData, planDate: e.target.value })} />
+                                </td>
+                                <th className={`${TH} w-[100px]`} style={{ backgroundColor: '#ccc' }}>부 서 명</th>
+                                <td className="border border-slate-300 dark:border-slate-600 px-4 py-2.5 font-medium">{userDepartment}</td>
+                                <th className={`${TH} w-[100px]`} style={{ backgroundColor: '#ccc' }}>직 급</th>
+                                <td className="border border-slate-300 dark:border-slate-600 px-4 py-2.5">
+                                    <input className={DOC_INPUT} placeholder="직급" value={formData.position || ""} onChange={(e) => onChange({ ...formData, position: e.target.value })} />
+                                </td>
+                                <th className={`${TH} w-[100px]`} style={{ backgroundColor: '#ccc' }}>성 명</th>
+                                <td className="border border-slate-300 dark:border-slate-600 px-4 py-2.5 font-medium">{userName}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* ── 지출 내역 테이블 ── */}
+                <div className="px-6 sm:px-8 mb-6">
+                    <div className="flex items-center justify-between mb-3">
+                        <div className={SL.replace("mb-3", "mb-0")}>지출 내역</div>
+                        {items.length < 12 && (
+                            <button type="button" onClick={addItemRow} className="flex items-center gap-1 text-xs text-primary hover:underline">
+                                <Plus className="h-3 w-3" /> 행 추가
+                            </button>
+                        )}
+                    </div>
+                    <div className="overflow-x-auto -mx-6 px-6 sm:-mx-8 sm:px-8">
+                        <table className="w-full border-collapse text-sm min-w-[750px]">
+                            <thead>
+                                <tr>
+                                    <th className={`${DARK_TH} w-[40px]`}>No.</th>
+                                    <th className={`${DARK_TH} w-[110px]`}>날 짜</th>
+                                    <th className={`${DARK_TH} w-[120px]`}>지출항목</th>
+                                    <th className={DARK_TH}>세부내역</th>
+                                    <th className={`${DARK_TH} w-[110px]`}>지출금액</th>
+                                    <th className={`${DARK_TH} w-[110px]`}>지출누적금액</th>
+                                    <th className={`${DARK_TH} w-[90px]`}>비고</th>
+                                    <th className={`${DARK_TH} w-[28px]`}></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {items.map((it: any, i: number) => (
+                                    <tr key={i} className={i % 2 === 1 ? "bg-slate-50/50 dark:bg-slate-800/30" : ""}>
+                                        <td className={`${TD} text-center text-xs font-semibold text-slate-500 px-2`}>{i + 1}</td>
+                                        <td className={TD}>
+                                            <input type="date" className={`${DOC_INPUT} text-xs`} value={it.date || ""} onChange={(e) => updateItem(i, "date", e.target.value)} />
+                                        </td>
+                                        <td className={TD}>
+                                            <input className={`${DOC_INPUT} text-xs`} placeholder="지출항목" value={it.category || ""} onChange={(e) => updateItem(i, "category", e.target.value)} />
+                                        </td>
+                                        <td className={TD}>
+                                            <input className={`${DOC_INPUT} text-xs`} placeholder="세부내역" value={it.detail || ""} onChange={(e) => updateItem(i, "detail", e.target.value)} />
+                                        </td>
+                                        <td className={TD}>
+                                            <input className={`${DOC_INPUT} text-xs text-right font-semibold`} type="number" placeholder="" value={it.amount || ""} onChange={(e) => updateItem(i, "amount", e.target.value)} />
+                                        </td>
+                                        <td className={`${TD} text-right text-xs font-semibold tabular-nums px-2`}>
+                                            {cumulative[i]?.hasValue ? cumulative[i].cumulative.toLocaleString() : (cumulative[i]?.cumulative > 0 ? cumulative[i].cumulative.toLocaleString() : "")}
+                                        </td>
+                                        <td className={TD}>
+                                            <input className={`${DOC_INPUT} text-xs`} placeholder="" value={it.note || ""} onChange={(e) => updateItem(i, "note", e.target.value)} />
+                                        </td>
+                                        <td className={`${TD} text-center`}>
+                                            {items.length > 1 && (
+                                                <button type="button" onClick={() => removeItemRow(i)} className="text-slate-400 hover:text-red-500 transition-colors">
+                                                    <Trash2 className="h-3 w-3" />
+                                                </button>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                                {/* 합계 행 */}
+                                <tr className="bg-slate-100 dark:bg-slate-800">
+                                    <td colSpan={4} className="border border-slate-300 dark:border-slate-600 text-right px-4 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-400">
+                                        합 계
+                                    </td>
+                                    <td className="border border-slate-300 dark:border-slate-600 text-right px-2 py-2.5 text-sm font-bold tabular-nums">
+                                        {totalAmount > 0 ? totalAmount.toLocaleString() : ""}
+                                    </td>
+                                    <td colSpan={3} className="border border-slate-300 dark:border-slate-600"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {/* ── 하단 서명 미리보기 ── */}
+                <div className="text-center px-6 sm:px-8 pb-8 text-sm text-slate-500 dark:text-slate-400 leading-loose">
+                    <p>위와 같이 자금 지출계획서를 제출하오니 승인하여 주시기 바랍니다.</p>
+                    <p className="font-medium text-slate-700 dark:text-slate-300 mt-2">
+                        {dateStr.replace(/\. /g, "년 ").replace(/\.$/, "") + "일"}
+                    </p>
+                    <p className="mt-1">
+                        <span className="text-slate-400">{userDepartment}</span>
+                        &nbsp;&nbsp;
+                        <span className="font-semibold text-slate-800 dark:text-slate-200 text-base">
+                            {userName.split("").join(" ")}
+                        </span>
+                        <span className="text-slate-400 ml-2">(인)</span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ─── 품의서 (GENERAL) 문서형 폼 ──────────────────────────────────────────────
 
 function GeneralFormFields({
@@ -1853,6 +2028,12 @@ export default function NewApprovalPage() {
                     taxItems: [{ company: "", date: "", product: "", qty: "", unitPrice: "", note: "" }],
                 });
                 break;
+            case "EXPENDITURE_PLAN":
+                setFormData({
+                    planDate: "", position: "",
+                    planItems: [{ date: "", category: "", detail: "", amount: "", note: "" }],
+                });
+                break;
             default:
                 setFormData({});
         }
@@ -1912,7 +2093,7 @@ export default function NewApprovalPage() {
     };
 
     // 파일 첨부 대상 카테고리
-    const showAttachments = ["GENERAL", "EXPENSE", "BUSINESS_TRIP", "GRANT_APPLICATION", "INSPECTION", "TAX_INVOICE"].includes(form.category);
+    const showAttachments = ["GENERAL", "EXPENSE", "BUSINESS_TRIP", "GRANT_APPLICATION", "INSPECTION", "TAX_INVOICE", "EXPENDITURE_PLAN"].includes(form.category);
 
     const toggleApprover = (id: string) => {
         setApproverIds((prev) =>
@@ -1936,13 +2117,15 @@ export default function NewApprovalPage() {
                 return !!formData.docTitle?.trim() && formData.items?.some((it: any) => it.name?.trim());
             case "TAX_INVOICE":
                 return formData.taxItems?.some((it: any) => it.company?.trim() || it.product?.trim());
+            case "EXPENDITURE_PLAN":
+                return formData.planItems?.some((it: any) => it.category?.trim() || it.detail?.trim());
             default:
                 return true;
         }
     };
 
     // GENERAL 품의서: formData → title/content 자동 구성
-    const isDocumentForm = form.category === "GENERAL" || form.category === "EXPENSE" || form.category === "BUSINESS_TRIP" || form.category === "INSPECTION" || form.category === "TAX_INVOICE";
+    const isDocumentForm = form.category === "GENERAL" || form.category === "EXPENSE" || form.category === "BUSINESS_TRIP" || form.category === "INSPECTION" || form.category === "TAX_INVOICE" || form.category === "EXPENDITURE_PLAN";
 
     const composeGeneralContent = (fd: Record<string, any>): string => {
         const lines: string[] = [];
@@ -1998,6 +2181,7 @@ export default function NewApprovalPage() {
         if (form.category === "BUSINESS_TRIP") return !!(formData.tripStartDate && formData.location?.trim());
         if (form.category === "INSPECTION") return !!formData.docTitle?.trim() && formData.items?.some((it: any) => it.name?.trim());
         if (form.category === "TAX_INVOICE") return formData.taxItems?.some((it: any) => it.company?.trim() || it.product?.trim());
+        if (form.category === "EXPENDITURE_PLAN") return formData.planItems?.some((it: any) => it.category?.trim() || it.detail?.trim());
         return !!form.title.trim() && !!form.content.trim();
     })();
 
@@ -2113,6 +2297,21 @@ export default function NewApprovalPage() {
             lines.push(`\n합계: 공급가 ${totalSupply.toLocaleString()} + 부가세 ${totalVat.toLocaleString()} = ₩${(totalSupply + totalVat).toLocaleString()}`);
             if (formData.manager) lines.push(`\n담당자: ${formData.manager}`);
             if (formData.managerContact) lines.push(`연락처: ${formData.managerContact}`);
+            submitContent = lines.join("\n");
+        } else if (form.category === "EXPENDITURE_PLAN") {
+            submitTitle = `자금 지출계획서${formData.planDate ? ` (${formData.planDate})` : ""}`;
+            const lines: string[] = [];
+            if (formData.planDate) lines.push(`작성일: ${formData.planDate}`);
+            lines.push("\n[지출 내역]");
+            let cumTotal = 0;
+            formData.planItems?.forEach((it: any, i: number) => {
+                if (it.category?.trim() || it.detail?.trim()) {
+                    const amt = Number(it.amount) || 0;
+                    cumTotal += amt;
+                    lines.push(`${i + 1}. ${it.date || ""} / ${it.category || ""} / ${it.detail || ""} / ${amt.toLocaleString()}원 / 누적:${cumTotal.toLocaleString()}원${it.note ? ` (${it.note})` : ""}`);
+                }
+            });
+            lines.push(`\n합계: ₩${cumTotal.toLocaleString()}`);
             submitContent = lines.join("\n");
         }
 
@@ -2308,6 +2507,18 @@ export default function NewApprovalPage() {
                     {form.category === "TAX_INVOICE" && (
                         <section>
                             <TaxInvoiceFormFields
+                                formData={formData}
+                                onChange={setFormData}
+                                userName={userName}
+                                userDepartment={userDepartment}
+                            />
+                        </section>
+                    )}
+
+                    {/* 2-g. 자금 지출계획서 (EXPENDITURE_PLAN) */}
+                    {form.category === "EXPENDITURE_PLAN" && (
+                        <section>
+                            <ExpenditurePlanFormFields
                                 formData={formData}
                                 onChange={setFormData}
                                 userName={userName}

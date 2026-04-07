@@ -482,6 +482,7 @@ enum ApprovalCategory {
   GRANT_APPLICATION // 정부과제 지원 (gov-grant-assistant 연동)
   INSPECTION // 검수/검사 조서
   TAX_INVOICE // 세금계산서 발행 요청서
+  EXPENDITURE_PLAN // 자금 지출계획서
 }
 
 enum ApprovalStatus {
