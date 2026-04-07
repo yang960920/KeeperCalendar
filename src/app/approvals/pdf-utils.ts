@@ -48,8 +48,10 @@ const statusLabel: Record<string, string> = {
 };
 
 const categoryLabel: Record<string, string> = {
-    VACATION: "휴 가 신 청 서", OVERTIME: "시간외근무 신청서", BUSINESS_TRIP: "외 근 보 고 서",
+    VACATION: "휴 가 신 청 서", OVERTIME: "시간외근무 신청서", BUSINESS_TRIP: "외근/출장 보고서",
     EXPENSE: "지 출 결 의 서", GENERAL: "품 의 서", GRANT_APPLICATION: "정부과제 신청서",
+    INSPECTION: "납품/검수확인서",
+    TAX_INVOICE: "세금계산서 발행 요청서",
 };
 
 // ─── 공통 CSS ──────────────────────────────────────────────────────────────────
@@ -252,7 +254,7 @@ function renderExpense(a: PdfApproval, emps: PdfEmployee[]): string {
     ${fd.remarks ? `<table class="ft"><tr><th style="width:110px;vertical-align:top;">특이사항</th><td style="min-height:60px;">${fd.remarks}</td></tr></table>` : ""}`;
 }
 
-// ─── 외근보고서 (BUSINESS_TRIP) ────────────────────────────────────────────────
+// ─── 외근/출장 보고서 (BUSINESS_TRIP) ────────────────────────────────────────
 
 function renderBusinessTrip(a: PdfApproval, emps: PdfEmployee[]): string {
     const fd = a.formData || {};
@@ -260,8 +262,8 @@ function renderBusinessTrip(a: PdfApproval, emps: PdfEmployee[]): string {
     const followups: any[] = fd.followups || [];
     const tripExpenses: any[] = fd.tripExpenses || [];
 
-    // 구형 데이터 호환
-    if (!fd.tripDate && fd.destination) {
+    // 구형 데이터 호환 (destination 기반 레거시)
+    if (!fd.tripStartDate && !fd.tripDate && fd.destination) {
         return `${renderWriterInfo(a, emps)}
         <div class="sl">출장 정보</div>
         <table class="ft">
@@ -272,25 +274,35 @@ function renderBusinessTrip(a: PdfApproval, emps: PdfEmployee[]): string {
         <div style="white-space:pre-wrap;font-size:13px;padding:10px 0;">${a.content}</div>`;
     }
 
-    // 시간 계산
+    // 기간 / 시간 표시
+    const startDate = fd.tripStartDate || fd.tripDate || "";
+    const endDate = fd.tripEndDate || "";
     let durationText = "";
-    if (fd.tripStartTime && fd.tripEndTime) {
+    if (endDate && startDate !== endDate) {
+        const s = new Date(startDate);
+        const e = new Date(endDate);
+        const nights = Math.round((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24));
+        if (nights > 0) durationText = ` (${nights}박${nights + 1}일)`;
+    } else if (fd.tripStartTime && fd.tripEndTime) {
         const [sh, sm] = fd.tripStartTime.split(":").map(Number);
         const [eh, em] = fd.tripEndTime.split(":").map(Number);
         const diff = (eh * 60 + em) - (sh * 60 + sm);
         if (diff > 0) { const h = diff / 60; durationText = ` (${h % 1 === 0 ? h : h.toFixed(1)}시간)`; }
     }
 
-    // 외근 개요 카드
-    const cardsHtml = `<div class="sl">외근 개요</div><div class="ic">
-        <div class="icc"><div class="ico" style="background:#3b82f6;">D</div><div><div class="lbl">외근 일시</div><div class="val">${fd.tripDate || ""}</div><div class="sub2">${fd.tripStartTime || ""} ~ ${fd.tripEndTime || ""}${durationText}</div></div></div>
-        <div class="icc"><div class="ico" style="background:#10b981;">L</div><div><div class="lbl">외근 장소</div><div class="val">${fd.location || ""}</div><div class="sub2">${fd.locationDetail || ""}</div></div></div>
+    const dateDisplay = endDate && startDate !== endDate ? `${startDate} ~ ${endDate}` : startDate;
+    const timeDisplay = fd.tripStartTime || fd.tripEndTime ? `${fd.tripStartTime || ""} ~ ${fd.tripEndTime || ""}` : "";
+
+    // 개요 카드
+    const cardsHtml = `<div class="sl">개요</div><div class="ic">
+        <div class="icc"><div class="ico" style="background:#3b82f6;">D</div><div><div class="lbl">기간</div><div class="val">${dateDisplay}${durationText}</div><div class="sub2">${timeDisplay}</div></div></div>
+        <div class="icc"><div class="ico" style="background:#10b981;">L</div><div><div class="lbl">장소</div><div class="val">${fd.location || ""}</div><div class="sub2">${fd.locationDetail || ""}</div></div></div>
         <div class="icc"><div class="ico" style="background:#8b5cf6;">C</div><div><div class="lbl">방문 기관</div><div class="val">${fd.visitCompany || ""}</div><div class="sub2">${fd.visitDepartment || ""}</div></div></div>
         <div class="icc"><div class="ico" style="background:#f59e0b;">P</div><div><div class="lbl">면담자</div><div class="val">${fd.contactName || ""}</div><div class="sub2">${fd.contactPhone || ""}</div></div></div>
     </div>`;
 
-    // 외근 목적
-    const purposeHtml = fd.purpose ? `<div class="sl">외근 목적</div><table class="ft"><tr><th style="width:90px;vertical-align:top;">목 적</th><td class="content-pre">${fd.purpose}</td></tr></table>` : "";
+    // 목적
+    const purposeHtml = fd.purpose ? `<div class="sl">목적</div><table class="ft"><tr><th style="width:90px;vertical-align:top;">목 적</th><td class="content-pre">${fd.purpose}</td></tr></table>` : "";
 
     // 방문 일정
     let scheduleHtml = "";
@@ -331,6 +343,95 @@ function renderBusinessTrip(a: PdfApproval, emps: PdfEmployee[]): string {
     }
 
     return `${renderWriterInfo(a, emps)}${cardsHtml}${purposeHtml}${scheduleHtml}${achieveHtml}${followupHtml}${expenseHtml}`;
+}
+
+// ─── 납품/검수확인서 (INSPECTION) ─────────────────────────────────────────────
+
+function renderInspection(a: PdfApproval, emps: PdfEmployee[]): string {
+    const fd = a.formData || {};
+    const items: any[] = fd.items || [];
+
+    // 과제 정보 테이블
+    const infoHtml = `<div class="sl">과제 정보</div>
+    <table class="ft">
+        <tr><th style="width:100px">주관기관</th><td>한미르 (주)</td><th style="width:100px">사 업 명</th><td>${fd.projectName || ""}</td></tr>
+        <tr><th>사업기간</th><td>${fd.projectPeriod || ""}</td><th>과제번호</th><td>${fd.projectCode || ""}</td></tr>
+        <tr><th>과 제 명</th><td colspan="3">${fd.docTitle || ""}</td></tr>
+        <tr><th>납품업체</th><td>${fd.vendor || ""}</td><th>제 목</th><td>${fd.inspectionTitle || ""}</td></tr>
+    </table>`;
+
+    // 품목 테이블
+    let itemsHtml = `<div class="sl">검수 품목</div><table class="ft"><thead><tr>
+        <th class="dth" style="width:36px">No.</th><th class="dth" style="width:150px">품 명</th><th class="dth" style="width:90px">규격</th>
+        <th class="dth" style="width:60px">단위</th><th class="dth" style="width:60px">수량</th><th class="dth" style="width:90px">단 가</th>
+        <th class="dth" style="width:90px">금 액</th><th class="dth">비고</th>
+    </tr></thead><tbody>`;
+    let total = 0;
+    items.forEach((it: any, i: number) => {
+        if (it.name) {
+            const amt = (Number(it.qty) || 0) * (Number(it.unitPrice) || 0);
+            total += amt;
+            itemsHtml += `<tr><td class="c">${i + 1}</td><td>${it.name}</td><td>${it.spec || ""}</td><td class="c">${it.unit || ""}</td><td class="c">${it.qty || ""}</td><td class="r">${fmtNum(it.unitPrice)}</td><td class="r bold">${fmtNum(amt)}</td><td>${it.note || ""}</td></tr>`;
+        }
+    });
+    itemsHtml += `<tr class="sub"><td colspan="6" class="r" style="padding-right:14px;">합 계</td><td class="r bold">${fmtNum(total)}</td><td></td></tr></tbody></table>`;
+
+    // 검수 정보
+    const inspInfoHtml = (fd.inspectionDate || fd.inspector)
+        ? `<div class="sl">검수 정보</div><table class="ft" style="max-width:400px;margin:0 auto;">
+            ${fd.inspectionDate ? `<tr><th style="width:100px;background:#a9a9a9;color:#fff;">검수일</th><td class="c">${fd.inspectionDate}</td></tr>` : ""}
+            ${fd.inspector ? `<tr><th style="width:100px;background:#a9a9a9;color:#fff;">검수자</th><td class="c">${fd.inspector}</td></tr>` : ""}
+        </table>` : "";
+
+    return `${renderWriterInfo(a, emps)}${infoHtml}${itemsHtml}${inspInfoHtml}`;
+}
+
+// ─── 세금계산서 발행 요청서 (TAX_INVOICE) ────────────────────────────────────
+
+function renderTaxInvoice(a: PdfApproval, emps: PdfEmployee[]): string {
+    const fd = a.formData || {};
+    const items: any[] = fd.taxItems || [];
+
+    // 발행 일자
+    const issueDateHtml = fd.issueDate
+        ? `<table class="ft" style="max-width:300px;margin-bottom:20px;"><tr><th style="width:100px">발행 일자</th><td class="c">${fd.issueDate}</td></tr></table>`
+        : "";
+
+    // 품목 테이블
+    let itemsHtml = `<div class="sl">발행 내역</div><table class="ft"><thead><tr>
+        <th class="dth" style="width:36px">No.</th><th class="dth" style="width:110px">업체명</th><th class="dth" style="width:80px">날짜</th>
+        <th class="dth">제품명/모델명/단위</th><th class="dth" style="width:50px">수량</th><th class="dth" style="width:80px">단가(원)</th>
+        <th class="dth" style="width:90px">공급가액</th><th class="dth" style="width:80px">부가세</th><th class="dth" style="width:90px">합계</th><th class="dth" style="width:70px">비고</th>
+    </tr></thead><tbody>`;
+    let totalSupply = 0;
+    let totalVat = 0;
+    items.forEach((it: any, i: number) => {
+        if (it.company || it.product) {
+            const qty = Number(it.qty) || 0;
+            const up = Number(it.unitPrice) || 0;
+            const hasValue = qty > 0 && up > 0;
+            const supply = hasValue ? qty * up : 0;
+            const vat = hasValue ? Math.round(supply * 0.1) : 0;
+            const sum = supply + vat;
+            totalSupply += supply;
+            totalVat += vat;
+            itemsHtml += `<tr><td class="c">${i + 1}</td><td>${it.company || ""}</td><td class="c">${it.date || ""}</td><td>${it.product || ""}</td><td class="c">${hasValue ? it.qty : ""}</td><td class="r">${hasValue ? fmtNum(it.unitPrice) : ""}</td><td class="r bold">${hasValue ? fmtNum(supply) : ""}</td><td class="r">${hasValue ? fmtNum(vat) : ""}</td><td class="r bold">${hasValue ? fmtNum(sum) : ""}</td><td>${it.note || ""}</td></tr>`;
+        }
+    });
+    const totalSum = totalSupply + totalVat;
+    const hasTotal = totalSum > 0;
+    itemsHtml += `<tr class="sub"><td colspan="6" class="r" style="padding-right:14px;">합 계</td><td class="r bold">${hasTotal ? fmtNum(totalSupply) : ""}</td><td class="r">${hasTotal ? fmtNum(totalVat) : ""}</td><td class="r bold">${hasTotal ? fmtNum(totalSum) : ""}</td><td></td></tr></tbody></table>`;
+
+    // 담당자 정보
+    let managerHtml = "";
+    if (fd.manager || fd.managerContact) {
+        managerHtml = `<div class="sl">담당자 정보</div><table class="ft" style="max-width:400px;">
+            ${fd.manager ? `<tr><th style="width:100px">담당자</th><td>${fd.manager}</td></tr>` : ""}
+            ${fd.managerContact ? `<tr><th style="width:100px">연락처</th><td>${fd.managerContact}</td></tr>` : ""}
+        </table>`;
+    }
+
+    return `${renderWriterInfo(a, emps)}${issueDateHtml}${itemsHtml}${managerHtml}`;
 }
 
 // ─── 일반 (VACATION, OVERTIME, GRANT_APPLICATION) ──────────────────────────────
@@ -392,7 +493,15 @@ function renderDocument(approval: PdfApproval, employees: PdfEmployee[]): string
             break;
         case "BUSINESS_TRIP":
             bodyContent = renderBusinessTrip(approval, employees);
-            closingText = "위와 같이 외근 결과를 보고합니다.";
+            closingText = "위와 같이 외근/출장 결과를 보고합니다.";
+            break;
+        case "INSPECTION":
+            bodyContent = renderInspection(approval, employees);
+            closingText = "상기와 같이 입고물품에 대하여 검사/검수를 완료함.";
+            break;
+        case "TAX_INVOICE":
+            bodyContent = renderTaxInvoice(approval, employees);
+            closingText = "위와 같이 세금계산서 발행을 요청하오니 처리하여 주시기 바랍니다.";
             break;
         default:
             bodyContent = renderGeneric(approval, employees);

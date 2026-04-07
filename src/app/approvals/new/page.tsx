@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
     ChevronRight,
+    ChevronDown,
     X,
     Loader2,
     FilePlus,
@@ -19,6 +20,7 @@ import {
     Paperclip,
     Upload,
     File as FileIcon,
+    ClipboardCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,10 +49,12 @@ interface Employee {
 const CATEGORY_OPTIONS = [
     { value: "VACATION",          label: "휴가",       icon: Calendar,   desc: "연차, 반차, 병가 등" },
     { value: "OVERTIME",          label: "시간외근무",  icon: Clock,      desc: "야근, 휴일근무" },
-    { value: "BUSINESS_TRIP",     label: "외근보고",    icon: MapPin,     desc: "외근 결과 보고" },
+    { value: "BUSINESS_TRIP",     label: "외근/출장",   icon: MapPin,     desc: "외근 및 출장 결과 보고" },
     { value: "EXPENSE",           label: "지출결의",    icon: DollarSign, desc: "지출 내역 정산 및 송금 요청" },
     { value: "GENERAL",           label: "품의서",      icon: FileText,   desc: "구매, 계약 등 일반 품의" },
     { value: "GRANT_APPLICATION", label: "정부과제",    icon: FileText,   desc: "정부과제 신청" },
+    { value: "INSPECTION",        label: "납품/검수",   icon: ClipboardCheck, desc: "납품/검수확인서 (입고증)" },
+    { value: "TAX_INVOICE",       label: "세금계산서",  icon: FileText,       desc: "세금계산서 발행 요청" },
 ];
 
 const VACATION_TYPES = ["연차", "반차(오전)", "반차(오후)", "병가", "경조", "기타"];
@@ -160,7 +164,7 @@ function OvertimeFormFields({
     );
 }
 
-// ─── 외근보고서 (BUSINESS_TRIP) 문서형 폼 ────────────────────────────────────
+// ─── 외근/출장 보고서 (BUSINESS_TRIP) 문서형 폼 ─────────────────────────────
 
 function BusinessTripDocFormFields({
     formData,
@@ -205,18 +209,30 @@ function BusinessTripDocFormFields({
         }).open();
     };
 
-    // 시간 차이 계산
-    const calcDuration = (start: string, end: string) => {
-        if (!start || !end) return "";
-        const [sh, sm] = start.split(":").map(Number);
-        const [eh, em] = end.split(":").map(Number);
-        const diff = (eh * 60 + em) - (sh * 60 + sm);
-        if (diff <= 0) return "";
-        const h = diff / 60;
-        return `${h % 1 === 0 ? h : h.toFixed(1)}시간`;
-    };
-
-    const duration = calcDuration(formData.tripStartTime || "", formData.tripEndTime || "");
+    // 기간 / 시간 표시 계산
+    const tripDurationLabel = useMemo(() => {
+        const sd = formData.tripStartDate;
+        const ed = formData.tripEndDate;
+        if (!sd) return "";
+        if (!ed || sd === ed) {
+            // 당일 — 시간 차이 표시
+            const st = formData.tripStartTime;
+            const et = formData.tripEndTime;
+            if (st && et) {
+                const [sh, sm] = st.split(":").map(Number);
+                const [eh, em] = et.split(":").map(Number);
+                const diff = (eh * 60 + em) - (sh * 60 + sm);
+                if (diff > 0) { const h = diff / 60; return `당일 (${h % 1 === 0 ? h : h.toFixed(1)}시간)`; }
+            }
+            return "당일";
+        }
+        // 복수일
+        const s = new Date(sd);
+        const e = new Date(ed);
+        if (e < s) return "";
+        const nights = Math.round((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24));
+        return `${nights}박${nights + 1}일`;
+    }, [formData.tripStartDate, formData.tripEndDate, formData.tripStartTime, formData.tripEndTime]);
 
     // 경비 합계
     const expenseTotal = useMemo(() => {
@@ -304,21 +320,25 @@ function BusinessTripDocFormFields({
                     </table>
                 </div>
 
-                {/* ── 외근 개요 카드 ── */}
+                {/* ── 개요 카드 ── */}
                 <div className="px-6 sm:px-8 mb-6">
-                    <div className={SL}>외근 개요</div>
+                    <div className={SL}>개요</div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {/* 일시 */}
+                        {/* 기간 */}
                         <div className="border border-slate-200 dark:border-slate-700 rounded-lg p-4 flex gap-3">
                             <div className="w-9 h-9 rounded-lg bg-blue-500 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">D</div>
                             <div className="flex-1 space-y-1.5">
-                                <div className="text-xs text-slate-400 font-medium">외근 일시</div>
-                                <input type="date" className={`${DOC_INPUT} text-sm font-medium`} value={formData.tripDate || ""} onChange={(e) => onChange({ ...formData, tripDate: e.target.value })} />
+                                <div className="text-xs text-slate-400 font-medium">기간</div>
+                                <div className="flex items-center gap-1.5">
+                                    <input type="date" className={`${DOC_INPUT} text-sm font-medium`} value={formData.tripStartDate || ""} onChange={(e) => onChange({ ...formData, tripStartDate: e.target.value })} />
+                                    <span className="text-xs text-slate-400">~</span>
+                                    <input type="date" className={`${DOC_INPUT} text-sm font-medium`} value={formData.tripEndDate || ""} onChange={(e) => onChange({ ...formData, tripEndDate: e.target.value })} />
+                                </div>
                                 <div className="flex items-center gap-1.5">
                                     <input type="time" className={`${DOC_INPUT} text-xs w-24`} value={formData.tripStartTime || ""} onChange={(e) => onChange({ ...formData, tripStartTime: e.target.value })} />
                                     <span className="text-xs text-slate-400">~</span>
                                     <input type="time" className={`${DOC_INPUT} text-xs w-24`} value={formData.tripEndTime || ""} onChange={(e) => onChange({ ...formData, tripEndTime: e.target.value })} />
-                                    {duration && <span className="text-xs text-blue-500 font-medium">({duration})</span>}
+                                    {tripDurationLabel && <span className="text-xs text-blue-500 font-medium">({tripDurationLabel})</span>}
                                 </div>
                             </div>
                         </div>
@@ -326,7 +346,7 @@ function BusinessTripDocFormFields({
                         <div className="border border-slate-200 dark:border-slate-700 rounded-lg p-4 flex gap-3">
                             <div className="w-9 h-9 rounded-lg bg-emerald-500 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">L</div>
                             <div className="flex-1 space-y-1.5">
-                                <div className="text-xs text-slate-400 font-medium">외근 장소</div>
+                                <div className="text-xs text-slate-400 font-medium">장소</div>
                                 <div className="flex items-center gap-1.5">
                                     <input
                                         className={`${DOC_INPUT} text-sm font-medium flex-1 cursor-pointer`}
@@ -368,9 +388,9 @@ function BusinessTripDocFormFields({
                     </div>
                 </div>
 
-                {/* ── 외근 목적 ── */}
+                {/* ── 목적 ── */}
                 <div className="px-6 sm:px-8 mb-6">
-                    <div className={SL}>외근 목적</div>
+                    <div className={SL}>목적</div>
                     <table className="w-full border-collapse text-sm">
                         <tbody>
                             <tr>
@@ -378,7 +398,7 @@ function BusinessTripDocFormFields({
                                 <td className="border border-slate-300 dark:border-slate-600 px-4 py-3">
                                     <textarea
                                         className="w-full border-0 bg-transparent px-1 py-1 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none resize-none min-h-[80px]"
-                                        placeholder="외근 목적을 작성하세요"
+                                        placeholder="외근/출장 목적을 작성하세요"
                                         value={formData.purpose || ""}
                                         onChange={(e) => onChange({ ...formData, purpose: e.target.value })}
                                     />
@@ -590,7 +610,437 @@ function BusinessTripDocFormFields({
 
                 {/* ── 하단 서명 미리보기 ── */}
                 <div className="text-center px-6 sm:px-8 pb-8 text-sm text-slate-500 dark:text-slate-400 leading-loose">
-                    <p>위와 같이 외근 결과를 보고합니다.</p>
+                    <p>위와 같이 외근/출장 결과를 보고합니다.</p>
+                    <p className="font-medium text-slate-700 dark:text-slate-300 mt-2">
+                        {dateStr.replace(/\. /g, "년 ").replace(/\.$/, "") + "일"}
+                    </p>
+                    <p className="mt-1">
+                        <span className="text-slate-400">{userDepartment}</span>
+                        &nbsp;&nbsp;
+                        <span className="font-semibold text-slate-800 dark:text-slate-200 text-base">
+                            {userName.split("").join(" ")}
+                        </span>
+                        <span className="text-slate-400 ml-2">(인)</span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ─── 납품/검수확인서 (INSPECTION) 문서형 폼 ──────────────────────────────────
+
+const DOC_INPUT = "w-full border-0 border-b border-dashed border-slate-300 dark:border-slate-600 bg-transparent px-1 py-1 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:border-primary focus:outline-none transition-colors";
+const DOC_SELECT = `${DOC_INPUT} cursor-pointer [&>option]:bg-white [&>option]:text-slate-900 dark:[&>option]:bg-slate-800 dark:[&>option]:text-slate-100`;
+
+function InspectionFormFields({
+    formData,
+    onChange,
+    userName,
+    userDepartment,
+}: {
+    formData: Record<string, any>;
+    onChange: (data: Record<string, any>) => void;
+    userName: string;
+    userDepartment: string;
+}) {
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}. ${String(today.getMonth() + 1).padStart(2, "0")}. ${String(today.getDate()).padStart(2, "0")}`;
+
+    const items: any[] = formData.items || [];
+
+    const TH = "border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 px-4 py-2.5 text-center font-medium text-slate-600 dark:text-slate-400";
+    const TD = "border border-slate-300 dark:border-slate-600 px-1 py-0.5";
+    const DARK_TH = "bg-slate-800 dark:bg-slate-900 text-white text-xs font-medium px-2 py-2.5 border border-slate-700";
+    const SL = "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 pl-3 border-l-[3px] border-slate-800 dark:border-slate-400";
+
+    const updateItem = (i: number, field: string, value: string) => {
+        const next = items.map((it: any, idx: number) => (idx === i ? { ...it, [field]: value } : it));
+        onChange({ ...formData, items: next });
+    };
+    const addItemRow = () => {
+        if (items.length >= 10) return;
+        onChange({ ...formData, items: [...items, { name: "", spec: "", unit: "", qty: "", unitPrice: "", note: "" }] });
+    };
+    const removeItemRow = (i: number) => {
+        if (items.length <= 1) return;
+        onChange({ ...formData, items: items.filter((_: any, idx: number) => idx !== i) });
+    };
+
+    // 합계 금액
+    const totalAmount = useMemo(() => {
+        return items.reduce((sum: number, it: any) => sum + ((Number(it.qty) || 0) * (Number(it.unitPrice) || 0)), 0);
+    }, [items]);
+
+    return (
+        <div className="rounded-xl border overflow-hidden shadow-sm">
+            {/* ── 문서 헤더 ── */}
+            <div className="bg-slate-800 text-white px-6 sm:px-8 py-6 flex justify-between items-center">
+                <h2 className="text-2xl font-bold tracking-[0.15em]">납품/검수확인서</h2>
+                <div className="text-right text-sm text-slate-400 leading-relaxed">
+                    기 안 일 : <span className="text-white font-medium">{dateStr}</span>
+                </div>
+            </div>
+
+            <div className="bg-background">
+                {/* ── 과제 정보 ── */}
+                <div className="px-6 sm:px-8 pt-6">
+                    <div className={SL}>과제 정보</div>
+                    <table className="w-full border-collapse text-sm mb-6">
+                        <tbody>
+                            <tr>
+                                <th className={`${TH} w-[100px]`}>주관기관</th>
+                                <td className="border border-slate-300 dark:border-slate-600 px-4 py-2.5 font-medium">
+                                    한미르 (주)
+                                </td>
+                                <th className={`${TH} w-[100px]`}>사 업 명</th>
+                                <td className="border border-slate-300 dark:border-slate-600 px-4 py-2.5">
+                                    <input className={DOC_INPUT} placeholder="사업명" value={formData.projectName || ""} onChange={(e) => onChange({ ...formData, projectName: e.target.value })} />
+                                </td>
+                            </tr>
+                            <tr>
+                                <th className={TH}>사업기간</th>
+                                <td className="border border-slate-300 dark:border-slate-600 px-4 py-2.5">
+                                    <input className={DOC_INPUT} placeholder="예: 2026.01 ~ 2026.12" value={formData.projectPeriod || ""} onChange={(e) => onChange({ ...formData, projectPeriod: e.target.value })} />
+                                </td>
+                                <th className={TH}>과제번호</th>
+                                <td className="border border-slate-300 dark:border-slate-600 px-4 py-2.5">
+                                    <input className={DOC_INPUT} placeholder="과제번호" value={formData.projectCode || ""} onChange={(e) => onChange({ ...formData, projectCode: e.target.value })} />
+                                </td>
+                            </tr>
+                            <tr>
+                                <th className={TH}>과 제 명</th>
+                                <td className="border border-slate-300 dark:border-slate-600 px-4 py-2.5" colSpan={3}>
+                                    <input className={`${DOC_INPUT} font-medium`} placeholder="과제명을 입력하세요 *" value={formData.docTitle || ""} onChange={(e) => onChange({ ...formData, docTitle: e.target.value })} />
+                                </td>
+                            </tr>
+                            <tr>
+                                <th className={TH}>납품업체</th>
+                                <td className="border border-slate-300 dark:border-slate-600 px-4 py-2.5">
+                                    <input className={DOC_INPUT} placeholder="납품업체명" value={formData.vendor || ""} onChange={(e) => onChange({ ...formData, vendor: e.target.value })} />
+                                </td>
+                                <th className={TH}>제 목</th>
+                                <td className="border border-slate-300 dark:border-slate-600 px-4 py-2.5">
+                                    <input className={DOC_INPUT} placeholder="검수 제목" value={formData.inspectionTitle || ""} onChange={(e) => onChange({ ...formData, inspectionTitle: e.target.value })} />
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* ── 검수 품목 ── */}
+                <div className="px-6 sm:px-8 mb-6">
+                    <div className="flex items-center justify-between mb-3">
+                        <div className={SL.replace("mb-3", "mb-0")}>검수 품목</div>
+                        {items.length < 10 && (
+                            <button type="button" onClick={addItemRow} className="flex items-center gap-1 text-xs text-primary hover:underline">
+                                <Plus className="h-3 w-3" /> 행 추가
+                            </button>
+                        )}
+                    </div>
+                    <div className="overflow-x-auto -mx-6 px-6 sm:-mx-8 sm:px-8">
+                        <table className="w-full border-collapse text-sm min-w-[700px]">
+                            <thead>
+                                <tr>
+                                    <th className={`${DARK_TH} w-[40px]`}>No.</th>
+                                    <th className={`${DARK_TH} w-[160px]`}>품 명</th>
+                                    <th className={`${DARK_TH} w-[100px]`}>규격</th>
+                                    <th className={`${DARK_TH} w-[70px]`}>단위</th>
+                                    <th className={`${DARK_TH} w-[70px]`}>수량</th>
+                                    <th className={`${DARK_TH} w-[100px]`}>단 가</th>
+                                    <th className={`${DARK_TH} w-[100px]`}>금 액</th>
+                                    <th className={DARK_TH}>비고</th>
+                                    <th className={`${DARK_TH} w-[28px]`}></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {items.map((it: any, i: number) => {
+                                    const amt = (Number(it.qty) || 0) * (Number(it.unitPrice) || 0);
+                                    return (
+                                        <tr key={i} className={i % 2 === 1 ? "bg-slate-50/50 dark:bg-slate-800/30" : ""}>
+                                            <td className={`${TD} text-center text-xs font-semibold text-slate-500 px-2`}>{i + 1}</td>
+                                            <td className={TD}>
+                                                <input className={`${DOC_INPUT} text-xs`} placeholder="품명" value={it.name || ""} onChange={(e) => updateItem(i, "name", e.target.value)} />
+                                            </td>
+                                            <td className={TD}>
+                                                <input className={`${DOC_INPUT} text-xs`} placeholder="규격" value={it.spec || ""} onChange={(e) => updateItem(i, "spec", e.target.value)} />
+                                            </td>
+                                            <td className={TD}>
+                                                <input className={`${DOC_INPUT} text-xs text-center`} placeholder="EA" value={it.unit || ""} onChange={(e) => updateItem(i, "unit", e.target.value)} />
+                                            </td>
+                                            <td className={TD}>
+                                                <input className={`${DOC_INPUT} text-xs text-right`} type="number" placeholder="0" value={it.qty || ""} onChange={(e) => updateItem(i, "qty", e.target.value)} />
+                                            </td>
+                                            <td className={TD}>
+                                                <input className={`${DOC_INPUT} text-xs text-right`} type="number" placeholder="0" value={it.unitPrice || ""} onChange={(e) => updateItem(i, "unitPrice", e.target.value)} />
+                                            </td>
+                                            <td className={`${TD} text-right text-xs font-semibold tabular-nums px-2`}>
+                                                {amt > 0 ? amt.toLocaleString() : ""}
+                                            </td>
+                                            <td className={TD}>
+                                                <input className={`${DOC_INPUT} text-xs`} placeholder="비고" value={it.note || ""} onChange={(e) => updateItem(i, "note", e.target.value)} />
+                                            </td>
+                                            <td className={`${TD} text-center`}>
+                                                {items.length > 1 && (
+                                                    <button type="button" onClick={() => removeItemRow(i)} className="text-slate-400 hover:text-red-500 transition-colors">
+                                                        <Trash2 className="h-3 w-3" />
+                                                    </button>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                                {/* 합계 행 */}
+                                <tr className="bg-slate-100 dark:bg-slate-800">
+                                    <td colSpan={6} className="border border-slate-300 dark:border-slate-600 text-right px-4 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-400">
+                                        합 계
+                                    </td>
+                                    <td className="border border-slate-300 dark:border-slate-600 text-right px-2 py-2.5 text-sm font-bold tabular-nums">
+                                        {totalAmount > 0 ? totalAmount.toLocaleString() : ""}
+                                    </td>
+                                    <td colSpan={2} className="border border-slate-300 dark:border-slate-600"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {/* ── 검수 정보 ── */}
+                <div className="px-6 sm:px-8 mb-6">
+                    <div className={SL}>검수 정보</div>
+                    <table className="w-full border-collapse text-sm max-w-md mx-auto">
+                        <tbody>
+                            <tr>
+                                <th className={`${TH} w-[100px] bg-slate-200 dark:bg-slate-700`}>검수일</th>
+                                <td className="border border-slate-300 dark:border-slate-600 px-4 py-2.5">
+                                    <input type="date" className={DOC_INPUT} value={formData.inspectionDate || ""} onChange={(e) => onChange({ ...formData, inspectionDate: e.target.value })} />
+                                </td>
+                            </tr>
+                            <tr>
+                                <th className={`${TH} w-[100px] bg-slate-200 dark:bg-slate-700`}>검수자</th>
+                                <td className="border border-slate-300 dark:border-slate-600 px-4 py-2.5">
+                                    <input className={DOC_INPUT} placeholder="검수자 성명" value={formData.inspector || ""} onChange={(e) => onChange({ ...formData, inspector: e.target.value })} />
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* ── 하단 서명 미리보기 ── */}
+                <div className="text-center px-6 sm:px-8 pb-8 text-sm text-slate-500 dark:text-slate-400 leading-loose">
+                    <p>상기와 같이 입고물품에 대하여 검사/검수를 완료함.</p>
+                    <p className="font-medium text-slate-700 dark:text-slate-300 mt-2">
+                        {dateStr.replace(/\. /g, "년 ").replace(/\.$/, "") + "일"}
+                    </p>
+                    <p className="mt-1">
+                        <span className="text-slate-400">{userDepartment}</span>
+                        &nbsp;&nbsp;
+                        <span className="font-semibold text-slate-800 dark:text-slate-200 text-base">
+                            {userName.split("").join(" ")}
+                        </span>
+                        <span className="text-slate-400 ml-2">(인)</span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ─── 세금계산서 발행 요청서 (TAX_INVOICE) 문서형 폼 ─────────────────────────
+
+function TaxInvoiceFormFields({
+    formData,
+    onChange,
+    userName,
+    userDepartment,
+}: {
+    formData: Record<string, any>;
+    onChange: (data: Record<string, any>) => void;
+    userName: string;
+    userDepartment: string;
+}) {
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}. ${String(today.getMonth() + 1).padStart(2, "0")}. ${String(today.getDate()).padStart(2, "0")}`;
+
+    const items: any[] = formData.taxItems || [];
+
+    const TH = "border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 px-4 py-2.5 text-center font-medium text-slate-600 dark:text-slate-400";
+    const TD = "border border-slate-300 dark:border-slate-600 px-1 py-0.5";
+    const DARK_TH = "bg-slate-800 dark:bg-slate-900 text-white text-xs font-medium px-2 py-2.5 border border-slate-700";
+    const SL = "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 pl-3 border-l-[3px] border-slate-800 dark:border-slate-400";
+
+    const updateItem = (i: number, field: string, value: string) => {
+        const next = items.map((it: any, idx: number) => (idx === i ? { ...it, [field]: value } : it));
+        onChange({ ...formData, taxItems: next });
+    };
+    const addItemRow = () => {
+        if (items.length >= 12) return;
+        onChange({ ...formData, taxItems: [...items, { company: "", date: "", product: "", qty: "", unitPrice: "", note: "" }] });
+    };
+    const removeItemRow = (i: number) => {
+        if (items.length <= 1) return;
+        onChange({ ...formData, taxItems: items.filter((_: any, idx: number) => idx !== i) });
+    };
+
+    // 자동 계산 (빈 값이면 공백 반환)
+    const calc = useMemo(() => {
+        let totalSupply = 0;
+        let totalVat = 0;
+        let totalSum = 0;
+        const rows = items.map((it: any) => {
+            const qty = Number(it.qty) || 0;
+            const up = Number(it.unitPrice) || 0;
+            if (!qty || !up) return { supply: 0, vat: 0, sum: 0, hasValue: false };
+            const supply = qty * up;
+            const vat = Math.round(supply * 0.1);
+            const sum = supply + vat;
+            totalSupply += supply;
+            totalVat += vat;
+            totalSum += sum;
+            return { supply, vat, sum, hasValue: true };
+        });
+        return { rows, totalSupply, totalVat, totalSum, hasTotal: totalSum > 0 };
+    }, [items]);
+
+    const fmt = (n: number, hasValue: boolean) => hasValue && n > 0 ? n.toLocaleString() : "";
+
+    return (
+        <div className="rounded-xl border overflow-hidden shadow-sm">
+            {/* ── 문서 헤더 ── */}
+            <div className="bg-slate-800 text-white px-6 sm:px-8 py-6 flex justify-between items-center">
+                <h2 className="text-2xl font-bold tracking-[0.15em]">세금계산서 발행 요청서</h2>
+                <div className="text-right text-sm text-slate-400 leading-relaxed">
+                    기 안 일 : <span className="text-white font-medium">{dateStr}</span>
+                </div>
+            </div>
+
+            <div className="bg-background">
+                {/* ── 발행 일자 ── */}
+                <div className="px-6 sm:px-8 pt-6 mb-6">
+                    <table className="w-full border-collapse text-sm max-w-sm">
+                        <tbody>
+                            <tr>
+                                <th className={`${TH} w-[100px]`}>발행 일자</th>
+                                <td className="border border-slate-300 dark:border-slate-600 px-4 py-2.5">
+                                    <input type="date" className={DOC_INPUT} value={formData.issueDate || ""} onChange={(e) => onChange({ ...formData, issueDate: e.target.value })} />
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* ── 품목 테이블 ── */}
+                <div className="px-6 sm:px-8 mb-6">
+                    <div className="flex items-center justify-between mb-3">
+                        <div className={SL.replace("mb-3", "mb-0")}>발행 내역</div>
+                        {items.length < 12 && (
+                            <button type="button" onClick={addItemRow} className="flex items-center gap-1 text-xs text-primary hover:underline">
+                                <Plus className="h-3 w-3" /> 행 추가
+                            </button>
+                        )}
+                    </div>
+                    <div className="overflow-x-auto -mx-6 px-6 sm:-mx-8 sm:px-8">
+                        <table className="w-full border-collapse text-sm min-w-[900px]">
+                            <thead>
+                                <tr>
+                                    <th className={`${DARK_TH} w-[40px]`}>No.</th>
+                                    <th className={`${DARK_TH} w-[120px]`}>업체명</th>
+                                    <th className={`${DARK_TH} w-[90px]`}>날짜</th>
+                                    <th className={DARK_TH}>제품명/모델명/단위</th>
+                                    <th className={`${DARK_TH} w-[60px]`}>수량</th>
+                                    <th className={`${DARK_TH} w-[90px]`}>단가(원)</th>
+                                    <th className={`${DARK_TH} w-[100px]`}>공급가액</th>
+                                    <th className={`${DARK_TH} w-[90px]`}>부가세</th>
+                                    <th className={`${DARK_TH} w-[100px]`}>합계</th>
+                                    <th className={`${DARK_TH} w-[80px]`}>비고</th>
+                                    <th className={`${DARK_TH} w-[28px]`}></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {items.map((it: any, i: number) => (
+                                    <tr key={i} className={i % 2 === 1 ? "bg-slate-50/50 dark:bg-slate-800/30" : ""}>
+                                        <td className={`${TD} text-center text-xs font-semibold text-slate-500 px-2`}>{i + 1}</td>
+                                        <td className={TD}>
+                                            <input className={`${DOC_INPUT} text-xs`} placeholder="업체명" value={it.company || ""} onChange={(e) => updateItem(i, "company", e.target.value)} />
+                                        </td>
+                                        <td className={TD}>
+                                            <input className={`${DOC_INPUT} text-xs text-center`} placeholder="MM/DD" value={it.date || ""} onChange={(e) => updateItem(i, "date", e.target.value)} />
+                                        </td>
+                                        <td className={TD}>
+                                            <input className={`${DOC_INPUT} text-xs`} placeholder="제품명/모델명/단위" value={it.product || ""} onChange={(e) => updateItem(i, "product", e.target.value)} />
+                                        </td>
+                                        <td className={TD}>
+                                            <input className={`${DOC_INPUT} text-xs text-right`} type="number" placeholder="" value={it.qty || ""} onChange={(e) => updateItem(i, "qty", e.target.value)} />
+                                        </td>
+                                        <td className={TD}>
+                                            <input className={`${DOC_INPUT} text-xs text-right`} type="number" placeholder="" value={it.unitPrice || ""} onChange={(e) => updateItem(i, "unitPrice", e.target.value)} />
+                                        </td>
+                                        <td className={`${TD} text-right text-xs font-medium text-slate-700 dark:text-slate-300 px-2 tabular-nums`}>
+                                            {fmt(calc.rows[i]?.supply, calc.rows[i]?.hasValue)}
+                                        </td>
+                                        <td className={`${TD} text-right text-xs text-slate-500 dark:text-slate-400 px-2 tabular-nums`}>
+                                            {fmt(calc.rows[i]?.vat, calc.rows[i]?.hasValue)}
+                                        </td>
+                                        <td className={`${TD} text-right text-xs font-semibold tabular-nums px-2`}>
+                                            {fmt(calc.rows[i]?.sum, calc.rows[i]?.hasValue)}
+                                        </td>
+                                        <td className={TD}>
+                                            <input className={`${DOC_INPUT} text-xs`} placeholder="" value={it.note || ""} onChange={(e) => updateItem(i, "note", e.target.value)} />
+                                        </td>
+                                        <td className={`${TD} text-center`}>
+                                            {items.length > 1 && (
+                                                <button type="button" onClick={() => removeItemRow(i)} className="text-slate-400 hover:text-red-500 transition-colors">
+                                                    <Trash2 className="h-3 w-3" />
+                                                </button>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                                {/* 합계 행 */}
+                                <tr className="bg-slate-100 dark:bg-slate-800">
+                                    <td colSpan={6} className="border border-slate-300 dark:border-slate-600 text-right px-4 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-400">
+                                        합 계
+                                    </td>
+                                    <td className="border border-slate-300 dark:border-slate-600 text-right px-2 py-2.5 text-sm font-bold tabular-nums">
+                                        {calc.hasTotal ? calc.totalSupply.toLocaleString() : ""}
+                                    </td>
+                                    <td className="border border-slate-300 dark:border-slate-600 text-right px-2 py-2.5 text-sm font-bold tabular-nums">
+                                        {calc.hasTotal ? calc.totalVat.toLocaleString() : ""}
+                                    </td>
+                                    <td className="border border-slate-300 dark:border-slate-600 text-right px-2 py-2.5 text-sm font-bold tabular-nums">
+                                        {calc.hasTotal ? calc.totalSum.toLocaleString() : ""}
+                                    </td>
+                                    <td colSpan={2} className="border border-slate-300 dark:border-slate-600"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {/* ── 담당자 / 연락처 ── */}
+                <div className="px-6 sm:px-8 mb-6">
+                    <div className={SL}>담당자 정보</div>
+                    <table className="w-full border-collapse text-sm max-w-md">
+                        <tbody>
+                            <tr>
+                                <th className={`${TH} w-[100px]`}>담당자</th>
+                                <td className="border border-slate-300 dark:border-slate-600 px-4 py-2.5">
+                                    <input className={DOC_INPUT} placeholder="담당자 성명" value={formData.manager || ""} onChange={(e) => onChange({ ...formData, manager: e.target.value })} />
+                                </td>
+                            </tr>
+                            <tr>
+                                <th className={`${TH} w-[100px]`}>연락처</th>
+                                <td className="border border-slate-300 dark:border-slate-600 px-4 py-2.5">
+                                    <input className={DOC_INPUT} placeholder="연락처" value={formData.managerContact || ""} onChange={(e) => onChange({ ...formData, managerContact: e.target.value })} />
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* ── 하단 서명 미리보기 ── */}
+                <div className="text-center px-6 sm:px-8 pb-8 text-sm text-slate-500 dark:text-slate-400 leading-loose">
+                    <p>위와 같이 세금계산서 발행을 요청하오니 처리하여 주시기 바랍니다.</p>
                     <p className="font-medium text-slate-700 dark:text-slate-300 mt-2">
                         {dateStr.replace(/\. /g, "년 ").replace(/\.$/, "") + "일"}
                     </p>
@@ -609,9 +1059,6 @@ function BusinessTripDocFormFields({
 }
 
 // ─── 품의서 (GENERAL) 문서형 폼 ──────────────────────────────────────────────
-
-const DOC_INPUT = "w-full border-0 border-b border-dashed border-slate-300 dark:border-slate-600 bg-transparent px-1 py-1 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:border-primary focus:outline-none transition-colors";
-const DOC_SELECT = `${DOC_INPUT} cursor-pointer [&>option]:bg-white [&>option]:text-slate-900 dark:[&>option]:bg-slate-800 dark:[&>option]:text-slate-100`;
 
 function GeneralFormFields({
     formData,
@@ -1326,6 +1773,7 @@ export default function NewApprovalPage() {
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [approverIds, setApproverIds] = useState<string[]>([]);
+    const [categoryOpen, setCategoryOpen] = useState(true);
     const [form, setForm] = useState({
         title: "",
         content: "",
@@ -1358,6 +1806,7 @@ export default function NewApprovalPage() {
     // 카테고리 변경 시 formData 초기화
     const handleCategoryChange = (cat: string) => {
         setForm({ ...form, category: cat });
+        setCategoryOpen(false);
         setAttachments([]);
         switch (cat) {
             case "VACATION":
@@ -1368,7 +1817,7 @@ export default function NewApprovalPage() {
                 break;
             case "BUSINESS_TRIP":
                 setFormData({
-                    position: "", tripDate: "", tripStartTime: "", tripEndTime: "",
+                    position: "", tripStartDate: "", tripEndDate: "", tripStartTime: "", tripEndTime: "",
                     location: "", locationDetail: "", visitCompany: "", visitDepartment: "",
                     contactName: "", contactPhone: "", purpose: "", achievements: "",
                     hasExpense: true,
@@ -1389,6 +1838,19 @@ export default function NewApprovalPage() {
                     docTitle: "", position: "", item: "", vendor: "",
                     paymentAmount: "", paymentMethod: "법인카드", paymentDate: "",
                     estimatedCost: "", budgetCategory: "", notes: "", project: "",
+                });
+                break;
+            case "INSPECTION":
+                setFormData({
+                    docTitle: "", projectName: "", projectPeriod: "", projectCode: "",
+                    vendor: "", inspectionTitle: "", inspectionDate: "", inspector: "",
+                    items: [{ name: "", spec: "", unit: "", qty: "", unitPrice: "", note: "" }],
+                });
+                break;
+            case "TAX_INVOICE":
+                setFormData({
+                    issueDate: "", manager: "", managerContact: "",
+                    taxItems: [{ company: "", date: "", product: "", qty: "", unitPrice: "", note: "" }],
                 });
                 break;
             default:
@@ -1450,7 +1912,7 @@ export default function NewApprovalPage() {
     };
 
     // 파일 첨부 대상 카테고리
-    const showAttachments = ["GENERAL", "EXPENSE", "BUSINESS_TRIP", "GRANT_APPLICATION"].includes(form.category);
+    const showAttachments = ["GENERAL", "EXPENSE", "BUSINESS_TRIP", "GRANT_APPLICATION", "INSPECTION", "TAX_INVOICE"].includes(form.category);
 
     const toggleApprover = (id: string) => {
         setApproverIds((prev) =>
@@ -1465,18 +1927,22 @@ export default function NewApprovalPage() {
             case "OVERTIME":
                 return !!(formData.overtimeDate && formData.startTime && formData.endTime);
             case "BUSINESS_TRIP":
-                return !!(formData.tripDate && formData.location?.trim());
+                return !!(formData.tripStartDate && formData.location?.trim());
             case "EXPENSE":
                 return formData.expenses?.some((e: any) => e.content?.trim() && e.qty && e.unitPrice);
             case "GENERAL":
                 return !!formData.docTitle?.trim();
+            case "INSPECTION":
+                return !!formData.docTitle?.trim() && formData.items?.some((it: any) => it.name?.trim());
+            case "TAX_INVOICE":
+                return formData.taxItems?.some((it: any) => it.company?.trim() || it.product?.trim());
             default:
                 return true;
         }
     };
 
     // GENERAL 품의서: formData → title/content 자동 구성
-    const isDocumentForm = form.category === "GENERAL" || form.category === "EXPENSE" || form.category === "BUSINESS_TRIP";
+    const isDocumentForm = form.category === "GENERAL" || form.category === "EXPENSE" || form.category === "BUSINESS_TRIP" || form.category === "INSPECTION" || form.category === "TAX_INVOICE";
 
     const composeGeneralContent = (fd: Record<string, any>): string => {
         const lines: string[] = [];
@@ -1529,7 +1995,9 @@ export default function NewApprovalPage() {
     const canSubmit = (() => {
         if (form.category === "GENERAL") return !!formData.docTitle?.trim();
         if (form.category === "EXPENSE") return formData.expenses?.some((e: any) => e.content?.trim());
-        if (form.category === "BUSINESS_TRIP") return !!(formData.tripDate && formData.location?.trim());
+        if (form.category === "BUSINESS_TRIP") return !!(formData.tripStartDate && formData.location?.trim());
+        if (form.category === "INSPECTION") return !!formData.docTitle?.trim() && formData.items?.some((it: any) => it.name?.trim());
+        if (form.category === "TAX_INVOICE") return formData.taxItems?.some((it: any) => it.company?.trim() || it.product?.trim());
         return !!form.title.trim() && !!form.content.trim();
     })();
 
@@ -1553,15 +2021,24 @@ export default function NewApprovalPage() {
             submitTitle = formData.docTitle;
             submitContent = composeGeneralContent(formData);
         } else if (form.category === "BUSINESS_TRIP") {
-            submitTitle = `외근보고서 - ${formData.visitCompany || formData.location} (${formData.tripDate})`;
+            const dateRange = formData.tripEndDate && formData.tripStartDate !== formData.tripEndDate
+                ? `${formData.tripStartDate} ~ ${formData.tripEndDate}`
+                : formData.tripStartDate;
+            submitTitle = `외근/출장 보고서 - ${formData.visitCompany || formData.location} (${dateRange})`;
             const lines: string[] = [];
-            if (formData.tripDate) {
-                lines.push(`외근일시: ${formData.tripDate} ${formData.tripStartTime || ""} ~ ${formData.tripEndTime || ""}`);
+            if (formData.tripStartDate) {
+                const period = formData.tripEndDate && formData.tripStartDate !== formData.tripEndDate
+                    ? `${formData.tripStartDate} ~ ${formData.tripEndDate}`
+                    : formData.tripStartDate;
+                const timeRange = formData.tripStartTime || formData.tripEndTime
+                    ? ` ${formData.tripStartTime || ""} ~ ${formData.tripEndTime || ""}`
+                    : "";
+                lines.push(`기간: ${period}${timeRange}`);
             }
             if (formData.location) lines.push(`장소: ${formData.location}${formData.locationDetail ? ` (${formData.locationDetail})` : ""}`);
             if (formData.visitCompany) lines.push(`방문기관: ${formData.visitCompany}${formData.visitDepartment ? ` ${formData.visitDepartment}` : ""}`);
             if (formData.contactName) lines.push(`면담자: ${formData.contactName}${formData.contactPhone ? ` (${formData.contactPhone})` : ""}`);
-            if (formData.purpose) lines.push(`\n[외근 목적]\n${formData.purpose}`);
+            if (formData.purpose) lines.push(`\n[목적]\n${formData.purpose}`);
             if (formData.schedules?.some((s: any) => s.content?.trim())) {
                 lines.push("\n[방문 일정]");
                 formData.schedules.forEach((s: any, i: number) => {
@@ -1594,6 +2071,49 @@ export default function NewApprovalPage() {
                 : "";
             submitTitle = `지출결의서${period}`;
             submitContent = composeExpenseContent(formData);
+        } else if (form.category === "INSPECTION") {
+            submitTitle = `납품/검수확인서 - ${formData.docTitle}`;
+            const lines: string[] = [];
+            if (formData.projectName) lines.push(`사업명: ${formData.projectName}`);
+            if (formData.projectPeriod) lines.push(`사업기간: ${formData.projectPeriod}`);
+            if (formData.projectCode) lines.push(`과제번호: ${formData.projectCode}`);
+            if (formData.docTitle) lines.push(`과제명: ${formData.docTitle}`);
+            if (formData.vendor) lines.push(`납품업체: ${formData.vendor}`);
+            lines.push("\n[검수 품목]");
+            let totalAmt = 0;
+            formData.items?.forEach((it: any, i: number) => {
+                if (it.name?.trim()) {
+                    const amt = (Number(it.qty) || 0) * (Number(it.unitPrice) || 0);
+                    totalAmt += amt;
+                    lines.push(`${i + 1}. ${it.name} / ${it.spec || "-"} / ${it.unit || "-"} / 수량:${it.qty || 0} / 단가:${Number(it.unitPrice || 0).toLocaleString()} / 금액:${amt.toLocaleString()}${it.note ? ` (${it.note})` : ""}`);
+                }
+            });
+            lines.push(`합계: ₩${totalAmt.toLocaleString()}`);
+            if (formData.inspectionDate) lines.push(`\n검수일: ${formData.inspectionDate}`);
+            if (formData.inspector) lines.push(`검수자: ${formData.inspector}`);
+            submitContent = lines.join("\n");
+        } else if (form.category === "TAX_INVOICE") {
+            submitTitle = `세금계산서 발행 요청서${formData.issueDate ? ` (${formData.issueDate})` : ""}`;
+            const lines: string[] = [];
+            if (formData.issueDate) lines.push(`발행일자: ${formData.issueDate}`);
+            lines.push("\n[발행 내역]");
+            let totalSupply = 0;
+            let totalVat = 0;
+            formData.taxItems?.forEach((it: any, i: number) => {
+                if (it.company?.trim() || it.product?.trim()) {
+                    const qty = Number(it.qty) || 0;
+                    const up = Number(it.unitPrice) || 0;
+                    const supply = qty * up;
+                    const vat = Math.round(supply * 0.1);
+                    totalSupply += supply;
+                    totalVat += vat;
+                    lines.push(`${i + 1}. ${it.company || ""} / ${it.date || ""} / ${it.product || ""} / 수량:${qty} / 단가:${up.toLocaleString()} / 공급가:${supply.toLocaleString()} / 부가세:${vat.toLocaleString()} / 합계:${(supply + vat).toLocaleString()}${it.note ? ` (${it.note})` : ""}`);
+                }
+            });
+            lines.push(`\n합계: 공급가 ${totalSupply.toLocaleString()} + 부가세 ${totalVat.toLocaleString()} = ₩${(totalSupply + totalVat).toLocaleString()}`);
+            if (formData.manager) lines.push(`\n담당자: ${formData.manager}`);
+            if (formData.managerContact) lines.push(`연락처: ${formData.managerContact}`);
+            submitContent = lines.join("\n");
         }
 
         setIsLoading(true);
@@ -1663,35 +2183,60 @@ export default function NewApprovalPage() {
             {/* 본문 */}
             <main className="max-w-4xl mx-auto px-6 py-8">
                 <form onSubmit={handleSubmit} className="space-y-8">
-                    {/* 1. 분류 선택 */}
-                    <section>
-                        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
-                            분류 선택
-                        </h2>
-                        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                            {CATEGORY_OPTIONS.map((c) => {
-                                const Icon = c.icon;
-                                const isActive = form.category === c.value;
-                                return (
-                                    <button
-                                        key={c.value}
-                                        type="button"
-                                        onClick={() => handleCategoryChange(c.value)}
-                                        className={`flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl border-2 transition-all text-xs font-medium ${
-                                            isActive
-                                                ? "border-primary bg-primary/10 text-primary shadow-sm"
-                                                : "border-transparent bg-muted/50 text-muted-foreground hover:bg-muted hover:border-muted-foreground/20"
-                                        }`}
-                                    >
-                                        <Icon className="h-5 w-5" />
-                                        {c.label}
-                                    </button>
-                                );
-                            })}
+                    {/* 1. 분류 선택 (아코디언) */}
+                    <section className="rounded-xl border overflow-hidden">
+                        <button
+                            type="button"
+                            onClick={() => setCategoryOpen((prev) => !prev)}
+                            className="w-full flex items-center justify-between px-5 py-3.5 bg-muted/30 hover:bg-muted/50 transition-colors"
+                        >
+                            <div className="flex items-center gap-2.5">
+                                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                                    분류 선택
+                                </h2>
+                                {!categoryOpen && selectedCategory && (
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
+                                        {(() => { const Icon = selectedCategory.icon; return <Icon className="h-3.5 w-3.5" />; })()}
+                                        {selectedCategory.label}
+                                    </span>
+                                )}
+                            </div>
+                            <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${categoryOpen ? "rotate-180" : ""}`} />
+                        </button>
+                        <div
+                            className={`grid transition-all duration-200 ease-in-out ${
+                                categoryOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                            }`}
+                        >
+                            <div className="overflow-hidden">
+                                <div className="px-5 pb-4 pt-3 space-y-2">
+                                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                                        {CATEGORY_OPTIONS.map((c) => {
+                                            const Icon = c.icon;
+                                            const isActive = form.category === c.value;
+                                            return (
+                                                <button
+                                                    key={c.value}
+                                                    type="button"
+                                                    onClick={() => handleCategoryChange(c.value)}
+                                                    className={`flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl border-2 transition-all text-xs font-medium ${
+                                                        isActive
+                                                            ? "border-primary bg-primary/10 text-primary shadow-sm"
+                                                            : "border-transparent bg-muted/50 text-muted-foreground hover:bg-muted hover:border-muted-foreground/20"
+                                                    }`}
+                                                >
+                                                    <Icon className="h-5 w-5" />
+                                                    {c.label}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    {selectedCategory && (
+                                        <p className="text-xs text-muted-foreground">{selectedCategory.desc}</p>
+                                    )}
+                                </div>
+                            </div>
                         </div>
-                        {selectedCategory && (
-                            <p className="text-xs text-muted-foreground mt-2">{selectedCategory.desc}</p>
-                        )}
                     </section>
 
                     {/* 2-a. 카테고리별 상세 정보 (VACATION, OVERTIME, BUSINESS_TRIP, EXPENSE) */}
@@ -1723,7 +2268,7 @@ export default function NewApprovalPage() {
                         </section>
                     )}
 
-                    {/* 2-c. 외근보고서 문서형 폼 (BUSINESS_TRIP) */}
+                    {/* 2-c. 외근/출장 보고서 문서형 폼 (BUSINESS_TRIP) */}
                     {form.category === "BUSINESS_TRIP" && (
                         <section>
                             <BusinessTripDocFormFields
@@ -1739,6 +2284,30 @@ export default function NewApprovalPage() {
                     {form.category === "EXPENSE" && (
                         <section>
                             <ExpenseDocFormFields
+                                formData={formData}
+                                onChange={setFormData}
+                                userName={userName}
+                                userDepartment={userDepartment}
+                            />
+                        </section>
+                    )}
+
+                    {/* 2-e. 검수조서 문서형 폼 (INSPECTION) */}
+                    {form.category === "INSPECTION" && (
+                        <section>
+                            <InspectionFormFields
+                                formData={formData}
+                                onChange={setFormData}
+                                userName={userName}
+                                userDepartment={userDepartment}
+                            />
+                        </section>
+                    )}
+
+                    {/* 2-f. 세금계산서 발행 요청서 (TAX_INVOICE) */}
+                    {form.category === "TAX_INVOICE" && (
+                        <section>
+                            <TaxInvoiceFormFields
                                 formData={formData}
                                 onChange={setFormData}
                                 userName={userName}

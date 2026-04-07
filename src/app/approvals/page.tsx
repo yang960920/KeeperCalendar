@@ -20,6 +20,7 @@ import {
     Paperclip,
     File as FileIcon,
     ExternalLink,
+    ClipboardCheck,
 } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
@@ -95,10 +96,12 @@ interface Employee {
 const CATEGORY_OPTIONS = [
     { value: "VACATION",      label: "휴가",       icon: Calendar },
     { value: "OVERTIME",      label: "시간외근무",  icon: Clock },
-    { value: "BUSINESS_TRIP", label: "외근보고",    icon: MapPin },
+    { value: "BUSINESS_TRIP", label: "외근/출장",    icon: MapPin },
     { value: "EXPENSE",       label: "지출결의",    icon: DollarSign },
     { value: "GENERAL",           label: "품의서",      icon: FileText },
     { value: "GRANT_APPLICATION", label: "정부과제",    icon: FileText },
+    { value: "INSPECTION",        label: "납품/검수",    icon: ClipboardCheck },
+    { value: "TAX_INVOICE",       label: "세금계산서",   icon: FileText },
 ];
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
@@ -135,10 +138,10 @@ function FormDataDetail({ category, formData }: { category: string; formData?: R
             if (formData.endTime) items.push({ label: "종료", value: formData.endTime });
             break;
         case "BUSINESS_TRIP":
-            if (formData.destination) items.push({ label: "출장지", value: formData.destination });
-            if (formData.startDate) items.push({ label: "시작일", value: formData.startDate });
-            if (formData.endDate) items.push({ label: "종료일", value: formData.endDate });
-            if (formData.estimatedCost) items.push({ label: "예상비용", value: `${Number(formData.estimatedCost).toLocaleString()}원` });
+            if (formData.location) items.push({ label: "장소", value: formData.location });
+            if (formData.tripStartDate) items.push({ label: "시작일", value: formData.tripStartDate });
+            if (formData.tripEndDate && formData.tripEndDate !== formData.tripStartDate) items.push({ label: "종료일", value: formData.tripEndDate });
+            if (formData.visitCompany) items.push({ label: "방문기관", value: formData.visitCompany });
             break;
         case "EXPENSE":
             if (formData.expenseItem) items.push({ label: "항목", value: formData.expenseItem });
@@ -152,6 +155,17 @@ function FormDataDetail({ category, formData }: { category: string; formData?: R
             if (formData.deadline) items.push({ label: "마감일", value: formData.deadline });
             if (formData.product_line) items.push({ label: "제품라인", value: formData.product_line });
             if (formData.url) items.push({ label: "공고링크", value: "원문 보기" });
+            break;
+        case "INSPECTION":
+            if (formData.docTitle) items.push({ label: "과제명", value: formData.docTitle });
+            if (formData.vendor) items.push({ label: "납품업체", value: formData.vendor });
+            if (formData.inspectionDate) items.push({ label: "검수일", value: formData.inspectionDate });
+            if (formData.inspector) items.push({ label: "검수자", value: formData.inspector });
+            break;
+        case "TAX_INVOICE":
+            if (formData.issueDate) items.push({ label: "발행일", value: formData.issueDate });
+            if (formData.manager) items.push({ label: "담당자", value: formData.manager });
+            if (formData.managerContact) items.push({ label: "연락처", value: formData.managerContact });
             break;
     }
 

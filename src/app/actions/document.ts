@@ -206,8 +206,9 @@ export async function archiveApprovalDocument(data: {
 
         // 카테고리별 하위 폴더
         const categoryLabels: Record<string, string> = {
-            VACATION: "휴가", OVERTIME: "시간외근무", BUSINESS_TRIP: "출장",
-            EXPENSE: "지출결의", GENERAL: "일반기안",
+            VACATION: "휴가", OVERTIME: "시간외근무", BUSINESS_TRIP: "외근출장",
+            EXPENSE: "지출결의", GENERAL: "일반기안", INSPECTION: "납품검수",
+            TAX_INVOICE: "세금계산서",
         };
         const catLabel = categoryLabels[data.category] || "기타";
         let catFolder = await (prisma as any).docFolder.findFirst({

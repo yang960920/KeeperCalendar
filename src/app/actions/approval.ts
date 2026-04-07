@@ -10,7 +10,7 @@ import { archiveApprovalDocument } from "@/app/actions/document";
 export async function createApprovalRequest(data: {
     title: string;
     content: string;
-    category: "VACATION" | "OVERTIME" | "BUSINESS_TRIP" | "EXPENSE" | "GENERAL";
+    category: "VACATION" | "OVERTIME" | "BUSINESS_TRIP" | "EXPENSE" | "GENERAL" | "INSPECTION" | "TAX_INVOICE";
     requesterId: string;
     approverIds: string[];   // 결재자 목록 (순서대로)
     projectId?: string;
@@ -388,20 +388,23 @@ async function handlePostApproval(request: any) {
         }
 
         case "BUSINESS_TRIP": {
-            // 출장: 공유 캘린더에 이벤트 생성
-            const tripStart = formData.startDate;
-            const tripEnd = formData.endDate;
-            const destination = formData.destination || "";
+            // 외근/출장: 공유 캘린더에 이벤트 생성
+            const tripStart = formData.tripStartDate || formData.startDate;
+            const tripEnd = formData.tripEndDate || formData.endDate || tripStart;
+            const location = formData.location || formData.destination || "";
 
-            if (tripStart && tripEnd) {
+            if (tripStart) {
+                const isMultiDay = tripEnd && tripStart !== tripEnd;
+                const label = isMultiDay ? "출장" : "외근";
+
                 await createCalendarEvent({
-                    title: `[출장] ${requesterName} - ${destination}`,
+                    title: `[${label}] ${requesterName} - ${location}`,
                     description: request.content,
                     category: "FIELD_WORK",
                     startTime: new Date(`${tripStart}T00:00:00+09:00`).toISOString(),
-                    endTime: new Date(`${tripEnd}T23:59:59+09:00`).toISOString(),
+                    endTime: new Date(`${tripEnd || tripStart}T23:59:59+09:00`).toISOString(),
                     isAllDay: true,
-                    location: destination,
+                    location,
                     creatorId: request.requesterId,
                     attendeeIds: [],
                     requiresRsvp: false,
@@ -409,7 +412,7 @@ async function handlePostApproval(request: any) {
 
                 // Attendance 기록 생성
                 const start = new Date(`${tripStart}T00:00:00+09:00`);
-                const end = new Date(`${tripEnd}T00:00:00+09:00`);
+                const end = new Date(`${tripEnd || tripStart}T00:00:00+09:00`);
                 for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
                     const dayOfWeek = d.getDay();
                     if (dayOfWeek === 0 || dayOfWeek === 6) continue;
