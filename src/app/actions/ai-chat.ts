@@ -1,6 +1,7 @@
 "use server";
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { createTask } from "@/app/actions/task";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
@@ -124,6 +125,82 @@ async function callWithRetry(prompt: string, retries = 3): Promise<string> {
     }
 
     throw new Error("ALL_MODELS_FAILED");
+}
+
+// ─── 업무일지 AI 작성 ─────────────────────────────────────────────────────────
+
+const TASK_PARSE_PROMPT = `당신은 업무 관리 시스템의 데이터 파서입니다.
+사용자가 자연어로 입력한 업무 내용을 분석하여 아래 JSON 형식으로 변환해야 합니다.
+
+반드시 아래 형식의 JSON만 반환하세요. 설명이나 마크다운 없이 순수 JSON만 출력합니다.
+
+{
+  "title": "업무 제목 (간결하게 20자 이내)",
+  "content": "업무 상세 내용 (사용자 입력을 정리한 내용)",
+  "category": "업무",
+  "planned": 1
+}
+
+규칙:
+- title: 핵심 내용을 간결하게 요약 (20자 이내)
+- content: 사용자가 입력한 내용을 자연스럽게 정리
+- category: "업무", "개인", "운동", "건강", "가족", "자기계발" 중 가장 적절한 것 선택. 판단 어려우면 "업무"
+- planned: 업무 비중 (기본 1, 큰 업무면 2~3)
+- JSON 외 다른 텍스트를 절대 포함하지 마세요`;
+
+export async function aiCreateTask(data: {
+    startDate: string;   // YYYY-MM-DD
+    endDate: string;     // YYYY-MM-DD
+    description: string; // 사용자가 수기로 입력한 내용
+    userId: string;
+}): Promise<{ success: boolean; message: string; error?: string }> {
+    try {
+        if (!process.env.GEMINI_API_KEY) {
+            return { success: false, message: "", error: "AI API 키가 설정되지 않았습니다." };
+        }
+
+        if (!data.description.trim()) {
+            return { success: false, message: "", error: "업무 내용을 입력해주세요." };
+        }
+
+        const prompt = `${TASK_PARSE_PROMPT}\n\n사용자 입력:\n기간: ${data.startDate} ~ ${data.endDate}\n내용: ${data.description}`;
+        const text = await callWithRetry(prompt);
+
+        // JSON 파싱 (코드블럭 제거)
+        const cleaned = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+        let parsed: any;
+        try {
+            parsed = JSON.parse(cleaned);
+        } catch {
+            return { success: false, message: "", error: "AI 응답을 처리할 수 없습니다. 다시 시도해주세요." };
+        }
+
+        // Task 생성
+        const result = await createTask({
+            title: parsed.title || data.description.slice(0, 20),
+            content: parsed.content || data.description,
+            category: parsed.category || "업무",
+            planned: parsed.planned || 1,
+            assigneeId: data.userId,
+            date: data.startDate,
+            endDate: data.endDate,
+        });
+
+        if (result.success) {
+            return {
+                success: true,
+                message: `✅ 업무가 등록되었습니다!\n\n**${parsed.title}**\n📁 ${parsed.category} | 📅 ${data.startDate} ~ ${data.endDate}\n📝 ${parsed.content}`,
+            };
+        } else {
+            return { success: false, message: "", error: result.error || "업무 등록에 실패했습니다." };
+        }
+    } catch (error: any) {
+        console.error("AI 업무 생성 실패:", error?.message);
+        if (error?.message === "ALL_MODELS_FAILED") {
+            return { success: false, message: "", error: "AI 서비스가 일시적으로 사용량이 초과되었습니다. 1분 후 다시 시도해주세요." };
+        }
+        return { success: false, message: "", error: `오류: ${error?.message || "알 수 없는 오류"}` };
+    }
 }
 
 export async function askAI(

@@ -1,11 +1,13 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { Bot, X, Send, FileText, Clock, AlertTriangle, BarChart3, Loader2 } from "lucide-react";
+import { Bot, X, Send, FileText, Clock, AlertTriangle, BarChart3, Loader2, PenLine, ChevronDown, CalendarDays, Info } from "lucide-react";
 import { useTaskStore, Task } from "@/store/useTaskStore";
 import { useProjectStore } from "@/store/useProjectStore";
+import { useAuthStore } from "@/store/useAuthStore";
 import { useStore } from "@/hooks/useStore";
 import { askAI } from "@/app/actions/ai-chat";
+import { aiCreateTask } from "@/app/actions/ai-chat";
 import { Button } from "@/components/ui/button";
 
 type PresetType = "weekly_report" | "deadline_alert" | "delayed_tasks" | "task_summary" | "free";
@@ -32,11 +34,14 @@ export const AIChatAssistant = ({ projectId }: AIChatAssistantProps) => {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [input, setInput] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+    const [showTaskForm, setShowTaskForm] = useState(false);
+    const [taskForm, setTaskForm] = useState({ startDate: "", endDate: "", description: "" });
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
     const tasks = useStore(useTaskStore, (s) => s.tasks) || [];
     const projects = useStore(useProjectStore, (s) => s.projects) || [];
+    const user = useStore(useAuthStore, (s) => s.user);
 
     // 스크롤 자동 이동
     useEffect(() => {
@@ -111,6 +116,47 @@ export const AIChatAssistant = ({ projectId }: AIChatAssistantProps) => {
             setMessages(prev => [...prev, {
                 role: "assistant",
                 content: "❌ 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
+                timestamp: new Date(),
+            }]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // ── 업무일지 AI 등록 ──
+    const handleTaskSubmit = async () => {
+        if (!user || !taskForm.startDate || !taskForm.endDate || !taskForm.description.trim()) return;
+
+        setMessages(prev => [...prev, {
+            role: "user",
+            content: `📝 업무일지 등록 요청\n기간: ${taskForm.startDate} ~ ${taskForm.endDate}\n내용: ${taskForm.description}`,
+            timestamp: new Date(),
+        }]);
+
+        setIsLoading(true);
+        setShowTaskForm(false);
+
+        try {
+            const result = await aiCreateTask({
+                startDate: taskForm.startDate,
+                endDate: taskForm.endDate,
+                description: taskForm.description,
+                userId: user.id,
+            });
+
+            setMessages(prev => [...prev, {
+                role: "assistant",
+                content: result.success ? result.message : `❌ ${result.error}`,
+                timestamp: new Date(),
+            }]);
+
+            if (result.success) {
+                setTaskForm({ startDate: "", endDate: "", description: "" });
+            }
+        } catch {
+            setMessages(prev => [...prev, {
+                role: "assistant",
+                content: "❌ 업무 등록 중 오류가 발생했습니다.",
                 timestamp: new Date(),
             }]);
         } finally {
@@ -196,7 +242,7 @@ export const AIChatAssistant = ({ projectId }: AIChatAssistantProps) => {
                                     : "bg-muted/70 text-foreground rounded-bl-md"
                                     }`}>
                                     {msg.role === "user" ? (
-                                        <p className="text-sm">{msg.content}</p>
+                                        <p className="text-sm whitespace-pre-line">{msg.content}</p>
                                     ) : (
                                         <div className="space-y-0.5">{renderMarkdown(msg.content)}</div>
                                     )}
@@ -217,6 +263,73 @@ export const AIChatAssistant = ({ projectId }: AIChatAssistantProps) => {
                         )}
 
                         <div ref={messagesEndRef} />
+                    </div>
+
+                    {/* 업무일지 작성 아코디언 폼 */}
+                    <div className="border-t">
+                        <button
+                            type="button"
+                            onClick={() => !isLoading && setShowTaskForm(!showTaskForm)}
+                            disabled={isLoading}
+                            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium hover:bg-muted/50 transition-colors disabled:opacity-50"
+                        >
+                            <PenLine className="h-4 w-4 text-violet-500" />
+                            <span>업무일지 작성</span>
+                            <ChevronDown className={`h-3.5 w-3.5 ml-auto text-muted-foreground transition-transform ${showTaskForm ? "rotate-180" : ""}`} />
+                        </button>
+
+                        {showTaskForm && (
+                            <div className="px-4 pb-3 space-y-2.5 animate-in slide-in-from-top-2 duration-200">
+                                {/* 안내 */}
+                                <div className="flex items-start gap-1.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
+                                    <Info className="h-3.5 w-3.5 text-amber-500 mt-0.5 flex-shrink-0" />
+                                    <div className="text-[11px] text-amber-700 dark:text-amber-400 space-y-0.5">
+                                        <p className="font-medium">안내사항</p>
+                                        <p>· 업무는 <b>한 건씩</b> 입력해주세요.</p>
+                                        <p>· 하위 업무(서브태스크) 등록은 지원되지 않습니다.</p>
+                                        <p>· 내용을 자유롭게 적으면 AI가 정리해서 등록합니다.</p>
+                                    </div>
+                                </div>
+
+                                {/* 기간 */}
+                                <div className="flex items-center gap-2">
+                                    <CalendarDays className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                                    <input
+                                        type="date"
+                                        value={taskForm.startDate}
+                                        onChange={(e) => setTaskForm({ ...taskForm, startDate: e.target.value })}
+                                        className="flex-1 bg-muted/50 rounded-lg px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-violet-500/30"
+                                    />
+                                    <span className="text-xs text-muted-foreground">~</span>
+                                    <input
+                                        type="date"
+                                        value={taskForm.endDate}
+                                        onChange={(e) => setTaskForm({ ...taskForm, endDate: e.target.value })}
+                                        className="flex-1 bg-muted/50 rounded-lg px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-violet-500/30"
+                                    />
+                                </div>
+
+                                {/* 업무 내용 */}
+                                <textarea
+                                    value={taskForm.description}
+                                    onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })}
+                                    placeholder="업무 내용을 자유롭게 입력하세요.&#10;예) 한미르 홈페이지 디자인 수정 작업"
+                                    rows={3}
+                                    className="w-full bg-muted/50 rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-violet-500/30 resize-none"
+                                />
+
+                                {/* 등록 버튼 */}
+                                <Button
+                                    type="button"
+                                    onClick={handleTaskSubmit}
+                                    disabled={isLoading || !taskForm.startDate || !taskForm.endDate || !taskForm.description.trim()}
+                                    className="w-full h-8 text-xs rounded-lg bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-600 hover:to-indigo-700"
+                                >
+                                    {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <PenLine className="h-3.5 w-3.5 mr-1" />}
+                                    AI로 업무 등록
+                                </Button>
+                            </div>
+                        )}
                     </div>
 
                     {/* 프리셋 버튼 */}
