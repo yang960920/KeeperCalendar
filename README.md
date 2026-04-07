@@ -162,13 +162,36 @@
   </tr>
   <tr>
     <td width="50%">
+      <h3>💬 사내 메신저</h3>
+      <ul>
+        <li><b>1:1 DM</b> + <b>그룹 채팅</b> (Pusher 실시간 통신)</li>
+        <li>대용량 파일 첨부 (이미지/PDF/문서, 최대 100MB)</li>
+        <li>메시지 수정, 삭제, 답장, 고정, 이모지 리액션</li>
+        <li>무한 스크롤 (과거 메시지 50개씩 로딩)</li>
+        <li>낙관적 업데이트 (Optimistic UI) — 깜빡임 없는 전송</li>
+      </ul>
+    </td>
+    <td width="50%">
+      <h3>📁 자료실 (문서 관리)</h3>
+      <ul>
+        <li>계층형 폴더 구조 (하위 폴더 지원)</li>
+        <li>문서 버전 관리 (업로드 이력 추적)</li>
+        <li>Public / Private 공개 범위 설정</li>
+        <li>결재 승인 문서 <b>자동 보관</b> (카테고리별 폴더 분류)</li>
+        <li>문서 검색 기능</li>
+      </ul>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
       <h3>📝 전자결재 시스템</h3>
       <ul>
-        <li><b>6종 카테고리</b>: 품의서, 지출결의서, 외근보고서, 휴가, 시간외근무, 정부과제</li>
+        <li><b>9종 카테고리</b>: 품의서, 지출결의서, 외근/출장보고서, 휴가, 시간외근무, 정부과제, 납품/검수확인서, 세금계산서 발행 요청서</li>
         <li>카테고리별 <b>문서형 양식</b> (엑셀 스타일 테이블 폼)</li>
         <li>자동 계산: 수량×단가=공급가, 공급가×10%=VAT, 합계 자동산출</li>
-        <li>다단계 결재선 (순차 승인/반려)</li>
+        <li>다단계 결재선 (순차 승인/반려) + 다중 첨부파일</li>
         <li><b>Webhook 연동</b>: 외부 시스템 결재 요청 수신 및 승인/반려 전송</li>
+        <li>결재 승인 시 캘린더 자동 등록 + 출근부 자동 반영 + 문서 자동 보관</li>
       </ul>
     </td>
     <td width="50%">
@@ -267,6 +290,13 @@
       <td>첨부파일, PDF 리포트, 프로젝트 보고서 저장</td>
     </tr>
     <tr>
+      <td><b>💬 Realtime</b></td>
+      <td>
+        <img src="https://img.shields.io/badge/Pusher-300D4F?logo=pusher&logoColor=white" alt="Pusher"/>
+      </td>
+      <td>사내 메신저 실시간 통신 (WebSocket)</td>
+    </tr>
+    <tr>
       <td><b>📧 Email</b></td>
       <td>
         <img src="https://img.shields.io/badge/Nodemailer-22B573?logo=minutemailer&logoColor=white" alt="Nodemailer"/>
@@ -290,7 +320,7 @@
 ```
 keeper-calendar/
 ├── 📂 prisma/
-│   └── schema.prisma              # DB 스키마 (20+ 모델)
+│   └── schema.prisma              # DB 스키마 (23+ 모델)
 ├── 📂 public/
 │   └── 📂 fonts/
 │       └── NotoSansKR-Variable.ttf # 한글 폰트 (PDF용)
@@ -301,10 +331,14 @@ keeper-calendar/
 │   │   ├── 📂 login/              # 🔐 일반 사원 로그인
 │   │   ├── 📂 projects/           # 🗂️ 프로젝트 목록 & 상세
 │   │   ├── 📂 yearly/            # 🔥 연간 히트맵 & 통계
-│   │   ├── 📂 approvals/          # 📝 전자결재
+│   │   ├── 📂 approvals/          # 📝 전자결재 (9종 카테고리)
 │   │   │   ├── page.tsx           #    결재 목록 + 검색/필터 + PDF 다운로드
 │   │   │   ├── new/page.tsx       #    기안 작성 (문서형 양식)
 │   │   │   └── pdf-utils.ts       #    PDF 변환 유틸리티
+│   │   ├── 📂 chat/              # 💬 사내 메신저 (1:1/그룹)
+│   │   ├── 📂 documents/         # 📁 자료실 (폴더/버전 관리)
+│   │   ├── 📂 calendar/          # 📅 공유 캘린더
+│   │   ├── 📂 kanban/            # 📋 칸반 보드
 │   │   ├── 📂 settings/          # ⚙️ 개인 알림 설정
 │   │   ├── 📂 admin/             # 🛡️ 관리자 전용
 │   │   │   ├── employees/        #    사원 관리
@@ -472,7 +506,43 @@ erDiagram
     }
     User ||--o{ ApprovalRequest : requests
     ApprovalRequest ||--o{ ApprovalStep : has
+    ApprovalRequest ||--o{ ApprovalAttachment : has
     User ||--o{ ApprovalStep : approves
+    User ||--o{ ChatMember : joins
+    ChatRoom ||--o{ ChatMember : has
+    ChatRoom ||--o{ ChatMessage : contains
+    User ||--o{ ChatMessage : sends
+    User ||--o{ Document : uploads
+    DocFolder ||--o{ Document : contains
+
+    ChatRoom {
+        string id PK
+        string name
+        boolean isGroup
+    }
+    ChatMessage {
+        string id PK
+        string content
+        string fileUrl
+        string fileName
+    }
+    ApprovalAttachment {
+        string id PK
+        string name
+        string url
+        int size
+    }
+    DocFolder {
+        string id PK
+        string name
+        string parentId FK
+    }
+    Document {
+        string id PK
+        string name
+        string currentUrl
+        enum visibility
+    }
 ```
 
 ---
@@ -621,8 +691,11 @@ npm run dev
 ### 9️⃣ 전자결재 시스템 구축 및 PDF 다운로드 (Electronic Approval & PDF Export)
 - **이슈**: 사내 품의서, 지출결의서, 외근보고서 등을 종이 기반으로 처리하던 프로세스를 디지털화할 필요가 있었음.
 - **해결**:
-  - **6종 카테고리별 문서형 양식** 구현: 품의서(GENERAL), 지출결의서(EXPENSE), 외근보고서(BUSINESS_TRIP), 휴가(VACATION), 시간외근무(OVERTIME), 정부과제(GRANT_APPLICATION). HTML 테이블 기반 엑셀 스타일 폼으로 실제 사내 문서 양식과 동일한 레이아웃 재현.
-  - **자동 계산 로직**: 지출결의서의 수량×단가=공급가액, 공급가×10%=세액(VAT), 합계 자동산출을 `useMemo`로 실시간 반영. 동적 행 추가/삭제(계정, 지출내역, 일정 등).
+  - **9종 카테고리별 문서형 양식** 구현: 품의서(GENERAL), 지출결의서(EXPENSE), 외근/출장보고서(BUSINESS_TRIP), 휴가(VACATION), 시간외근무(OVERTIME), 정부과제(GRANT_APPLICATION), 납품/검수확인서(INSPECTION), 세금계산서 발행 요청서(TAX_INVOICE). HTML 테이블 기반 엑셀 스타일 폼으로 실제 사내 문서 양식과 동일한 레이아웃 재현.
+  - **자동 계산 로직**: 지출결의서·납품검수·세금계산서의 수량×단가=공급가액, 공급가×10%=세액(VAT), 합계 자동산출을 `useMemo`로 실시간 반영. 빈 값은 공백 처리(#VALUE! 방지). 동적 행 추가/삭제(계정, 지출내역, 일정, 품목 등).
+  - **다중 첨부파일**: Vercel Blob 기반 다중 파일 업로드. 품의서, 지출결의서, 외근보고서, 정부과제, 납품/검수, 세금계산서에서 로컬 파일 선택 방식 지원.
+  - **승인 후 자동화**: 휴가/외근/출장 승인 시 공유 캘린더 이벤트 자동 생성 + 출근부 자동 반영. 모든 결재 문서 자동 보관(카테고리별 폴더 분류).
+  - **다음 우편번호 API**: 외근/출장 보고서의 장소 입력에 Daum Postcode API 연동. 클릭 시 주소 검색 팝업 → 도로명 주소 자동 입력.
   - **다단계 결재선**: 순차 승인/반려 워크플로우(WAITING→PENDING→APPROVED/REJECTED). 결재자 지정 UI(ApproverPicker).
   - **검색/필터**: 텍스트 검색 + 카테고리 필터 + 상태 필터로 결재 목록 클라이언트 사이드 필터링.
   - **PDF 다운로드**: 체크박스 선택 방식으로 원하는 결재 건만 선택 후 PDF 변환. `html2canvas` + `jsPDF`로 카테고리별 HTML 템플릿을 PDF로 변환하되, **iframe 격리 렌더링**으로 다크모드 CSS(`lab()` 색상 함수)와의 충돌 해결. 2건 이상은 `JSZip`으로 ZIP 번들 다운로드.
