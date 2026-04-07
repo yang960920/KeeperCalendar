@@ -120,6 +120,7 @@ export const MonthlyTaskList = ({ year, month }: MonthlyTaskListProps) => {
                     month={month}
                     tasks={filteredTasks}
                     onTaskClick={handleRowClick}
+                    currentUserId={currentUser?.id}
                 />
             </div>
 
