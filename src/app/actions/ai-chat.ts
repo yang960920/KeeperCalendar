@@ -205,6 +205,149 @@ export async function aiCreateTask(data: {
     }
 }
 
+// ─── 전자결재 AI 기안 ─────────────────────────────────────────────────────────
+
+const APPROVAL_FORM_SCHEMAS: Record<string, string> = {
+    VACATION: `{
+  "vacationType": "연차 | 반차(오전) | 반차(오후) | 병가 | 경조 | 기타",
+  "startDate": "YYYY-MM-DD",
+  "endDate": "YYYY-MM-DD"
+}`,
+    OVERTIME: `{
+  "overtimeDate": "YYYY-MM-DD",
+  "startTime": "HH:MM (예: 18:00)",
+  "endTime": "HH:MM (예: 21:00)"
+}`,
+    BUSINESS_TRIP: `{
+  "tripStartDate": "YYYY-MM-DD",
+  "tripEndDate": "YYYY-MM-DD",
+  "tripStartTime": "HH:MM (선택)",
+  "tripEndTime": "HH:MM (선택)",
+  "location": "방문 지역/주소",
+  "locationDetail": "상세 주소 (선택)",
+  "visitCompany": "방문 기관/업체명",
+  "visitDepartment": "방문 부서 (선택)",
+  "contactName": "담당자명 (선택)",
+  "contactPhone": "연락처 (선택)",
+  "purpose": "방문 목적 (상세히)",
+  "schedules": [{"time": "HH:MM", "location": "장소", "content": "활동내용", "result": "결과 (선택)"}],
+  "tripExpenses": [{"category": "교통비|식비|숙박비|주차비|기타", "content": "상세내용", "amount": "금액(숫자만)", "payMethod": "법인카드|개인카드|현금"}],
+  "hasExpense": true
+}`,
+    EXPENSE: `{
+  "periodStart": "YYYY-MM-DD",
+  "periodEnd": "YYYY-MM-DD",
+  "periodLabel": "기간 설명 (예: 2026년 4월)",
+  "remarks": "비고 (선택)",
+  "accounts": [{"vendor": "거래처", "bank": "은행명", "accountNo": "계좌번호", "holder": "예금주", "amount": "금액(숫자만)"}],
+  "expenses": [{"date": "YYYY-MM-DD", "vendor": "거래처", "content": "내용", "qty": "수량", "unitPrice": "단가(숫자만)", "note": "비고"}]
+}`,
+    GENERAL: `{
+  "docTitle": "품의 제목",
+  "item": "품목/항목",
+  "vendor": "거래처",
+  "paymentAmount": "금액(숫자만)",
+  "paymentMethod": "법인카드|개인카드|현금|계좌이체",
+  "paymentDate": "YYYY-MM-DD",
+  "estimatedCost": "예상 비용 설명",
+  "budgetCategory": "예산 항목",
+  "notes": "참고사항",
+  "project": "관련 프로젝트"
+}`,
+    INSPECTION: `{
+  "docTitle": "검수 건명",
+  "projectName": "프로젝트명",
+  "projectPeriod": "프로젝트 기간",
+  "projectCode": "프로젝트 코드 (선택)",
+  "vendor": "납품업체",
+  "inspectionTitle": "검수 제목",
+  "inspectionDate": "YYYY-MM-DD",
+  "inspector": "검수자",
+  "items": [{"name": "품명", "spec": "규격", "unit": "단위", "qty": "수량", "unitPrice": "단가(숫자만)", "note": "비고"}]
+}`,
+    TAX_INVOICE: `{
+  "issueDate": "YYYY-MM-DD",
+  "manager": "담당자명",
+  "managerContact": "연락처",
+  "taxItems": [{"company": "거래처", "date": "YYYY-MM-DD", "product": "품목", "qty": "수량", "unitPrice": "단가(숫자만)", "note": "비고"}]
+}`,
+    EXPENDITURE_PLAN: `{
+  "planDate": "YYYY-MM-DD",
+  "planItems": [{"date": "YYYY-MM-DD", "category": "분류", "detail": "내용", "amount": "금액(숫자만)", "note": "비고"}]
+}`,
+    PERSONAL_EXPENSE: `{
+  "bankAccount": "환급 계좌 (은행 계좌번호)",
+  "specialNote": "특이사항 (선택)",
+  "expenseItems": [{"content": "지출내역", "amount": "금액(숫자만)", "note": "비고"}]
+}`,
+};
+
+const APPROVAL_CATEGORY_LABELS: Record<string, string> = {
+    VACATION: "휴가", OVERTIME: "시간외근무", BUSINESS_TRIP: "외근/출장",
+    EXPENSE: "지출결의", GENERAL: "품의서", INSPECTION: "납품/검수",
+    TAX_INVOICE: "세금계산서", EXPENDITURE_PLAN: "지출계획", PERSONAL_EXPENSE: "개인경비",
+};
+
+export async function aiParseApproval(data: {
+    category: string;
+    description: string;
+}): Promise<{ success: boolean; formData?: Record<string, any>; message: string; error?: string }> {
+    try {
+        if (!process.env.GEMINI_API_KEY) {
+            return { success: false, message: "", error: "AI API 키가 설정되지 않았습니다." };
+        }
+
+        const schema = APPROVAL_FORM_SCHEMAS[data.category];
+        if (!schema) {
+            return { success: false, message: "", error: "지원하지 않는 결재 카테고리입니다." };
+        }
+
+        const catLabel = APPROVAL_CATEGORY_LABELS[data.category] || data.category;
+
+        const prompt = `당신은 전자결재 시스템의 데이터 파서입니다.
+사용자가 자연어로 입력한 "${catLabel}" 결재 내용을 분석하여 아래 JSON 형식으로 변환하세요.
+
+반드시 아래 형식의 JSON만 반환하세요. 설명이나 마크다운 없이 순수 JSON만 출력합니다.
+빈 값이거나 알 수 없는 필드는 빈 문자열("")로 두세요. 추측하지 마세요.
+배열 필드는 내용에 언급된 항목만 포함하세요. 언급 없으면 빈 배열([])로 두세요.
+금액은 숫자만 입력하세요 (쉼표, 원 제외).
+날짜는 반드시 YYYY-MM-DD 형식으로 변환하세요. 올해는 2026년입니다.
+
+JSON 스키마:
+${schema}
+
+사용자 입력:
+${data.description}`;
+
+        const text = await callWithRetry(prompt);
+        const cleaned = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+
+        let parsed: Record<string, any>;
+        try {
+            parsed = JSON.parse(cleaned);
+        } catch {
+            return { success: false, message: "", error: "AI 응답을 처리할 수 없습니다. 더 구체적으로 입력해주세요." };
+        }
+
+        // 채워진 필드 요약 메시지 생성
+        const filledFields = Object.entries(parsed)
+            .filter(([, v]) => v !== "" && v !== null && !(Array.isArray(v) && v.length === 0))
+            .map(([k]) => k);
+
+        return {
+            success: true,
+            formData: parsed,
+            message: `✅ AI가 ${catLabel} 결재 양식을 작성했습니다!\n\n채워진 항목: ${filledFields.length}개\n\n기안 페이지로 이동하여 내용을 확인하고 제출해주세요.`,
+        };
+    } catch (error: any) {
+        console.error("AI 결재 파싱 실패:", error?.message);
+        if (error?.message === "ALL_MODELS_FAILED") {
+            return { success: false, message: "", error: "AI 서비스가 일시적으로 사용량이 초과되었습니다. 1분 후 다시 시도해주세요." };
+        }
+        return { success: false, message: "", error: `오류: ${error?.message || "알 수 없는 오류"}` };
+    }
+}
+
 export async function askAI(
     preset: PresetType,
     tasks: TaskContext[],

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
     ChevronRight,
     ChevronDown,
@@ -2127,6 +2127,7 @@ function ApproverPicker({
 
 export default function NewApprovalPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const user = useStore(useAuthStore, (s) => s.user);
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -2227,6 +2228,40 @@ export default function NewApprovalPage() {
                 setFormData({});
         }
     };
+
+    // AI 기안 prefill 데이터 수신
+    useEffect(() => {
+        if (searchParams.get("from") !== "ai") return;
+        try {
+            const raw = sessionStorage.getItem("ai-approval-prefill");
+            if (!raw) return;
+            sessionStorage.removeItem("ai-approval-prefill");
+            const { category, formData: aiFormData } = JSON.parse(raw);
+            if (!category || !aiFormData) return;
+
+            // 1. 카테고리 설정 + 기본 formData 초기화
+            handleCategoryChange(category);
+
+            // 2. AI 데이터를 기본 formData 위에 머지 (handleCategoryChange의 setState 반영 후)
+            setTimeout(() => {
+                setFormData(prev => {
+                    const merged = { ...prev };
+                    for (const [key, value] of Object.entries(aiFormData)) {
+                        if (value === "" || value === null || value === undefined) continue;
+                        if (Array.isArray(value) && value.length > 0) {
+                            merged[key] = value;
+                        } else if (!Array.isArray(value)) {
+                            merged[key] = value;
+                        }
+                    }
+                    return merged;
+                });
+            }, 50);
+        } catch (e) {
+            console.error("AI prefill 파싱 실패:", e);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchParams]);
 
     // 카테고리별 제목 자동 생성
     const autoTitle = useMemo(() => {

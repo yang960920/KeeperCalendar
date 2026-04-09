@@ -1,12 +1,13 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { Bot, X, Send, FileText, Clock, AlertTriangle, BarChart3, Loader2, PenLine, ChevronDown, CalendarDays, Info } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Bot, X, Send, FileText, Clock, AlertTriangle, BarChart3, Loader2, PenLine, ChevronDown, CalendarDays, Info, ClipboardCheck } from "lucide-react";
 import { useTaskStore, Task } from "@/store/useTaskStore";
 import { useProjectStore } from "@/store/useProjectStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useStore } from "@/hooks/useStore";
-import { askAI, aiCreateTask } from "@/app/actions/ai-chat";
+import { askAI, aiCreateTask, aiParseApproval } from "@/app/actions/ai-chat";
 import { getInitialData } from "@/app/actions/init";
 import { Button } from "@/components/ui/button";
 
@@ -25,17 +26,32 @@ const PRESETS: { key: PresetType; label: string; icon: React.ReactNode; descript
     { key: "task_summary", label: "업무 정리", icon: <BarChart3 className="h-4 w-4" />, description: "전체 업무 현황 요약" },
 ];
 
+const APPROVAL_CATEGORIES = [
+    { value: "VACATION", label: "휴가" },
+    { value: "OVERTIME", label: "시간외근무" },
+    { value: "BUSINESS_TRIP", label: "외근/출장" },
+    { value: "EXPENSE", label: "지출결의" },
+    { value: "GENERAL", label: "품의서" },
+    { value: "INSPECTION", label: "납품/검수" },
+    { value: "TAX_INVOICE", label: "세금계산서" },
+    { value: "EXPENDITURE_PLAN", label: "지출계획" },
+    { value: "PERSONAL_EXPENSE", label: "개인경비" },
+];
+
 interface AIChatAssistantProps {
     projectId?: string; // 특정 프로젝트 컨텍스트
 }
 
 export const AIChatAssistant = ({ projectId }: AIChatAssistantProps) => {
+    const router = useRouter();
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [input, setInput] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [showTaskForm, setShowTaskForm] = useState(false);
     const [taskForm, setTaskForm] = useState({ startDate: "", endDate: "", description: "", category: "" });
+    const [showApprovalForm, setShowApprovalForm] = useState(false);
+    const [approvalForm, setApprovalForm] = useState({ category: "", description: "" });
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -165,6 +181,57 @@ export const AIChatAssistant = ({ projectId }: AIChatAssistantProps) => {
             setMessages(prev => [...prev, {
                 role: "assistant",
                 content: "❌ 업무 등록 중 오류가 발생했습니다.",
+                timestamp: new Date(),
+            }]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // ── 전자결재 AI 기안 ──
+    const handleApprovalSubmit = async () => {
+        if (!approvalForm.category || !approvalForm.description.trim()) return;
+
+        const catLabel = APPROVAL_CATEGORIES.find(c => c.value === approvalForm.category)?.label || approvalForm.category;
+
+        setMessages(prev => [...prev, {
+            role: "user",
+            content: `📋 전자결재 기안 요청\n분류: ${catLabel}\n내용: ${approvalForm.description}`,
+            timestamp: new Date(),
+        }]);
+
+        setIsLoading(true);
+        setShowApprovalForm(false);
+
+        try {
+            const result = await aiParseApproval({
+                category: approvalForm.category,
+                description: approvalForm.description,
+            });
+
+            setMessages(prev => [...prev, {
+                role: "assistant",
+                content: result.success ? result.message : `❌ ${result.error}`,
+                timestamp: new Date(),
+            }]);
+
+            if (result.success && result.formData) {
+                // sessionStorage로 prefill 데이터 전달
+                sessionStorage.setItem("ai-approval-prefill", JSON.stringify({
+                    category: approvalForm.category,
+                    formData: result.formData,
+                }));
+                setApprovalForm({ category: "", description: "" });
+
+                // 잠시 후 기안 페이지로 이동 (메시지 확인 시간)
+                setTimeout(() => {
+                    router.push("/approvals/new?from=ai");
+                }, 1200);
+            }
+        } catch {
+            setMessages(prev => [...prev, {
+                role: "assistant",
+                content: "❌ 결재 기안 처리 중 오류가 발생했습니다.",
                 timestamp: new Date(),
             }]);
         } finally {
@@ -353,6 +420,75 @@ export const AIChatAssistant = ({ projectId }: AIChatAssistantProps) => {
                                 >
                                     {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <PenLine className="h-3.5 w-3.5 mr-1" />}
                                     AI로 업무 등록
+                                </Button>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* 전자결재 AI 기안 아코디언 */}
+                    <div className="border-t">
+                        <button
+                            type="button"
+                            onClick={() => !isLoading && setShowApprovalForm(!showApprovalForm)}
+                            disabled={isLoading}
+                            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium hover:bg-muted/50 transition-colors disabled:opacity-50"
+                        >
+                            <ClipboardCheck className="h-4 w-4 text-emerald-500" />
+                            <span>전자결재 기안</span>
+                            <ChevronDown className={`h-3.5 w-3.5 ml-auto text-muted-foreground transition-transform ${showApprovalForm ? "rotate-180" : ""}`} />
+                        </button>
+
+                        {showApprovalForm && (
+                            <div className="px-4 pb-3 space-y-2.5 animate-in slide-in-from-top-2 duration-200">
+                                {/* 안내 */}
+                                <div className="flex items-start gap-1.5 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-lg px-3 py-2">
+                                    <Info className="h-3.5 w-3.5 text-emerald-500 mt-0.5 flex-shrink-0" />
+                                    <div className="text-[11px] text-emerald-700 dark:text-emerald-400 space-y-0.5">
+                                        <p className="font-medium">전자결재 AI 기안</p>
+                                        <p>· 결재 분류를 선택하고 내용을 입력하세요.</p>
+                                        <p>· AI가 양식에 맞게 정리한 뒤 기안 페이지로 이동합니다.</p>
+                                        <p>· 이동 후 내용을 <b>반드시 확인</b>하고 제출해주세요.</p>
+                                    </div>
+                                </div>
+
+                                {/* 카테고리 선택 */}
+                                <div className="flex items-center gap-2">
+                                    <ClipboardCheck className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                                    <select
+                                        value={approvalForm.category}
+                                        onChange={(e) => setApprovalForm({ ...approvalForm, category: e.target.value })}
+                                        className="flex-1 bg-muted/50 rounded-lg px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-emerald-500/30 appearance-none cursor-pointer"
+                                    >
+                                        <option value="">결재 분류 선택</option>
+                                        {APPROVAL_CATEGORIES.map(c => (
+                                            <option key={c.value} value={c.value}>{c.label}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {/* 내용 입력 */}
+                                <textarea
+                                    value={approvalForm.description}
+                                    onChange={(e) => setApprovalForm({ ...approvalForm, description: e.target.value })}
+                                    placeholder={
+                                        approvalForm.category === "VACATION" ? "예) 4/21~4/23 연차 사용합니다" :
+                                        approvalForm.category === "OVERTIME" ? "예) 4/15 저녁 6시부터 9시까지 시간외근무" :
+                                        approvalForm.category === "BUSINESS_TRIP" ? "예) 4/15 동탄 현대건설 현장 방문, 택시비 15000원" :
+                                        "결재 내용을 자유롭게 입력하세요..."
+                                    }
+                                    rows={3}
+                                    className="w-full bg-muted/50 rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-emerald-500/30 resize-none"
+                                />
+
+                                {/* 기안 버튼 */}
+                                <Button
+                                    type="button"
+                                    onClick={handleApprovalSubmit}
+                                    disabled={isLoading || !approvalForm.category || !approvalForm.description.trim()}
+                                    className="w-full h-8 text-xs rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700"
+                                >
+                                    {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <ClipboardCheck className="h-3.5 w-3.5 mr-1" />}
+                                    AI로 기안 작성
                                 </Button>
                             </div>
                         )}
