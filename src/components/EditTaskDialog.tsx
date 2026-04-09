@@ -62,7 +62,9 @@ export const EditTaskDialog = ({ open, onOpenChange, task, readonly = false, edi
 
     // 프로젝트 참여자 목록
     const project = task?.projectId ? projects.find(p => p.id === task.projectId) : null;
-    const projectParticipants = project?.participantIds || [];
+    const projectParticipants = project
+        ? [...new Set([project.creatorId, ...(project.participantIds || [])])]
+        : [];
 
     // task prop이 바뀔 때 다이얼로그 데이터 초기화
     useEffect(() => {

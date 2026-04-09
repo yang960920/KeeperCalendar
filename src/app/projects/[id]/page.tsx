@@ -232,7 +232,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             {user?.role === "CREATOR" && (
                 <ProjectTaskForm
                     projectId={projectId}
-                    participants={project.participantIds}
+                    participants={[...new Set([project.creatorId, ...project.participantIds])]}
                     projectEndDate={project.endDate}
                     userRole={user?.role}
                 />
