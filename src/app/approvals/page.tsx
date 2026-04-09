@@ -48,6 +48,7 @@ import {
     processApprovalStep,
     withdrawApprovalRequest,
     getMyApprovals,
+    getDepartmentApprovals,
 } from "@/app/actions/approval";
 import { getEmployees } from "@/app/actions/employee";
 import { downloadApprovals } from "./pdf-utils";
@@ -113,6 +114,8 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.
     REJECTED:    { label: "반려",       color: "text-red-400",     icon: XCircle },
     WITHDRAWN:   { label: "철회",       color: "text-slate-500",   icon: XCircle },
 };
+
+const APPROVAL_ADMIN_IDS = ["양현준", "유경성", "김권찬", "한승우", "진호열"];
 
 const STEP_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
     WAITING:  { label: "대기",   color: "text-slate-400" },
@@ -438,7 +441,9 @@ function ApprovalCard({
     const catOption = CATEGORY_OPTIONS.find((c) => c.value === effectiveCategory);
     const CatIcon = catOption?.icon || FileText;
     const catLabel = catOption?.label || approval.category;
-    const requesterName = employees.find((e) => e.id === approval.requesterId)?.name || "";
+    const requesterEmp = employees.find((e) => e.id === approval.requesterId);
+    const requesterName = requesterEmp?.name || "";
+    const requesterDept = (approval as any).departmentName || requesterEmp?.departmentName || "";
 
     // formData에서 요약 정보 추출
     const summary = useMemo(() => {
@@ -479,7 +484,7 @@ function ApprovalCard({
             <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
                 <span className={statusConf.color}>{statusConf.label}</span>
                 <span>•</span>
-                <span>{requesterName}</span>
+                <span>{requesterDept ? `${requesterDept} ${requesterName}` : requesterName}</span>
                 <span>•</span>
                 <span>{format(new Date(approval.createdAt), "M/d", { locale: ko })}</span>
                 <span>•</span>
@@ -499,7 +504,7 @@ export default function ApprovalsPage() {
     });
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [tab, setTab] = useState<"toApprove" | "requested" | "all">("toApprove");
+    const [tab, setTab] = useState<"toApprove" | "requested" | "department">("toApprove");
     const [statusFilter, setStatusFilter] = useState<string>("ALL");
     const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
     const [searchQuery, setSearchQuery] = useState<string>("");
@@ -508,14 +513,26 @@ export default function ApprovalsPage() {
     const [selectMode, setSelectMode] = useState(false);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
+    // 부서별 결재목록 (관리자 전용)
+    const [departmentApprovals, setDepartmentApprovals] = useState<ApprovalData[]>([]);
+    const [deptFilter, setDeptFilter] = useState<string>("ALL");
+    const isAdmin = user ? APPROVAL_ADMIN_IDS.includes(user.id) : false;
+
     const loadData = useCallback(async () => {
         if (!user) return;
         setIsLoading(true);
         try {
-            const [approvalsRes, empRes] = await Promise.all([
+            const promises: Promise<any>[] = [
                 getMyApprovals(user.id),
                 getEmployees(),
-            ]);
+            ];
+            // 관리자만 부서별 결재 목록 로드
+            if (APPROVAL_ADMIN_IDS.includes(user.id)) {
+                promises.push(getDepartmentApprovals(user.id));
+            }
+            const results = await Promise.all(promises);
+            const [approvalsRes, empRes, deptRes] = results;
+
             if (approvalsRes.success) setData(approvalsRes.data as any);
             if (empRes.success && empRes.data) {
                 setEmployees(
@@ -526,6 +543,7 @@ export default function ApprovalsPage() {
                     }))
                 );
             }
+            if (deptRes?.success) setDepartmentApprovals(deptRes.data as any);
         } finally {
             setIsLoading(false);
         }
@@ -535,11 +553,26 @@ export default function ApprovalsPage() {
         loadData();
     }, [loadData]);
 
+    // 부서별 탭에서 사용할 부서 목록
+    const departmentOptions = useMemo(() => {
+        const deptSet = new Map<string, string>();
+        departmentApprovals.forEach((a: any) => {
+            if (a.departmentName) deptSet.set(a.departmentName, a.departmentName);
+        });
+        return Array.from(deptSet.values()).sort();
+    }, [departmentApprovals]);
+
     const currentList = useMemo(() => {
         let list: ApprovalData[];
         if (tab === "toApprove") list = data.toApprove;
         else if (tab === "requested") list = data.requested;
+        else if (tab === "department") list = departmentApprovals;
         else list = [...data.requested, ...data.toApprove];
+
+        // 부서 필터 (부서별 탭에서만 적용)
+        if (tab === "department" && deptFilter !== "ALL") {
+            list = list.filter((a: any) => a.departmentName === deptFilter);
+        }
 
         if (statusFilter !== "ALL") {
             list = list.filter((a) => a.status === statusFilter);
@@ -553,7 +586,7 @@ export default function ApprovalsPage() {
         if (searchQuery.trim()) {
             const q = searchQuery.toLowerCase();
             list = list.filter((a) => {
-                const requesterName = employees.find((e) => e.id === a.requesterId)?.name || "";
+                const requesterName = (a as any).requesterName || employees.find((e) => e.id === a.requesterId)?.name || "";
                 return (
                     a.title.toLowerCase().includes(q) ||
                     a.content.toLowerCase().includes(q) ||
@@ -562,7 +595,7 @@ export default function ApprovalsPage() {
             });
         }
         return list;
-    }, [tab, data, statusFilter, categoryFilter, searchQuery, employees]);
+    }, [tab, data, departmentApprovals, deptFilter, statusFilter, categoryFilter, searchQuery, employees]);
 
     const toggleSelectMode = () => {
         if (selectMode) {
@@ -719,6 +752,21 @@ export default function ApprovalsPage() {
                             </span>
                         )}
                     </button>
+                    {isAdmin && (
+                        <button
+                            onClick={() => setTab("department")}
+                            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                                tab === "department" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+                            }`}
+                        >
+                            부서별 결재목록
+                            {departmentApprovals.length > 0 && (
+                                <span className="ml-1.5 bg-muted text-muted-foreground text-[10px] px-1.5 py-0.5 rounded-full">
+                                    {departmentApprovals.length}
+                                </span>
+                            )}
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -741,6 +789,21 @@ export default function ApprovalsPage() {
                         </button>
                     )}
                 </div>
+                {tab === "department" && (
+                    <Select value={deptFilter} onValueChange={setDeptFilter}>
+                        <SelectTrigger className="w-[140px] h-8 text-xs">
+                            <SelectValue placeholder="전체 부서" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="ALL">전체 부서</SelectItem>
+                            {departmentOptions.map((dept) => (
+                                <SelectItem key={dept} value={dept}>
+                                    {dept}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                )}
                 <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                     <SelectTrigger className="w-[120px] h-8 text-xs">
                         <SelectValue placeholder="전체 분류" />
@@ -767,9 +830,9 @@ export default function ApprovalsPage() {
                         ))}
                     </SelectContent>
                 </Select>
-                {(categoryFilter !== "ALL" || statusFilter !== "ALL" || searchQuery) && (
+                {(categoryFilter !== "ALL" || statusFilter !== "ALL" || deptFilter !== "ALL" || searchQuery) && (
                     <button
-                        onClick={() => { setCategoryFilter("ALL"); setStatusFilter("ALL"); setSearchQuery(""); }}
+                        onClick={() => { setCategoryFilter("ALL"); setStatusFilter("ALL"); setDeptFilter("ALL"); setSearchQuery(""); }}
                         className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                     >
                         필터 초기화

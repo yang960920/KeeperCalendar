@@ -308,6 +308,66 @@ export async function getMyApprovals(userId: string) {
     }
 }
 
+// ─── 부서별 결재 목록 조회 (관리자 전용) ─────────────────────────────────────
+
+const APPROVAL_ADMIN_IDS = ["양현준", "유경성", "김권찬", "한승우", "진호열"];
+
+export async function getDepartmentApprovals(userId: string) {
+    if (!APPROVAL_ADMIN_IDS.includes(userId)) {
+        return { success: false, data: [] };
+    }
+
+    try {
+        // 전체 결재 목록 조회 (신청자의 부서 정보 포함)
+        const allRequests = await (prisma as any).approvalRequest.findMany({
+            include: {
+                steps: { orderBy: { stepOrder: "asc" } },
+                attachments: true,
+                requester: {
+                    select: { id: true, name: true, department: { select: { id: true, name: true } } },
+                },
+            },
+            orderBy: { createdAt: "desc" },
+        });
+
+        const serialized = allRequests.map((r: any) => ({
+            id: r.id,
+            title: r.title,
+            content: r.content,
+            category: r.category,
+            status: r.status,
+            requesterId: r.requesterId,
+            requesterName: r.requester?.name || r.requesterId,
+            departmentId: r.requester?.department?.id || null,
+            departmentName: r.requester?.department?.name || "미지정",
+            projectId: r.projectId,
+            formData: r.formData ? JSON.parse(r.formData) : null,
+            steps: r.steps.map((s: any) => ({
+                id: s.id,
+                approverId: s.approverId,
+                stepOrder: s.stepOrder,
+                status: s.status,
+                comment: s.comment,
+                actedAt: s.actedAt?.toISOString() || null,
+            })),
+            attachments: (r.attachments || []).map((a: any) => ({
+                id: a.id,
+                name: a.name,
+                url: a.url,
+                size: a.size,
+                type: a.type,
+            })),
+            createdAt: r.createdAt.toISOString(),
+            updatedAt: r.updatedAt.toISOString(),
+        }));
+
+        return { success: true, data: serialized };
+    } catch (error: any) {
+        console.error("Failed to get department approvals:", error);
+        return { success: false, data: [] };
+    }
+}
+
 // ─── 카테고리별 승인 후 자동화 ───────────────────────────────────────────────
 
 async function handlePostApproval(request: any) {

@@ -21,8 +21,14 @@ export const YearlyTaskList = ({ year, month }: YearlyTaskListProps) => {
 
     // 검색어 및 다이얼로그 상태
     const [searchTerm, setSearchTerm] = useState("");
-    const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+    const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+
+    // store에서 실시간으로 task를 가져와야 하위업무 추가 시 즉시 반영됨
+    const selectedTask = useMemo(
+        () => (selectedTaskId ? tasks.find(t => t.id === selectedTaskId) ?? null : null),
+        [tasks, selectedTaskId]
+    );
     const [page, setPage] = useState(1);
 
     useEffect(() => {
@@ -58,7 +64,7 @@ export const YearlyTaskList = ({ year, month }: YearlyTaskListProps) => {
     const paginatedTasks = filteredTasks.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
     const handleRowClick = (task: Task) => {
-        setSelectedTask(task);
+        setSelectedTaskId(task.id);
         setIsEditDialogOpen(true);
     };
 

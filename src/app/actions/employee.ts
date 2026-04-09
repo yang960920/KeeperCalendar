@@ -232,20 +232,22 @@ export async function loginUser(id: string, password: string) {
             return { success: false, error: "비밀번호가 일치하지 않습니다." };
         }
 
-        // 로그인 성공 → ActivityLog 기록 + 자동 출근 병렬 처리
-        const { autoClockIn } = await import("@/app/actions/attendance");
-        await Promise.allSettled([
-            prisma.activityLog.create({
-                data: {
-                    action: "LOGIN",
-                    entityType: "USER",
-                    entityId: user.id,
-                    details: `${user.name} 로그인`,
-                    userId: user.id,
-                },
-            }),
-            autoClockIn(user.id),
-        ]);
+        // 로그인 성공 → ActivityLog 기록 + 자동 출근을 fire-and-forget으로 처리
+        // (인증 응답을 빠르게 반환하기 위해 await하지 않음)
+        import("@/app/actions/attendance").then(({ autoClockIn }) => {
+            Promise.allSettled([
+                prisma.activityLog.create({
+                    data: {
+                        action: "LOGIN",
+                        entityType: "USER",
+                        entityId: user.id,
+                        details: `${user.name} 로그인`,
+                        userId: user.id,
+                    },
+                }),
+                autoClockIn(user.id),
+            ]).catch((err) => console.error("Login side-effects error:", err));
+        });
 
         // 보안상 비밀번호는 제외하고 반환
         const { password: _, ...userWithoutPassword } = user;

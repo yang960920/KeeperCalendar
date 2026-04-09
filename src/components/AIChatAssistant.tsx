@@ -35,7 +35,7 @@ export const AIChatAssistant = ({ projectId }: AIChatAssistantProps) => {
     const [input, setInput] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [showTaskForm, setShowTaskForm] = useState(false);
-    const [taskForm, setTaskForm] = useState({ startDate: "", endDate: "", description: "" });
+    const [taskForm, setTaskForm] = useState({ startDate: "", endDate: "", description: "", category: "" });
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -142,6 +142,7 @@ export const AIChatAssistant = ({ projectId }: AIChatAssistantProps) => {
                 endDate: taskForm.endDate,
                 description: taskForm.description,
                 userId: user.id,
+                category: taskForm.category || undefined,
             });
 
             setMessages(prev => [...prev, {
@@ -151,7 +152,7 @@ export const AIChatAssistant = ({ projectId }: AIChatAssistantProps) => {
             }]);
 
             if (result.success) {
-                setTaskForm({ startDate: "", endDate: "", description: "" });
+                setTaskForm({ startDate: "", endDate: "", description: "", category: "" });
                 // DB에서 생성된 Task를 클라이언트 스토어에 동기화
                 try {
                     const refreshed = await getInitialData(user.id);
@@ -314,6 +315,24 @@ export const AIChatAssistant = ({ projectId }: AIChatAssistantProps) => {
                                         onChange={(e) => setTaskForm({ ...taskForm, endDate: e.target.value })}
                                         className="flex-1 bg-muted/50 rounded-lg px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-violet-500/30"
                                     />
+                                </div>
+
+                                {/* 카테고리 */}
+                                <div className="flex items-center gap-2">
+                                    <FileText className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                                    <select
+                                        value={taskForm.category}
+                                        onChange={(e) => setTaskForm({ ...taskForm, category: e.target.value })}
+                                        className="flex-1 bg-muted/50 rounded-lg px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-violet-500/30 appearance-none cursor-pointer"
+                                    >
+                                        <option value="">카테고리 (AI 자동 판단)</option>
+                                        <option value="기획">기획</option>
+                                        <option value="개발">개발</option>
+                                        <option value="디자인">디자인</option>
+                                        <option value="회의">회의</option>
+                                        <option value="영업">영업</option>
+                                        <option value="기타">기타</option>
+                                    </select>
                                 </div>
 
                                 {/* 업무 내용 */}

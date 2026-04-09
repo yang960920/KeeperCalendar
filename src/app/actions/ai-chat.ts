@@ -153,6 +153,7 @@ export async function aiCreateTask(data: {
     endDate: string;     // YYYY-MM-DD
     description: string; // 사용자가 수기로 입력한 내용
     userId: string;
+    category?: string;   // 사용자가 직접 선택한 카테고리 (없으면 AI 판단)
 }): Promise<{ success: boolean; message: string; error?: string }> {
     try {
         if (!process.env.GEMINI_API_KEY) {
@@ -175,11 +176,12 @@ export async function aiCreateTask(data: {
             return { success: false, message: "", error: "AI 응답을 처리할 수 없습니다. 다시 시도해주세요." };
         }
 
-        // Task 생성
+        // Task 생성 (사용자가 카테고리를 선택했으면 AI 판단보다 우선)
+        const finalCategory = data.category || parsed.category || "업무";
         const result = await createTask({
             title: parsed.title || data.description.slice(0, 20),
             content: parsed.content || data.description,
-            category: parsed.category || "업무",
+            category: finalCategory,
             planned: parsed.planned || 1,
             assigneeId: data.userId,
             date: data.startDate,
@@ -189,7 +191,7 @@ export async function aiCreateTask(data: {
         if (result.success) {
             return {
                 success: true,
-                message: `✅ 업무가 등록되었습니다!\n\n**${parsed.title}**\n📁 ${parsed.category} | 📅 ${data.startDate} ~ ${data.endDate}\n📝 ${parsed.content}`,
+                message: `✅ 업무가 등록되었습니다!\n\n**${parsed.title}**\n📁 ${finalCategory} | 📅 ${data.startDate} ~ ${data.endDate}\n📝 ${parsed.content}`,
             };
         } else {
             return { success: false, message: "", error: result.error || "업무 등록에 실패했습니다." };

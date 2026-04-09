@@ -1,17 +1,22 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuthStore } from "@/store/useAuthStore";
-import { useTaskStore } from "@/store/useTaskStore";
-import { useProjectStore } from "@/store/useProjectStore";
 import { loginUser } from "@/app/actions/employee";
-import { getInitialData } from "@/app/actions/init";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck, Loader2 } from "lucide-react";
+
+const LOGIN_TIMEOUT_MS = 20_000; // 20초 타임아웃
+const STATUS_MESSAGES = [
+    { delay: 0, text: "서버에 연결하고 있습니다..." },
+    { delay: 3_000, text: "데이터베이스를 준비하고 있습니다..." },
+    { delay: 8_000, text: "첫 접속 시 시간이 걸릴 수 있습니다..." },
+    { delay: 15_000, text: "거의 완료되었습니다..." },
+];
 
 export default function LoginPage() {
     const login = useAuthStore((state) => state.login);
@@ -22,47 +27,79 @@ export default function LoginPage() {
     const [password, setPassword] = useState("");
 
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [statusMessage, setStatusMessage] = useState("");
+    const statusTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+    const clearTimers = useCallback(() => {
+        statusTimers.current.forEach(clearTimeout);
+        statusTimers.current = [];
+    }, []);
 
     // 로그인된 사용자가 접근하면 루트로 이동
-    // (이미 로그인 상태에서 /login 직접 접근 시 리다이렉트)
     useEffect(() => {
         if (isAuthenticated) {
             router.replace("/");
         }
     }, [isAuthenticated, router]);
 
+    // 컴포넌트 언마운트 시 타이머 정리
+    useEffect(() => clearTimers, [clearTimers]);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (isSubmitting) return;
         setIsSubmitting(true);
+        setStatusMessage(STATUS_MESSAGES[0].text);
+
+        // 단계별 상태 메시지 표시
+        clearTimers();
+        STATUS_MESSAGES.forEach(({ delay, text }) => {
+            if (delay > 0) {
+                statusTimers.current.push(setTimeout(() => setStatusMessage(text), delay));
+            }
+        });
+
+        // 타임아웃 처리
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), LOGIN_TIMEOUT_MS);
 
         try {
-            const res = await loginUser(id, password);
-            if (res.success && res.data) {
-                // 강제 DB 동기화 (Hydration) — login() 보다 먼저 실행
-                const initRes = await getInitialData(res.data.id);
-                if (initRes.success) {
-                    useProjectStore.setState({ projects: initRes.projects });
-                    useTaskStore.setState({ tasks: initRes.tasks });
-                }
+            const res = await Promise.race([
+                loginUser(id, password),
+                new Promise<never>((_, reject) => {
+                    controller.signal.addEventListener("abort", () =>
+                        reject(new Error("TIMEOUT"))
+                    );
+                }),
+            ]);
 
-                // 데이터 준비 완료 후 Zustand 상태 업데이트
+            clearTimeout(timeoutId);
+            clearTimers();
+
+            if (res.success && res.data) {
+                setStatusMessage("로그인 성공!");
                 login({
                     id: res.data.id,
                     name: res.data.name,
-                    role: res.data.role as any, // "CREATOR" | "PARTICIPANT"
+                    role: res.data.role as any,
                 });
-
-                // useEffect에서 isAuthenticated 변경 감지 → router.replace("/")로 이동
-                // 여기서 중복 push하지 않음 (이중 네비게이션 방지)
             } else {
                 alert(res.error || "로그인에 실패했습니다.");
                 setIsSubmitting(false);
+                setStatusMessage("");
             }
-        } catch (error) {
-            console.error(error);
-            alert("서버 오류가 발생했습니다.");
+        } catch (error: any) {
+            clearTimeout(timeoutId);
+            clearTimers();
+
+            if (error?.message === "TIMEOUT") {
+                alert("서버 응답이 지연되고 있습니다. 다시 시도해주세요.");
+            } else {
+                console.error(error);
+                alert("서버 오류가 발생했습니다.");
+            }
             setIsSubmitting(false);
+            setStatusMessage("");
         }
     };
 
@@ -108,8 +145,19 @@ export default function LoginPage() {
                     </div>
 
                     <Button type="submit" className="w-full mt-6" disabled={isSubmitting}>
-                        {isSubmitting ? "로그인 중..." : "로그인"}
+                        {isSubmitting ? (
+                            <span className="flex items-center gap-2">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                로그인 중...
+                            </span>
+                        ) : "로그인"}
                     </Button>
+
+                    {isSubmitting && statusMessage && (
+                        <p className="text-center text-sm text-muted-foreground mt-3 animate-pulse">
+                            {statusMessage}
+                        </p>
+                    )}
                 </form>
             </div>
         </div>

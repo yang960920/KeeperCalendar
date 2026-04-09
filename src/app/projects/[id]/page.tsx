@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, use, useEffect } from "react";
+import { useState, use, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { ChevronLeft, CalendarClock, CalendarDays, Columns3 } from "lucide-react";
@@ -40,7 +40,12 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     const projects = useProjectStore((state) => state.projects);
     const tasks = useStore(useTaskStore, (state) => state.tasks) || [];
 
-    const [selectedTask, setSelectedTask] = useState<any | null>(null);
+    const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+    // store에서 실시간으로 task를 가져와야 하위업무 추가 시 즉시 반영됨
+    const selectedTask = useMemo(
+        () => (selectedTaskId ? tasks.find(t => t.id === selectedTaskId) ?? null : null),
+        [tasks, selectedTaskId]
+    );
     const [users, setUsers] = useState<any[]>([]);
     const [viewTab, setViewTab] = useState<"calendar" | "board">("calendar");
 
@@ -206,7 +211,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                             year={selectedYear}
                             month={selectedMonth}
                             tasks={visibleTasks}
-                            onTaskClick={(t) => setSelectedTask(t)}
+                            onTaskClick={(t) => setSelectedTaskId(t.id)}
                             userRole={user?.role}
                             currentUserId={user?.id}
                             projectCreatorId={project.creatorId}
@@ -249,7 +254,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                     <EditTaskDialog
                         task={selectedTask}
                         open={!!selectedTask}
-                        onOpenChange={(open) => !open && setSelectedTask(null)}
+                        onOpenChange={(open) => !open && setSelectedTaskId(null)}
                         editMode={taskEditMode as 'full' | 'assignee' | 'readonly'}
                     />
                 );

@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/cron/keep-alive",
+      "schedule": "50 23 * * 0-4"
+    },
+    {
       "path": "/api/cron/weekly-report",
       "schedule": "0 9 * * 5"
     },
