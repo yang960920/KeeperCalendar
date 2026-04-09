@@ -293,7 +293,7 @@ export const AIChatAssistant = ({ projectId }: AIChatAssistantProps) => {
 
             {/* 채팅 패널 */}
             {isOpen && (
-                <div className="fixed bottom-40 right-8 z-50 w-[400px] max-h-[550px] bg-background border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 fade-in duration-300">
+                <div className="fixed bottom-40 right-8 z-50 w-[400px] max-h-[70vh] bg-background border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 fade-in duration-300">
                     {/* 헤더 */}
                     <div className="bg-gradient-to-r from-violet-500/10 to-indigo-500/10 border-b px-4 py-3 flex items-center gap-2">
                         <div className="h-8 w-8 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center">
@@ -339,6 +339,9 @@ export const AIChatAssistant = ({ projectId }: AIChatAssistantProps) => {
 
                         <div ref={messagesEndRef} />
                     </div>
+
+                    {/* 아코디언 폼 영역 (스크롤 가능) */}
+                    <div className="overflow-y-auto max-h-[40vh] shrink-0">
 
                     {/* 업무일지 작성 아코디언 폼 */}
                     <div className="border-t">
@@ -493,6 +496,8 @@ export const AIChatAssistant = ({ projectId }: AIChatAssistantProps) => {
                             </div>
                         )}
                     </div>
+
+                    </div>{/* 아코디언 폼 영역 끝 */}
 
                     {/* 프리셋 버튼 */}
                     <div className="px-4 py-2 border-t bg-muted/20">
