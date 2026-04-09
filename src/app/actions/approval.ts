@@ -318,48 +318,56 @@ export async function getDepartmentApprovals(userId: string) {
     }
 
     try {
-        // 전체 결재 목록 조회 (신청자의 부서 정보 포함)
+        // 전체 결재 목록 조회
         const allRequests = await (prisma as any).approvalRequest.findMany({
             include: {
                 steps: { orderBy: { stepOrder: "asc" } },
                 attachments: true,
-                requester: {
-                    select: { id: true, name: true, department: { select: { id: true, name: true } } },
-                },
             },
             orderBy: { createdAt: "desc" },
         });
 
-        const serialized = allRequests.map((r: any) => ({
-            id: r.id,
-            title: r.title,
-            content: r.content,
-            category: r.category,
-            status: r.status,
-            requesterId: r.requesterId,
-            requesterName: r.requester?.name || r.requesterId,
-            departmentId: r.requester?.department?.id || null,
-            departmentName: r.requester?.department?.name || "미지정",
-            projectId: r.projectId,
-            formData: r.formData ? JSON.parse(r.formData) : null,
-            steps: r.steps.map((s: any) => ({
-                id: s.id,
-                approverId: s.approverId,
-                stepOrder: s.stepOrder,
-                status: s.status,
-                comment: s.comment,
-                actedAt: s.actedAt?.toISOString() || null,
-            })),
-            attachments: (r.attachments || []).map((a: any) => ({
-                id: a.id,
-                name: a.name,
-                url: a.url,
-                size: a.size,
-                type: a.type,
-            })),
-            createdAt: r.createdAt.toISOString(),
-            updatedAt: r.updatedAt.toISOString(),
-        }));
+        // 신청자의 부서 정보를 별도 조회 (ApprovalRequest에 requester relation 없음)
+        const requesterIds = [...new Set(allRequests.map((r: any) => r.requesterId as string))];
+        const users = await (prisma as any).user.findMany({
+            where: { id: { in: requesterIds } },
+            include: { department: { select: { id: true, name: true } } },
+        });
+        const userMap = new Map((users as any[]).map((u: any) => [u.id, u]));
+
+        const serialized = allRequests.map((r: any) => {
+            const requester = userMap.get(r.requesterId);
+            return {
+                id: r.id,
+                title: r.title,
+                content: r.content,
+                category: r.category,
+                status: r.status,
+                requesterId: r.requesterId,
+                requesterName: requester?.name || r.requesterId,
+                departmentId: requester?.department?.id || null,
+                departmentName: requester?.department?.name || "미지정",
+                projectId: r.projectId,
+                formData: r.formData ? JSON.parse(r.formData) : null,
+                steps: r.steps.map((s: any) => ({
+                    id: s.id,
+                    approverId: s.approverId,
+                    stepOrder: s.stepOrder,
+                    status: s.status,
+                    comment: s.comment,
+                    actedAt: s.actedAt?.toISOString() || null,
+                })),
+                attachments: (r.attachments || []).map((a: any) => ({
+                    id: a.id,
+                    name: a.name,
+                    url: a.url,
+                    size: a.size,
+                    type: a.type,
+                })),
+                createdAt: r.createdAt.toISOString(),
+                updatedAt: r.updatedAt.toISOString(),
+            };
+        });
 
         return { success: true, data: serialized };
     } catch (error: any) {
