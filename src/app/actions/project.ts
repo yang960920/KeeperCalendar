@@ -9,6 +9,9 @@ export async function createProject(data: {
     endDate: string; // ISO 문자열
 }) {
     try {
+        // 생성자를 참여자에 자동 포함 (본인 업무 등록 가능)
+        const allParticipantIds = [...new Set([data.creatorId, ...data.participantIds])];
+
         const newProject = await prisma.project.create({
             data: {
                 name: data.title,
@@ -17,7 +20,7 @@ export async function createProject(data: {
                 startDate: new Date(),
                 endDate: new Date(data.endDate),
                 participants: {
-                    connect: data.participantIds.map(userId => ({
+                    connect: allParticipantIds.map(userId => ({
                         id: userId
                     }))
                 }
@@ -34,7 +37,7 @@ export async function createProject(data: {
                     action: "프로젝트 생성",
                     entityType: "PROJECT",
                     entityId: newProject.id,
-                    details: `"${data.title}" 프로젝트를 생성했습니다. (참여자: ${data.participantIds.length}명, 종료일: ${data.endDate})`,
+                    details: `"${data.title}" 프로젝트를 생성했습니다. (참여자: ${allParticipantIds.length}명, 종료일: ${data.endDate})`,
                     userId: data.creatorId,
                     projectId: newProject.id,
                 }
