@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuthStore } from "@/store/useAuthStore";
 import { loginUser } from "@/app/actions/employee";
@@ -21,7 +20,6 @@ const STATUS_MESSAGES = [
 export default function LoginPage() {
     const login = useAuthStore((state) => state.login);
     const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-    const router = useRouter();
 
     const [id, setId] = useState("");
     const [password, setPassword] = useState("");
@@ -35,12 +33,13 @@ export default function LoginPage() {
         statusTimers.current = [];
     }, []);
 
-    // 로그인된 사용자가 접근하면 루트로 이동
+    // 이미 로그인된 사용자가 /login 에 직접 접근하면 루트로 이동
+    // (로그인 직후 전환은 handleSubmit 안에서 window.location.replace 로 처리)
     useEffect(() => {
         if (isAuthenticated) {
-            router.replace("/");
+            window.location.replace("/");
         }
-    }, [isAuthenticated, router]);
+    }, [isAuthenticated]);
 
     // 컴포넌트 언마운트 시 타이머 정리
     useEffect(() => clearTimers, [clearTimers]);
@@ -83,6 +82,10 @@ export default function LoginPage() {
                     name: res.data.name,
                     role: res.data.role as any,
                 });
+                // 콜드 스타트 시 router.replace(소프트 네비)는 RSC 응답을 기다리다 멈춰 보일 수 있음.
+                // 하드 네비게이션으로 강제 이동시켜 브라우저가 "/" 진입 진행을 보여주도록 함.
+                window.location.replace("/");
+                return;
             } else {
                 alert(res.error || "로그인에 실패했습니다.");
                 setIsSubmitting(false);
