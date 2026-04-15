@@ -17,6 +17,7 @@ import { EditProjectDialog } from "@/components/EditProjectDialog";
 import { ManageParticipantsDialog } from "@/components/ManageParticipantsDialog";
 import { ProjectTaskListDialog } from "@/components/ProjectTaskListDialog";
 import { CloseProjectDialog, ClosedProjectBanner } from "@/components/CloseProjectDialog";
+import { DeleteProjectDialog } from "@/components/DeleteProjectDialog";
 import { AIChatAssistant } from "@/components/AIChatAssistant";
 import {
     Select,
@@ -96,6 +97,12 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     // 종료일 경과 확인
     const isOverdue = project.endDate && new Date(project.endDate) < new Date();
 
+    // 삭제 가능 조건: 책임자 + 활성 상태 + 생성 후 24시간 이내 + 업무 0건
+    const projectAllTasks = tasks.filter(t => t.projectId === projectId);
+    const createdAtMs = project.createdAt ? new Date(project.createdAt).getTime() : 0;
+    const isWithin24h = createdAtMs > 0 && (Date.now() - createdAtMs) <= 24 * 60 * 60 * 1000;
+    const canDelete = isProjectCreator && !isProjectClosed && isWithin24h && projectAllTasks.length === 0;
+
     return (
         <div className="min-h-screen bg-background text-foreground pb-20 p-8 max-w-7xl mx-auto flex flex-col h-full">
             <header className="mb-8 border-b pb-6">
@@ -126,14 +133,17 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                                 </span>
                             )}
                         </div>
-                        {/* Creator 전용 관리 버튼 */}
-                        {user?.role === "CREATOR" && user.id === project.creatorId && (
+                        {/* 프로젝트 책임자 전용 관리 버튼 */}
+                        {user && user.id === project.creatorId && (
                             <div className="flex items-center gap-2 mt-3">
                                 <EditProjectDialog project={project} userId={user.id} />
                                 <ManageParticipantsDialog project={project} userId={user.id} />
                                 <ProjectTaskListDialog projectId={projectId} />
                                 {!isProjectClosed && (
                                     <CloseProjectDialog projectId={projectId} projectTitle={project.title} userId={user.id} />
+                                )}
+                                {canDelete && (
+                                    <DeleteProjectDialog projectId={projectId} projectTitle={project.title} />
                                 )}
                             </div>
                         )}

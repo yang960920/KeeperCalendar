@@ -1,16 +1,25 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { requireSession } from "@/lib/session";
+
+const DELETE_GRACE_MS = 24 * 60 * 60 * 1000; // 24시간
 
 export async function createProject(data: {
     title: string;
-    creatorId: string;
+    creatorId: string;           // 프로젝트 책임자 (CREATOR 역할)
     participantIds: string[];
-    endDate: string; // ISO 문자열
+    endDate: string;             // ISO 문자열
+    requesterId?: string;        // 실제 생성 요청자 (책임자와 다르면 대리 생성)
 }) {
     try {
-        // 생성자를 참여자에 자동 포함 (본인 업무 등록 가능)
-        const allParticipantIds = [...new Set([data.creatorId, ...data.participantIds])];
+        // 책임자를 참여자에 자동 포함 (본인 업무 등록 가능)
+        // 대리 생성 시 요청자도 참여자에 포함 (클라이언트에서 이미 포함했을 수 있으나 안전 처리)
+        const baseParticipants = [data.creatorId, ...data.participantIds];
+        if (data.requesterId && data.requesterId !== data.creatorId) {
+            baseParticipants.push(data.requesterId);
+        }
+        const allParticipantIds = [...new Set(baseParticipants)];
 
         const newProject = await prisma.project.create({
             data: {
@@ -32,13 +41,20 @@ export async function createProject(data: {
 
         // 활동 로그 기록 (실패해도 프로젝트 생성에 영향 없음)
         try {
+            const isProxy = !!(data.requesterId && data.requesterId !== data.creatorId);
+            const logUserId = data.requesterId || data.creatorId;
+            const detailsBase = `"${data.title}" 프로젝트를 생성했습니다. (참여자: ${allParticipantIds.length}명, 종료일: ${data.endDate})`;
+            const details = isProxy
+                ? `${detailsBase} · 대리 생성 (책임자ID: ${data.creatorId})`
+                : detailsBase;
+
             await prisma.activityLog.create({
                 data: {
                     action: "프로젝트 생성",
                     entityType: "PROJECT",
                     entityId: newProject.id,
-                    details: `"${data.title}" 프로젝트를 생성했습니다. (참여자: ${allParticipantIds.length}명, 종료일: ${data.endDate})`,
-                    userId: data.creatorId,
+                    details,
+                    userId: logUserId,
                     projectId: newProject.id,
                 }
             });
@@ -265,6 +281,57 @@ export async function closeProject(data: {
     } catch (error: any) {
         console.error("Failed to close project:", error);
         return { success: false, error: "프로젝트 종료에 실패했습니다." };
+    }
+}
+
+export async function deleteProject(data: { projectId: string }) {
+    try {
+        const session = await requireSession();
+
+        const project = await prisma.project.findUnique({
+            where: { id: data.projectId },
+            include: { _count: { select: { tasks: true } } },
+        });
+        if (!project) {
+            return { success: false, error: "프로젝트를 찾을 수 없습니다." };
+        }
+        if (project.creatorId !== session.userId) {
+            return { success: false, error: "프로젝트 삭제 권한이 없습니다. (책임자만 가능)" };
+        }
+
+        const elapsed = Date.now() - new Date(project.createdAt).getTime();
+        if (elapsed > DELETE_GRACE_MS) {
+            return { success: false, error: "생성 후 24시간이 지난 프로젝트는 삭제할 수 없습니다. (종료 기능을 이용해주세요)" };
+        }
+
+        if (project._count.tasks > 0) {
+            return { success: false, error: `하위 업무가 ${project._count.tasks}건 등록돼 있어 삭제할 수 없습니다. 업무를 먼저 정리하거나 프로젝트 종료 기능을 이용해주세요.` };
+        }
+
+        await prisma.project.delete({ where: { id: data.projectId } });
+
+        // 활동 로그 (프로젝트 레퍼런스 없이 기록)
+        try {
+            await prisma.activityLog.create({
+                data: {
+                    action: "프로젝트 삭제",
+                    entityType: "PROJECT",
+                    entityId: data.projectId,
+                    details: `"${project.name}" 프로젝트를 삭제했습니다. (생성 후 ${Math.round(elapsed / 60000)}분 경과)`,
+                    userId: session.userId,
+                },
+            });
+        } catch (logErr) {
+            console.error("[ActivityLog] 프로젝트 삭제 로그 기록 실패:", logErr);
+        }
+
+        return { success: true };
+    } catch (error: any) {
+        console.error("Failed to delete project:", error);
+        if (typeof error?.message === "string" && error.message.includes("인증")) {
+            return { success: false, error: error.message };
+        }
+        return { success: false, error: "프로젝트 삭제에 실패했습니다." };
     }
 }
 

@@ -1,6 +1,14 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import bcrypt from "bcryptjs";
+import { requireSession } from "@/lib/session";
+
+const BCRYPT_ROUNDS = 10;
+
+function looksHashed(value: string): boolean {
+    return /^\$2[aby]\$/.test(value);
+}
 
 // 사용자 프로필 조회
 export async function getUserProfile(userId: string) {
@@ -41,12 +49,18 @@ export async function updateProfileImage(userId: string, imageUrl: string) {
 }
 
 // 비밀번호 변경
-export async function changePassword(userId: string, currentPassword: string, newPassword: string) {
+export async function changePassword(_userId: string, currentPassword: string, newPassword: string) {
     try {
-        const user = await prisma.user.findUnique({ where: { id: userId } });
+        // 서버 세션으로 본인 확인 (클라이언트 userId는 무시)
+        const session = await requireSession();
+        const user = await prisma.user.findUnique({ where: { id: session.userId } });
         if (!user) return { success: false, error: "사용자를 찾을 수 없습니다." };
 
-        if (user.password !== currentPassword) {
+        const currentOk = looksHashed(user.password)
+            ? await bcrypt.compare(currentPassword, user.password)
+            : user.password === currentPassword;
+
+        if (!currentOk) {
             return { success: false, error: "현재 비밀번호가 일치하지 않습니다." };
         }
 
@@ -54,9 +68,10 @@ export async function changePassword(userId: string, currentPassword: string, ne
             return { success: false, error: "새 비밀번호는 최소 4자 이상이어야 합니다." };
         }
 
+        const hashed = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
         await prisma.user.update({
-            where: { id: userId },
-            data: { password: newPassword },
+            where: { id: user.id },
+            data: { password: hashed },
         });
 
         return { success: true };

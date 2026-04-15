@@ -49,6 +49,7 @@ const statusLabel: Record<string, string> = {
 
 const categoryLabel: Record<string, string> = {
     VACATION: "휴 가 신 청 서", OVERTIME: "시간외근무 신청서", BUSINESS_TRIP: "외근/출장 보고서",
+    FIELD_WORK_PLAN: "외근/출장 계획서",
     EXPENSE: "지 출 결 의 서", GENERAL: "품 의 서", GRANT_APPLICATION: "정부과제 신청서",
     INSPECTION: "납품/검수확인서",
     TAX_INVOICE: "세금계산서 발행 요청서",
@@ -347,6 +348,82 @@ function renderBusinessTrip(a: PdfApproval, emps: PdfEmployee[]): string {
     return `${renderWriterInfo(a, emps)}${cardsHtml}${purposeHtml}${scheduleHtml}${achieveHtml}${followupHtml}${expenseHtml}`;
 }
 
+// ─── 외근/출장 계획서 (FIELD_WORK_PLAN) ───────────────────────────────────────
+
+function renderFieldWorkPlan(a: PdfApproval, emps: PdfEmployee[]): string {
+    const fd = a.formData || {};
+    const schedules: any[] = fd.schedules || [];
+
+    // 기본 정보
+    const tripTypeLabel = fd.tripType === "기타" && fd.tripTypeEtc
+        ? `기타 (${fd.tripTypeEtc})`
+        : fd.tripType || "외근";
+    const startDate = fd.tripStartDate || "";
+    const endDate = fd.tripEndDate || "";
+    let durationText = "";
+    if (startDate && endDate) {
+        const s = new Date(startDate);
+        const e = new Date(endDate);
+        const days = Math.round((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        if (days > 0) durationText = ` (총 ${days}일간)`;
+    } else if (startDate) {
+        durationText = ` (총 1일간)`;
+    }
+    const dateDisplay = endDate && startDate !== endDate ? `${startDate} ~ ${endDate}` : startDate;
+
+    // 개요 카드
+    const cardsHtml = `<div class="sl">기본 정보</div><div class="ic">
+        <div class="icc"><div class="ico" style="background:#6366f1;">T</div><div><div class="lbl">구 분</div><div class="val">${tripTypeLabel}</div></div></div>
+        <div class="icc"><div class="ico" style="background:#3b82f6;">D</div><div><div class="lbl">기 간</div><div class="val">${dateDisplay}${durationText}</div></div></div>
+        <div class="icc"><div class="ico" style="background:#10b981;">V</div><div><div class="lbl">방문처</div><div class="val">${fd.visitCompany || ""}</div><div class="sub2">${fd.visitPlace || ""}</div></div></div>
+    </div>`;
+
+    // 방문 목적
+    const purposeHtml = fd.purpose ? `<div class="sl">방문 목적</div><table class="ft"><tr><th style="width:90px;vertical-align:top;">목 적</th><td class="content-pre">${fd.purpose}</td></tr></table>` : "";
+
+    // 세부 일정
+    let scheduleHtml = "";
+    if (schedules.some((s: any) => s.content || s.place)) {
+        scheduleHtml = `<div class="sl">세부 일정</div><table class="ft"><thead><tr>
+            <th class="dth" style="width:36px">No.</th><th class="dth" style="width:120px">일자</th><th class="dth" style="width:110px">시간</th><th class="dth" style="width:150px">방문처/장소</th><th class="dth">세부 업무 내용</th>
+        </tr></thead><tbody>`;
+        schedules.forEach((s: any, i: number) => {
+            if (s.content || s.place) scheduleHtml += `<tr><td class="c">${i + 1}</td><td class="c">${s.date || ""}</td><td class="c">${s.time || ""}</td><td>${s.place || ""}</td><td>${s.content || ""}</td></tr>`;
+        });
+        scheduleHtml += `</tbody></table>`;
+    }
+
+    // 경비 (예상)
+    const exp = fd.expenses || {};
+    const expCats = [
+        { key: "transport", label: "교통비" },
+        { key: "lodging", label: "숙박비" },
+        { key: "meal", label: "식비" },
+        { key: "etc", label: "기타" },
+    ];
+    let expTotal = 0;
+    const hasExpense = expCats.some((c) => Number(exp[c.key]) > 0);
+    let expenseHtml = "";
+    if (hasExpense) {
+        expenseHtml = `<div class="sl">경비 내역 (예상)</div><table class="ft"><thead><tr>
+            <th class="dth" style="width:110px">항목</th><th class="dth" style="width:130px;text-align:right;">금액</th><th class="dth" style="width:100px">결제 수단</th><th class="dth">비고</th>
+        </tr></thead><tbody>`;
+        expCats.forEach((c) => {
+            const amt = Number(exp[c.key]) || 0;
+            expTotal += amt;
+            const pay = fd[`${c.key}PayMethod`] || "";
+            const note = fd[`${c.key}Note`] || "";
+            expenseHtml += `<tr><td class="c">${c.label}</td><td class="r bold">${amt > 0 ? fmtNum(amt) : "-"}</td><td class="c">${amt > 0 ? pay : ""}</td><td>${note}</td></tr>`;
+        });
+        expenseHtml += `<tr class="sub"><td class="r" style="padding-right:14px;">합 계</td><td class="r bold">${fmtNum(expTotal)}</td><td colspan="2"></td></tr></tbody></table>`;
+    }
+
+    // 특이사항
+    const remarksHtml = fd.remarks ? `<div class="sl">특이사항 / 비고</div><table class="ft"><tr><th style="width:90px;vertical-align:top;">비 고</th><td class="content-pre">${fd.remarks}</td></tr></table>` : "";
+
+    return `${renderWriterInfo(a, emps)}${cardsHtml}${purposeHtml}${scheduleHtml}${expenseHtml}${remarksHtml}`;
+}
+
 // ─── 납품/검수확인서 (INSPECTION) ─────────────────────────────────────────────
 
 function renderInspection(a: PdfApproval, emps: PdfEmployee[]): string {
@@ -566,6 +643,10 @@ function renderDocument(approval: PdfApproval, employees: PdfEmployee[]): string
         case "BUSINESS_TRIP":
             bodyContent = renderBusinessTrip(approval, employees);
             closingText = "위와 같이 외근/출장 결과를 보고합니다.";
+            break;
+        case "FIELD_WORK_PLAN":
+            bodyContent = renderFieldWorkPlan(approval, employees);
+            closingText = "상기 내용과 같이 외근/출장 계획을 보고하오니 승인하여 주시기 바랍니다.";
             break;
         case "INSPECTION":
             bodyContent = renderInspection(approval, employees);

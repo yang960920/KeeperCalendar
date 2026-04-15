@@ -30,6 +30,7 @@ const APPROVAL_CATEGORIES = [
     { value: "VACATION", label: "휴가" },
     { value: "OVERTIME", label: "시간외근무" },
     { value: "BUSINESS_TRIP", label: "외근/출장" },
+    { value: "FIELD_WORK_PLAN", label: "외근/출장계획" },
     { value: "EXPENSE", label: "지출결의" },
     { value: "GENERAL", label: "품의서" },
     { value: "INSPECTION", label: "납품/검수" },
@@ -477,6 +478,7 @@ export const AIChatAssistant = ({ projectId }: AIChatAssistantProps) => {
                                         approvalForm.category === "VACATION" ? "예) 4/21~4/23 연차 사용합니다" :
                                         approvalForm.category === "OVERTIME" ? "예) 4/15 저녁 6시부터 9시까지 시간외근무" :
                                         approvalForm.category === "BUSINESS_TRIP" ? "예) 4/15 동탄 현대건설 현장 방문, 택시비 15000원" :
+                                        approvalForm.category === "FIELD_WORK_PLAN" ? "예) 5/2~5/3 부산 OO건설 현장 방문 예정, 교통비 5만원 숙박비 8만원 예상" :
                                         "결재 내용을 자유롭게 입력하세요..."
                                     }
                                     rows={3}

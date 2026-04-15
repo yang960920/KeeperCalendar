@@ -28,6 +28,8 @@ export const CreateProjectDialog = () => {
     const [users, setUsers] = useState<any[]>([]);
     const [search, setSearch] = useState("");
     const [expandedDepts, setExpandedDepts] = useState<Set<string>>(new Set());
+    // 프로젝트 책임자 (CREATOR). 본인이 CREATOR면 기본값 = 본인, 아니면 미선택
+    const [ownerId, setOwnerId] = useState<string>("");
 
     useEffect(() => {
         async function fetchUsers() {
@@ -40,10 +42,23 @@ export const CreateProjectDialog = () => {
         setEndDate(format(addMonths(new Date(), 1), "yyyy-MM-dd"));
     }, []);
 
-    // Only creators can create projects
-    if (user?.role !== "CREATOR") return null;
+    // 본인이 CREATOR면 기본 책임자 = 본인
+    useEffect(() => {
+        if (user?.role === "CREATOR" && !ownerId) {
+            setOwnerId(user.id);
+        }
+    }, [user, ownerId]);
 
-    const availableUsers = users.filter(u => u.id !== user.id);
+    if (!user) return null;
+
+    // 책임자 후보: CREATOR 역할만
+    const creatorCandidates = useMemo(
+        () => users.filter((u) => u.role === "CREATOR"),
+        [users]
+    );
+
+    // 참여자 선택 후보: 선택된 책임자를 제외한 전체
+    const availableUsers = users.filter((u) => u.id !== ownerId);
 
     // 검색 필터
     const filtered = useMemo(() => {
@@ -107,13 +122,24 @@ export const CreateProjectDialog = () => {
             alert("프로젝트 종료일을 지정해주세요.");
             return;
         }
+        if (!ownerId) {
+            alert("프로젝트 책임자를 지정해주세요.");
+            return;
+        }
+
+        // 본인이 책임자가 아닌 경우(=대리 생성) 본인을 참여자에 자동 포함
+        const isProxyCreate = ownerId !== user.id;
+        const finalParticipants = isProxyCreate && !selectedParticipants.includes(user.id)
+            ? [user.id, ...selectedParticipants]
+            : selectedParticipants;
 
         try {
             const result = await createProject({
                 title,
-                creatorId: user.id,
-                participantIds: selectedParticipants,
+                creatorId: ownerId,
+                participantIds: finalParticipants,
                 endDate,
+                requesterId: user.id,
             });
 
             if (result.success && result.data) {
@@ -121,7 +147,7 @@ export const CreateProjectDialog = () => {
                     id: result.data.id,
                     title: result.data.name,
                     creatorId: result.data.creatorId,
-                    participantIds: selectedParticipants,
+                    participantIds: finalParticipants,
                     createdAt: result.data.createdAt.toISOString(),
                     endDate: result.data.endDate.toISOString(),
                 } as any);
@@ -131,6 +157,7 @@ export const CreateProjectDialog = () => {
                 setSelectedParticipants([]);
                 setSearch("");
                 setExpandedDepts(new Set());
+                setOwnerId(user.role === "CREATOR" ? user.id : "");
                 setOpen(false);
             } else {
                 alert(result.error || "프로젝트 생성 실패");
@@ -163,6 +190,41 @@ export const CreateProjectDialog = () => {
                             placeholder="예: 홈페이지 리뉴얼"
                             required
                         />
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label htmlFor="ownerId">
+                            프로젝트 책임자
+                            {user.role !== "CREATOR" && (
+                                <span className="text-xs text-muted-foreground ml-1">(대리 생성 시 책임자 지정 필수)</span>
+                            )}
+                        </Label>
+                        <select
+                            id="ownerId"
+                            value={ownerId}
+                            onChange={(e) => {
+                                const newOwner = e.target.value;
+                                setOwnerId(newOwner);
+                                // 책임자가 참여자 목록에 포함돼 있으면 제거
+                                setSelectedParticipants((prev) => prev.filter((id) => id !== newOwner));
+                            }}
+                            required
+                            className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                        >
+                            <option value="">책임자를 선택하세요</option>
+                            {creatorCandidates.map((c) => (
+                                <option key={c.id} value={c.id}>
+                                    {c.name}
+                                    {c.department?.name ? ` (${c.department.name})` : ""}
+                                    {c.id === user.id ? " · 본인" : ""}
+                                </option>
+                            ))}
+                        </select>
+                        {user.role !== "CREATOR" && ownerId && ownerId !== user.id && (
+                            <p className="text-xs text-muted-foreground">
+                                본인({user.name})은 참여자로 자동 포함됩니다.
+                            </p>
+                        )}
                     </div>
 
                     <div className="grid gap-2">

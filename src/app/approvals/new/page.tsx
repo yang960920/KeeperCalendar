@@ -21,6 +21,7 @@ import {
     Upload,
     File as FileIcon,
     ClipboardCheck,
+    Navigation,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,6 +51,7 @@ const CATEGORY_OPTIONS = [
     { value: "VACATION",          label: "휴가",       icon: Calendar,   desc: "연차, 반차, 병가 등" },
     { value: "OVERTIME",          label: "시간외근무",  icon: Clock,      desc: "야근, 휴일근무" },
     { value: "BUSINESS_TRIP",     label: "외근/출장",   icon: MapPin,     desc: "외근 및 출장 결과 보고" },
+    { value: "FIELD_WORK_PLAN",   label: "외근/출장계획", icon: Navigation, desc: "외근/출장 사전 계획서" },
     { value: "EXPENSE",           label: "지출결의",    icon: DollarSign, desc: "지출 내역 정산 및 송금 요청" },
     { value: "GENERAL",           label: "품의서",      icon: FileText,   desc: "구매, 계약 등 일반 품의" },
     { value: "GRANT_APPLICATION", label: "정부과제",    icon: FileText,   desc: "정부과제 신청" },
@@ -614,6 +616,385 @@ function BusinessTripDocFormFields({
                 {/* ── 하단 서명 미리보기 ── */}
                 <div className="text-center px-6 sm:px-8 pb-8 text-sm text-slate-500 dark:text-slate-400 leading-loose">
                     <p>위와 같이 외근/출장 결과를 보고합니다.</p>
+                    <p className="font-medium text-slate-700 dark:text-slate-300 mt-2">
+                        {dateStr.replace(/\. /g, "년 ").replace(/\.$/, "") + "일"}
+                    </p>
+                    <p className="mt-1">
+                        <span className="text-slate-400">{userDepartment}</span>
+                        &nbsp;&nbsp;
+                        <span className="font-semibold text-slate-800 dark:text-slate-200 text-base">
+                            {userName.split("").join(" ")}
+                        </span>
+                        <span className="text-slate-400 ml-2">(인)</span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ─── 외근/출장 계획서 (FIELD_WORK_PLAN) 문서형 폼 ────────────────────────────
+
+const PLAN_TRIP_TYPES = ["외근", "국내출장", "해외출장", "기타"];
+const PLAN_EXPENSE_CATEGORIES = [
+    { key: "transport", label: "교통비" },
+    { key: "lodging", label: "숙박비" },
+    { key: "meal", label: "식비" },
+    { key: "etc", label: "기타" },
+];
+
+function FieldWorkPlanFormFields({
+    formData,
+    onChange,
+    userName,
+    userDepartment,
+}: {
+    formData: Record<string, any>;
+    onChange: (data: Record<string, any>) => void;
+    userName: string;
+    userDepartment: string;
+}) {
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}. ${String(today.getMonth() + 1).padStart(2, "0")}. ${String(today.getDate()).padStart(2, "0")}`;
+
+    const schedules: any[] = formData.schedules || [];
+    const expenses: Record<string, string> = formData.expenses || {};
+
+    // 다음 우편번호 API 스크립트 로드
+    useEffect(() => {
+        if (document.getElementById("daum-postcode-script")) return;
+        const script = document.createElement("script");
+        script.id = "daum-postcode-script";
+        script.src = "//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
+        script.async = true;
+        document.head.appendChild(script);
+    }, []);
+
+    const openPostcode = () => {
+        const daum = (window as any).daum;
+        if (!daum?.Postcode) {
+            alert("주소 검색 서비스를 불러오는 중입니다. 잠시 후 다시 시도해주세요.");
+            return;
+        }
+        new daum.Postcode({
+            oncomplete: (data: any) => {
+                const address = data.roadAddress || data.jibunAddress;
+                onChange({ ...formData, visitPlace: address });
+            },
+        }).open();
+    };
+
+    // 기간(일수) 계산
+    const tripDays = useMemo(() => {
+        const sd = formData.tripStartDate;
+        const ed = formData.tripEndDate;
+        if (!sd) return 0;
+        if (!ed || sd === ed) return 1;
+        const s = new Date(sd);
+        const e = new Date(ed);
+        if (e < s) return 0;
+        return Math.round((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    }, [formData.tripStartDate, formData.tripEndDate]);
+
+    // 경비 합계
+    const expenseTotal = useMemo(() => {
+        return PLAN_EXPENSE_CATEGORIES.reduce(
+            (sum, c) => sum + (Number(expenses[c.key]) || 0),
+            0,
+        );
+    }, [expenses]);
+
+    // ── 세부 일정 행 조작 ──
+    const updateSchedule = (i: number, field: string, value: string) => {
+        const next = schedules.map((s: any, idx: number) => (idx === i ? { ...s, [field]: value } : s));
+        onChange({ ...formData, schedules: next });
+    };
+    const addScheduleRow = () => {
+        if (schedules.length >= 8) return;
+        onChange({ ...formData, schedules: [...schedules, { date: "", time: "", place: "", content: "" }] });
+    };
+    const removeScheduleRow = (i: number) => {
+        if (schedules.length <= 1) return;
+        onChange({ ...formData, schedules: schedules.filter((_: any, idx: number) => idx !== i) });
+    };
+
+    // ── 경비 업데이트 ──
+    const updateExpense = (key: string, value: string) => {
+        onChange({ ...formData, expenses: { ...expenses, [key]: value } });
+    };
+
+    const TH = "border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 px-4 py-2.5 text-center font-medium text-slate-600 dark:text-slate-400";
+    const TD = "border border-slate-300 dark:border-slate-600 px-1 py-0.5";
+    const DARK_TH = "bg-slate-800 dark:bg-slate-900 text-white text-xs font-medium px-2 py-2.5 border border-slate-700";
+    const SL = "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 pl-3 border-l-[3px] border-slate-800 dark:border-slate-400";
+
+    return (
+        <div className="rounded-xl border overflow-hidden shadow-sm">
+            {/* ── 문서 헤더 ── */}
+            <div className="bg-slate-800 text-white px-6 sm:px-8 py-6 flex justify-between items-center">
+                <h2 className="text-2xl font-bold tracking-[0.15em]">외근/출장 계획서</h2>
+                <div className="text-right text-sm text-slate-400 leading-relaxed">
+                    작 성 일 : <span className="text-white font-medium">{dateStr}</span>
+                </div>
+            </div>
+
+            <div className="bg-background">
+                {/* ── 작성자 정보 ── */}
+                <div className="px-6 sm:px-8 pt-6">
+                    <div className={SL}>작성자 정보</div>
+                    <table className="w-full border-collapse text-sm mb-6">
+                        <tbody>
+                            <tr>
+                                <th className={`${TH} w-[100px]`}>성 명</th>
+                                <td className="border border-slate-300 dark:border-slate-600 px-4 py-2.5 font-medium">{userName}</td>
+                                <th className={`${TH} w-[100px]`}>부 서</th>
+                                <td className="border border-slate-300 dark:border-slate-600 px-4 py-2.5">{userDepartment}</td>
+                            </tr>
+                            <tr>
+                                <th className={TH}>직 급</th>
+                                <td className="border border-slate-300 dark:border-slate-600 px-4 py-2.5">
+                                    <input className={DOC_INPUT} placeholder="직급" value={formData.position || ""} onChange={(e) => onChange({ ...formData, position: e.target.value })} />
+                                </td>
+                                <th className={TH}>연락처</th>
+                                <td className="border border-slate-300 dark:border-slate-600 px-4 py-2.5">
+                                    <input className={DOC_INPUT} placeholder="010-0000-0000" value={formData.contact || ""} onChange={(e) => onChange({ ...formData, contact: e.target.value })} />
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* ── 기본 정보 (구분 / 기간 / 방문처) ── */}
+                <div className="px-6 sm:px-8 mb-6">
+                    <div className={SL}>기본 정보</div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {/* 구분 */}
+                        <div className="border border-slate-200 dark:border-slate-700 rounded-lg p-4 flex gap-3 sm:col-span-2">
+                            <div className="w-9 h-9 rounded-lg bg-indigo-500 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">T</div>
+                            <div className="flex-1 space-y-2">
+                                <div className="text-xs text-slate-400 font-medium">구 분</div>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {PLAN_TRIP_TYPES.map((t) => {
+                                        const active = (formData.tripType || "외근") === t;
+                                        return (
+                                            <button
+                                                key={t}
+                                                type="button"
+                                                onClick={() => onChange({ ...formData, tripType: t })}
+                                                className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
+                                                    active
+                                                        ? "border-primary bg-primary/10 text-primary"
+                                                        : "border-slate-200 dark:border-slate-700 bg-background text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800"
+                                                }`}
+                                            >
+                                                {t}
+                                            </button>
+                                        );
+                                    })}
+                                    {formData.tripType === "기타" && (
+                                        <input
+                                            className={`${DOC_INPUT} text-xs w-40`}
+                                            placeholder="기타 내용"
+                                            value={formData.tripTypeEtc || ""}
+                                            onChange={(e) => onChange({ ...formData, tripTypeEtc: e.target.value })}
+                                        />
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 기간 */}
+                        <div className="border border-slate-200 dark:border-slate-700 rounded-lg p-4 flex gap-3">
+                            <div className="w-9 h-9 rounded-lg bg-blue-500 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">D</div>
+                            <div className="flex-1 space-y-1.5">
+                                <div className="text-xs text-slate-400 font-medium">기 간</div>
+                                <div className="flex items-center gap-1.5">
+                                    <input type="date" className={`${DOC_INPUT} text-sm font-medium`} value={formData.tripStartDate || ""} onChange={(e) => onChange({ ...formData, tripStartDate: e.target.value })} />
+                                    <span className="text-xs text-slate-400">~</span>
+                                    <input type="date" className={`${DOC_INPUT} text-sm font-medium`} value={formData.tripEndDate || ""} onChange={(e) => onChange({ ...formData, tripEndDate: e.target.value })} />
+                                </div>
+                                {tripDays > 0 && (
+                                    <div className="text-xs text-blue-500 font-medium">총 {tripDays}일간</div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* 방문처 */}
+                        <div className="border border-slate-200 dark:border-slate-700 rounded-lg p-4 flex gap-3">
+                            <div className="w-9 h-9 rounded-lg bg-emerald-500 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">V</div>
+                            <div className="flex-1 space-y-1.5">
+                                <div className="text-xs text-slate-400 font-medium">방문처</div>
+                                <input className={`${DOC_INPUT} text-sm font-medium`} placeholder="기관 / 회사명" value={formData.visitCompany || ""} onChange={(e) => onChange({ ...formData, visitCompany: e.target.value })} />
+                                <div className="flex items-center gap-1.5">
+                                    <input
+                                        className={`${DOC_INPUT} text-xs flex-1 cursor-pointer`}
+                                        placeholder="클릭하여 주소 검색"
+                                        value={formData.visitPlace || ""}
+                                        readOnly
+                                        onClick={openPostcode}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={openPostcode}
+                                        className="shrink-0 px-2.5 py-1.5 text-xs font-medium rounded-md border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
+                                    >
+                                        <Search className="h-3.5 w-3.5 inline -mt-0.5 mr-1" />
+                                        주소 검색
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* ── 방문 목적 ── */}
+                <div className="px-6 sm:px-8 mb-6">
+                    <div className={SL}>방문 목적</div>
+                    <table className="w-full border-collapse text-sm">
+                        <tbody>
+                            <tr>
+                                <th className={`${TH} w-[100px] align-top`}>목 적</th>
+                                <td className="border border-slate-300 dark:border-slate-600 px-4 py-3">
+                                    <textarea
+                                        className="w-full border-0 bg-transparent px-1 py-1 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none resize-none min-h-[80px]"
+                                        placeholder="외근/출장 목적을 구체적으로 작성하세요"
+                                        value={formData.purpose || ""}
+                                        onChange={(e) => onChange({ ...formData, purpose: e.target.value })}
+                                    />
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* ── 세부 일정 ── */}
+                <div className="px-6 sm:px-8 mb-6">
+                    <div className="flex items-center justify-between mb-1">
+                        <div className={SL.replace("mb-3", "mb-0")}>세부 일정</div>
+                        {schedules.length < 8 && (
+                            <button type="button" onClick={addScheduleRow} className="flex items-center gap-1 text-xs text-primary hover:underline">
+                                <Plus className="h-3 w-3" /> 행 추가
+                            </button>
+                        )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-3">일자별 세부 일정을 작성해주세요.</p>
+                    <div className="overflow-x-auto -mx-6 px-6 sm:-mx-8 sm:px-8">
+                        <table className="w-full border-collapse text-sm min-w-[640px]">
+                            <thead>
+                                <tr>
+                                    <th className={`${DARK_TH} w-[36px]`}>No.</th>
+                                    <th className={`${DARK_TH} w-[130px]`}>일자</th>
+                                    <th className={`${DARK_TH} w-[120px]`}>시간</th>
+                                    <th className={`${DARK_TH} w-[160px]`}>방문처/장소</th>
+                                    <th className={DARK_TH}>세부 업무 내용</th>
+                                    <th className={`${DARK_TH} w-[28px]`}></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {schedules.map((s: any, i: number) => (
+                                    <tr key={i} className={i % 2 === 1 ? "bg-slate-50/50 dark:bg-slate-800/30" : ""}>
+                                        <td className={`${TD} text-center text-xs font-semibold text-slate-500 px-2`}>{i + 1}</td>
+                                        <td className={TD}>
+                                            <input type="date" className={`${DOC_INPUT} text-xs`} value={s.date || ""} onChange={(e) => updateSchedule(i, "date", e.target.value)} />
+                                        </td>
+                                        <td className={TD}>
+                                            <input className={`${DOC_INPUT} text-xs text-center`} placeholder="09:00 ~ 10:00" value={s.time || ""} onChange={(e) => updateSchedule(i, "time", e.target.value)} />
+                                        </td>
+                                        <td className={TD}>
+                                            <input className={`${DOC_INPUT} text-xs`} placeholder="방문처 / 장소" value={s.place || ""} onChange={(e) => updateSchedule(i, "place", e.target.value)} />
+                                        </td>
+                                        <td className={TD}>
+                                            <input className={`${DOC_INPUT} text-xs`} placeholder="세부 업무 내용" value={s.content || ""} onChange={(e) => updateSchedule(i, "content", e.target.value)} />
+                                        </td>
+                                        <td className={`${TD} text-center`}>
+                                            {schedules.length > 1 && (
+                                                <button type="button" onClick={() => removeScheduleRow(i)} className="text-slate-400 hover:text-red-500 transition-colors">
+                                                    <Trash2 className="h-3 w-3" />
+                                                </button>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {/* ── 경비 내역 (예상) ── */}
+                <div className="px-6 sm:px-8 mb-6">
+                    <div className={SL}>경비 내역 (예상)</div>
+                    <div className="overflow-x-auto -mx-6 px-6 sm:-mx-8 sm:px-8">
+                        <table className="w-full border-collapse text-sm min-w-[540px]">
+                            <thead>
+                                <tr>
+                                    <th className={`${TH} w-[120px] text-xs`}>항목</th>
+                                    <th className={`${TH} w-[140px] text-xs`} style={{ textAlign: "right" }}>금액</th>
+                                    <th className={`${TH} w-[120px] text-xs`}>결제 수단</th>
+                                    <th className={`${TH} text-xs`}>비고</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {PLAN_EXPENSE_CATEGORIES.map((c, i) => {
+                                    const amount = expenses[c.key] || "";
+                                    const payKey = `${c.key}PayMethod`;
+                                    const noteKey = `${c.key}Note`;
+                                    return (
+                                        <tr key={c.key} className={i % 2 === 1 ? "bg-slate-50/50 dark:bg-slate-800/30" : ""}>
+                                            <th className={`${TH} text-xs text-center`}>{c.label}</th>
+                                            <td className={TD}>
+                                                <input className={`${DOC_INPUT} text-xs text-right font-semibold`} type="number" placeholder="0" value={amount} onChange={(e) => updateExpense(c.key, e.target.value)} />
+                                            </td>
+                                            <td className={TD}>
+                                                <select className={`${DOC_SELECT} text-xs`} value={formData[payKey] || "법인카드"} onChange={(e) => onChange({ ...formData, [payKey]: e.target.value })}>
+                                                    <option value="법인카드">법인카드</option>
+                                                    <option value="개인카드">개인카드</option>
+                                                    <option value="현금">현금</option>
+                                                </select>
+                                            </td>
+                                            <td className={TD}>
+                                                <input className={`${DOC_INPUT} text-xs`} placeholder="비고" value={formData[noteKey] || ""} onChange={(e) => onChange({ ...formData, [noteKey]: e.target.value })} />
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                                {/* 합계 */}
+                                <tr className="border-t-2 border-slate-400 dark:border-slate-500">
+                                    <td className="border border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 text-right px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-400">
+                                        합 계
+                                    </td>
+                                    <td className="border border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 text-right px-2 py-2.5 text-sm font-bold tabular-nums">
+                                        {expenseTotal.toLocaleString()}
+                                    </td>
+                                    <td colSpan={2} className="border border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-800"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {/* ── 특이사항 / 비고 ── */}
+                <div className="px-6 sm:px-8 mb-6">
+                    <div className={SL}>특이사항 / 비고</div>
+                    <table className="w-full border-collapse text-sm">
+                        <tbody>
+                            <tr>
+                                <th className={`${TH} w-[100px] align-top`}>비 고</th>
+                                <td className="border border-slate-300 dark:border-slate-600 px-4 py-3">
+                                    <textarea
+                                        className="w-full border-0 bg-transparent px-1 py-1 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none resize-none min-h-[80px]"
+                                        placeholder="특이사항 또는 참고사항을 작성하세요 (선택)"
+                                        value={formData.remarks || ""}
+                                        onChange={(e) => onChange({ ...formData, remarks: e.target.value })}
+                                    />
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* ── 하단 서명 미리보기 ── */}
+                <div className="text-center px-6 sm:px-8 pb-8 text-sm text-slate-500 dark:text-slate-400 leading-loose">
+                    <p>상기 내용과 같이 외근/출장 계획을 보고하오니 승인하여 주시기 바랍니다.</p>
                     <p className="font-medium text-slate-700 dark:text-slate-300 mt-2">
                         {dateStr.replace(/\. /g, "년 ").replace(/\.$/, "") + "일"}
                     </p>
@@ -2185,6 +2566,19 @@ export default function NewApprovalPage() {
                     tripExpenses: [{ category: "", content: "", amount: "", payMethod: "법인카드" }],
                 });
                 break;
+            case "FIELD_WORK_PLAN":
+                setFormData({
+                    position: "", contact: "",
+                    tripType: "외근", tripTypeEtc: "",
+                    tripStartDate: "", tripEndDate: "",
+                    visitCompany: "", visitPlace: "",
+                    purpose: "", remarks: "",
+                    schedules: [{ date: "", time: "", place: "", content: "" }],
+                    expenses: { transport: "", lodging: "", meal: "", etc: "" },
+                    transportPayMethod: "법인카드", lodgingPayMethod: "법인카드",
+                    mealPayMethod: "법인카드", etcPayMethod: "법인카드",
+                });
+                break;
             case "EXPENSE":
                 setFormData({
                     position: "", periodStart: "", periodEnd: "", periodLabel: "", linkedDocs: "", remarks: "",
@@ -2310,6 +2704,11 @@ export default function NewApprovalPage() {
             case "PERSONAL_EXPENSE":
                 totalAmount = (formData.expenseItems || []).reduce((s: number, it: any) => s + (Number(it.amount) || 0), 0);
                 break;
+            case "FIELD_WORK_PLAN": {
+                const exp = formData.expenses || {};
+                totalAmount = ["transport", "lodging", "meal", "etc"].reduce((s: number, k: string) => s + (Number(exp[k]) || 0), 0);
+                break;
+            }
             default:
                 return; // 금액 기반 카테고리가 아니면 스킵
         }
@@ -2354,7 +2753,7 @@ export default function NewApprovalPage() {
     };
 
     // 파일 첨부 대상 카테고리
-    const showAttachments = ["GENERAL", "EXPENSE", "BUSINESS_TRIP", "GRANT_APPLICATION", "INSPECTION", "TAX_INVOICE", "EXPENDITURE_PLAN", "PERSONAL_EXPENSE"].includes(form.category);
+    const showAttachments = ["GENERAL", "EXPENSE", "BUSINESS_TRIP", "FIELD_WORK_PLAN", "GRANT_APPLICATION", "INSPECTION", "TAX_INVOICE", "EXPENDITURE_PLAN", "PERSONAL_EXPENSE"].includes(form.category);
 
     // 금액 기반 자동 추가 대상인지 계산
     const ceoAutoRequired = useMemo(() => {
@@ -2379,6 +2778,11 @@ export default function NewApprovalPage() {
             case "PERSONAL_EXPENSE":
                 total = (formData.expenseItems || []).reduce((s: number, it: any) => s + (Number(it.amount) || 0), 0);
                 break;
+            case "FIELD_WORK_PLAN": {
+                const exp = formData.expenses || {};
+                total = ["transport", "lodging", "meal", "etc"].reduce((s: number, k: string) => s + (Number(exp[k]) || 0), 0);
+                break;
+            }
         }
         return total >= 1000000;
     }, [form.category, formData, user]);
@@ -2399,6 +2803,8 @@ export default function NewApprovalPage() {
                 return !!(formData.overtimeDate && formData.startTime && formData.endTime);
             case "BUSINESS_TRIP":
                 return !!(formData.tripStartDate && formData.location?.trim());
+            case "FIELD_WORK_PLAN":
+                return !!(formData.tripStartDate && (formData.visitCompany?.trim() || formData.visitPlace?.trim()) && formData.purpose?.trim());
             case "EXPENSE":
                 return formData.expenses?.some((e: any) => e.content?.trim() && e.qty && e.unitPrice);
             case "GENERAL":
@@ -2417,7 +2823,7 @@ export default function NewApprovalPage() {
     };
 
     // GENERAL 품의서: formData → title/content 자동 구성
-    const isDocumentForm = form.category === "GENERAL" || form.category === "EXPENSE" || form.category === "BUSINESS_TRIP" || form.category === "INSPECTION" || form.category === "TAX_INVOICE" || form.category === "EXPENDITURE_PLAN" || form.category === "PERSONAL_EXPENSE";
+    const isDocumentForm = form.category === "GENERAL" || form.category === "EXPENSE" || form.category === "BUSINESS_TRIP" || form.category === "FIELD_WORK_PLAN" || form.category === "INSPECTION" || form.category === "TAX_INVOICE" || form.category === "EXPENDITURE_PLAN" || form.category === "PERSONAL_EXPENSE";
 
     const composeGeneralContent = (fd: Record<string, any>): string => {
         const lines: string[] = [];
@@ -2471,6 +2877,7 @@ export default function NewApprovalPage() {
         if (form.category === "GENERAL") return !!formData.docTitle?.trim();
         if (form.category === "EXPENSE") return formData.expenses?.some((e: any) => e.content?.trim());
         if (form.category === "BUSINESS_TRIP") return !!(formData.tripStartDate && formData.location?.trim());
+        if (form.category === "FIELD_WORK_PLAN") return !!(formData.tripStartDate && (formData.visitCompany?.trim() || formData.visitPlace?.trim()) && formData.purpose?.trim());
         if (form.category === "INSPECTION") return !!formData.docTitle?.trim() && formData.items?.some((it: any) => it.name?.trim());
         if (form.category === "TAX_INVOICE") return formData.taxItems?.some((it: any) => it.company?.trim() || it.product?.trim());
         if (form.category === "EXPENDITURE_PLAN") return formData.planItems?.some((it: any) => it.category?.trim() || it.detail?.trim());
@@ -2541,6 +2948,52 @@ export default function NewApprovalPage() {
                 });
                 lines.push(`합계: ₩${total.toLocaleString()}`);
             }
+            submitContent = lines.join("\n");
+        } else if (form.category === "FIELD_WORK_PLAN") {
+            const dateRange = formData.tripEndDate && formData.tripStartDate !== formData.tripEndDate
+                ? `${formData.tripStartDate} ~ ${formData.tripEndDate}`
+                : formData.tripStartDate;
+            const target = formData.visitCompany || formData.visitPlace || "";
+            submitTitle = `외근/출장 계획서 - ${target} (${dateRange})`;
+            const lines: string[] = [];
+            const tripTypeLabel = formData.tripType === "기타" && formData.tripTypeEtc
+                ? `기타 (${formData.tripTypeEtc})`
+                : formData.tripType || "외근";
+            lines.push(`구분: ${tripTypeLabel}`);
+            if (formData.tripStartDate) {
+                lines.push(`기간: ${dateRange}`);
+            }
+            if (formData.visitCompany) lines.push(`방문처: ${formData.visitCompany}`);
+            if (formData.visitPlace) lines.push(`장소: ${formData.visitPlace}`);
+            if (formData.purpose) lines.push(`\n[방문 목적]\n${formData.purpose}`);
+            if (formData.schedules?.some((s: any) => s.content?.trim() || s.place?.trim())) {
+                lines.push("\n[세부 일정]");
+                formData.schedules.forEach((s: any, i: number) => {
+                    if (s.content?.trim() || s.place?.trim()) {
+                        lines.push(`${i + 1}. ${s.date || ""} ${s.time || ""} ${s.place || ""} - ${s.content || ""}`);
+                    }
+                });
+            }
+            const exp = formData.expenses || {};
+            const expLabels: Record<string, string> = { transport: "교통비", lodging: "숙박비", meal: "식비", etc: "기타" };
+            const expKeys = ["transport", "lodging", "meal", "etc"];
+            let expTotal = 0;
+            const expLines: string[] = [];
+            expKeys.forEach((k) => {
+                const amt = Number(exp[k]) || 0;
+                if (amt > 0) {
+                    expTotal += amt;
+                    const pay = formData[`${k}PayMethod`] || "법인카드";
+                    const note = formData[`${k}Note`] || "";
+                    expLines.push(`- ${expLabels[k]}: ${amt.toLocaleString()}원 (${pay})${note ? ` - ${note}` : ""}`);
+                }
+            });
+            if (expLines.length > 0) {
+                lines.push("\n[경비 내역 (예상)]");
+                lines.push(...expLines);
+                lines.push(`합계: ₩${expTotal.toLocaleString()}`);
+            }
+            if (formData.remarks) lines.push(`\n[특이사항]\n${formData.remarks}`);
             submitContent = lines.join("\n");
         } else if (form.category === "EXPENSE") {
             const period = formData.periodStart && formData.periodEnd
@@ -2780,6 +3233,18 @@ export default function NewApprovalPage() {
                     {form.category === "BUSINESS_TRIP" && (
                         <section>
                             <BusinessTripDocFormFields
+                                formData={formData}
+                                onChange={setFormData}
+                                userName={userName}
+                                userDepartment={userDepartment}
+                            />
+                        </section>
+                    )}
+
+                    {/* 2-c'. 외근/출장 계획서 문서형 폼 (FIELD_WORK_PLAN) */}
+                    {form.category === "FIELD_WORK_PLAN" && (
+                        <section>
+                            <FieldWorkPlanFormFields
                                 formData={formData}
                                 onChange={setFormData}
                                 userName={userName}

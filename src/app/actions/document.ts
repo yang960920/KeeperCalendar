@@ -207,6 +207,7 @@ export async function archiveApprovalDocument(data: {
         // 카테고리별 하위 폴더
         const categoryLabels: Record<string, string> = {
             VACATION: "휴가", OVERTIME: "시간외근무", BUSINESS_TRIP: "외근출장",
+            FIELD_WORK_PLAN: "외근출장계획",
             EXPENSE: "지출결의", GENERAL: "일반기안", INSPECTION: "납품검수",
             TAX_INVOICE: "세금계산서",
             EXPENDITURE_PLAN: "자금지출계획",

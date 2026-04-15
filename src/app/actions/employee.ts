@@ -2,6 +2,14 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath, unstable_noStore as noStore } from "next/cache";
+import bcrypt from "bcryptjs";
+import { createSession, destroySession } from "@/lib/session";
+
+const BCRYPT_ROUNDS = 10;
+
+function looksHashed(value: string): boolean {
+    return /^\$2[aby]\$/.test(value);
+}
 
 /**
  * 모든 사원 목록을 가져옵니다.
@@ -107,11 +115,13 @@ export async function createEmployee(data: {
 
         const employeeCode = await generateEmployeeCode();
 
+        const hashedPassword = await bcrypt.hash(data.birthDate, BCRYPT_ROUNDS);
+
         const newUser = await prisma.user.create({
             data: {
                 id: data.name,
                 name: data.name,
-                password: data.birthDate,
+                password: hashedPassword,
                 employeeCode,
                 role: data.role === "NONE" ? "PARTICIPANT" : data.role,
                 departmentId: data.departmentId === "none" ? null : data.departmentId,
@@ -228,9 +238,27 @@ export async function loginUser(id: string, password: string) {
             return { success: false, error: "존재하지 않는 아이디(성명)입니다." };
         }
 
-        if (user.password !== password) {
+        let passwordOk = false;
+        if (looksHashed(user.password)) {
+            passwordOk = await bcrypt.compare(password, user.password);
+        } else {
+            // 레거시 평문 데이터: 일치 시 즉시 해시로 전환
+            if (user.password === password) {
+                passwordOk = true;
+                const migrated = await bcrypt.hash(password, BCRYPT_ROUNDS);
+                await prisma.user.update({
+                    where: { id: user.id },
+                    data: { password: migrated },
+                });
+            }
+        }
+
+        if (!passwordOk) {
             return { success: false, error: "비밀번호가 일치하지 않습니다." };
         }
+
+        // 서버 세션 쿠키 발급 (HttpOnly, 12h)
+        await createSession(user.id, false);
 
         // 로그인 성공 → ActivityLog 기록 + 자동 출근을 fire-and-forget으로 처리
         // (인증 응답을 빠르게 반환하기 위해 await하지 않음)
@@ -255,5 +283,41 @@ export async function loginUser(id: string, password: string) {
     } catch (error) {
         console.error("Login Error:", error);
         return { success: false, error: "로그인 처리 중 서버 오류가 발생했습니다." };
+    }
+}
+
+/**
+ * 로그아웃: 서버 세션 쿠키 삭제
+ */
+export async function logoutUser() {
+    await destroySession();
+    return { success: true };
+}
+
+/**
+ * 관리자 비밀번호 초기화 (생년월일 6자리로 리셋)
+ * - 관리자 세션이 있는 경우에만 허용
+ */
+export async function resetEmployeePassword(targetUserId: string, birthDate: string) {
+    try {
+        const { requireSession } = await import("@/lib/session");
+        const session = await requireSession();
+        if (!session.isAdmin) {
+            return { success: false, error: "관리자만 사용할 수 있습니다." };
+        }
+
+        if (!/^\d{6}$/.test(birthDate)) {
+            return { success: false, error: "생년월일 6자리를 입력하세요." };
+        }
+
+        const hashed = await bcrypt.hash(birthDate, BCRYPT_ROUNDS);
+        await prisma.user.update({
+            where: { id: targetUserId },
+            data: { password: hashed },
+        });
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to reset password:", error);
+        return { success: false, error: "비밀번호 초기화에 실패했습니다." };
     }
 }

@@ -280,10 +280,27 @@ const APPROVAL_FORM_SCHEMAS: Record<string, string> = {
   "specialNote": "특이사항 (선택)",
   "expenseItems": [{"content": "지출내역", "amount": "금액(숫자만)", "note": "비고"}]
 }`,
+    FIELD_WORK_PLAN: `{
+  "tripType": "외근 | 국내출장 | 해외출장 | 기타",
+  "tripTypeEtc": "tripType이 '기타'일 때만 세부 내용",
+  "tripStartDate": "YYYY-MM-DD",
+  "tripEndDate": "YYYY-MM-DD (단일 일정이면 시작일과 동일)",
+  "visitCompany": "방문처 기관/업체명",
+  "visitPlace": "방문 장소/주소",
+  "purpose": "방문 목적 (상세히)",
+  "schedules": [{"date": "YYYY-MM-DD", "time": "HH:MM ~ HH:MM", "place": "방문처/장소", "content": "세부 업무 내용"}],
+  "expenses": {"transport": "교통비(숫자만)", "lodging": "숙박비(숫자만)", "meal": "식비(숫자만)", "etc": "기타(숫자만)"},
+  "transportPayMethod": "법인카드|개인카드|현금",
+  "lodgingPayMethod": "법인카드|개인카드|현금",
+  "mealPayMethod": "법인카드|개인카드|현금",
+  "etcPayMethod": "법인카드|개인카드|현금",
+  "remarks": "특이사항/비고 (선택)"
+}`,
 };
 
 const APPROVAL_CATEGORY_LABELS: Record<string, string> = {
     VACATION: "휴가", OVERTIME: "시간외근무", BUSINESS_TRIP: "외근/출장",
+    FIELD_WORK_PLAN: "외근/출장계획",
     EXPENSE: "지출결의", GENERAL: "품의서", INSPECTION: "납품/검수",
     TAX_INVOICE: "세금계산서", EXPENDITURE_PLAN: "지출계획", PERSONAL_EXPENSE: "개인경비",
 };

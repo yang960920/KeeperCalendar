@@ -14,7 +14,24 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3737/approvals)",
       "Bash(git add:*)",
       "Bash(git commit -m ':*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(git commit:*)",
+      "Bash(npm install:*)",
+      "Bash(gh repo:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(head -30 /c/Users/한미르_IT/Desktop/DaliyWork/keeper-calendar/src/app/actions/*.ts)",
+      "Bash(grep -E \"\\\\.tsx$\")",
+      "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")",
+      "Bash(grep -r \"POSTGRES\\\\|DATABASE\\\\|pool\\\\|timeout\\\\|prisma\" /c/Users/한미르_IT/Desktop/DaliyWork/keeper-calendar/.env* -n)",
+      "Bash(git diff:*)",
+      "Read(//c/Users/한미르_IT/Downloads/**)",
+      "Bash(sed 's/<[^>]*>//g')",
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(grep -r \"export async function\" /c/Users/한미르_IT/Desktop/DaliyWork/keeper-calendar/src/app/actions/*.ts)",
+      "Bash(grep:*)",
+      "Bash(npm ls:*)",
+      "Bash(node -e \"console.log\\(require\\('crypto'\\).randomBytes\\(48\\).toString\\('base64'\\)\\)\")",
+      "Bash(node:*)"
     ]
   }
 }

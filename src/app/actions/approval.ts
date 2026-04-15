@@ -4,13 +4,14 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { createCalendarEvent } from "@/app/actions/calendar-event";
 import { archiveApprovalDocument } from "@/app/actions/document";
+import { requireSession } from "@/lib/session";
 
 // ─── 결재 신청 ────────────────────────────────────────────────────────────────
 
 export async function createApprovalRequest(data: {
     title: string;
     content: string;
-    category: "VACATION" | "OVERTIME" | "BUSINESS_TRIP" | "EXPENSE" | "GENERAL" | "INSPECTION" | "TAX_INVOICE" | "EXPENDITURE_PLAN" | "PERSONAL_EXPENSE";
+    category: "VACATION" | "OVERTIME" | "BUSINESS_TRIP" | "FIELD_WORK_PLAN" | "EXPENSE" | "GENERAL" | "INSPECTION" | "TAX_INVOICE" | "EXPENDITURE_PLAN" | "PERSONAL_EXPENSE";
     requesterId: string;
     approverIds: string[];   // 결재자 목록 (순서대로)
     projectId?: string;
@@ -19,6 +20,13 @@ export async function createApprovalRequest(data: {
     attachments?: { name: string; url: string; size: number; type: string }[]; // 다중 첨부파일
 }) {
     try {
+        // 기안자 신원은 반드시 서버 세션에서 취득 (클라이언트 전달값 무시)
+        const session = await requireSession();
+        if (session.isAdmin) {
+            return { success: false, error: "관리자 세션으로는 결재 기안이 불가합니다." };
+        }
+        const requesterId = session.userId;
+
         if (!data.approverIds || data.approverIds.length === 0) {
             return { success: false, error: "결재자를 1명 이상 지정해야 합니다." };
         }
@@ -29,7 +37,7 @@ export async function createApprovalRequest(data: {
                 content: data.content,
                 category: data.category,
                 status: "PENDING",
-                requesterId: data.requesterId,
+                requesterId,
                 projectId: data.projectId || null,
                 attachmentUrl: data.attachmentUrl || null,
                 formData: data.formData ? JSON.stringify(data.formData) : null,
@@ -64,7 +72,7 @@ export async function createApprovalRequest(data: {
                     type: "SYSTEM",
                     title: "📋 결재 요청",
                     message: `"${data.title}" 결재가 요청되었습니다.`,
-                    senderId: data.requesterId,
+                    senderId: requesterId,
                 },
             });
         } catch (notifyErr) {
@@ -83,11 +91,18 @@ export async function createApprovalRequest(data: {
 
 export async function processApprovalStep(
     requestId: string,
-    approverId: string,
+    _approverId: string,
     action: "APPROVED" | "REJECTED",
     comment?: string
 ) {
     try {
+        // 결재자 신원은 서버 세션에서 취득 (클라이언트 전달값 무시)
+        const session = await requireSession();
+        if (session.isAdmin) {
+            return { success: false, error: "관리자 세션으로는 결재 처리가 불가합니다." };
+        }
+        const approverId = session.userId;
+
         const request = await (prisma as any).approvalRequest.findUnique({
             where: { id: requestId },
             include: { steps: { orderBy: { stepOrder: "asc" } } },
@@ -98,7 +113,7 @@ export async function processApprovalStep(
             return { success: false, error: "이미 완료된 결재입니다." };
         }
 
-        // 현재 결재 단계 확인
+        // 현재 결재 단계 확인 (세션 사용자가 현재 대기중인 결재자인지 검증)
         const currentStep = request.steps.find(
             (s: any) => s.approverId === approverId && s.status === "PENDING"
         );
@@ -211,13 +226,16 @@ export async function processApprovalStep(
 
 // ─── 결재 철회 ────────────────────────────────────────────────────────────────
 
-export async function withdrawApprovalRequest(requestId: string, requesterId: string) {
+export async function withdrawApprovalRequest(requestId: string, _requesterId: string) {
     try {
+        // 철회 요청자는 서버 세션 기준으로 판정
+        const session = await requireSession();
+
         const request = await (prisma as any).approvalRequest.findUnique({
             where: { id: requestId },
         });
         if (!request) return { success: false, error: "결재 요청을 찾을 수 없습니다." };
-        if (request.requesterId !== requesterId) {
+        if (request.requesterId !== session.userId) {
             return { success: false, error: "철회 권한이 없습니다. (기안자만 가능)" };
         }
         if (request.status === "APPROVED" || request.status === "REJECTED") {
@@ -312,8 +330,14 @@ export async function getMyApprovals(userId: string) {
 
 const APPROVAL_ADMIN_IDS = ["양현준", "유경성", "김권찬", "한승우", "진호열"];
 
-export async function getDepartmentApprovals(userId: string) {
-    if (!APPROVAL_ADMIN_IDS.includes(userId)) {
+export async function getDepartmentApprovals(_userId: string) {
+    try {
+        const session = await requireSession();
+        const effectiveId = session.userId;
+        if (!session.isAdmin && !APPROVAL_ADMIN_IDS.includes(effectiveId)) {
+            return { success: false, data: [] };
+        }
+    } catch {
         return { success: false, data: [] };
     }
 
@@ -538,6 +562,50 @@ async function handlePostApproval(request: any) {
                             },
                         });
                     }
+                }
+            }
+            break;
+        }
+
+        case "FIELD_WORK_PLAN": {
+            // 외근/출장 계획서: 캘린더에 FIELD_WORK 이벤트 생성
+            const tripStart = formData.tripStartDate;
+            const tripEnd = formData.tripEndDate || tripStart;
+            const location = formData.visitPlace || "";
+            const company = formData.visitCompany || "";
+
+            if (tripStart) {
+                const isMultiDay = tripEnd && tripStart !== tripEnd;
+                const baseLabel = formData.tripType === "기타" && formData.tripTypeEtc
+                    ? formData.tripTypeEtc
+                    : formData.tripType || (isMultiDay ? "출장" : "외근");
+                const label = `${baseLabel} 계획`;
+
+                const tripStartDate = new Date(`${tripStart}T00:00:00+09:00`);
+                const tripEndDate = new Date(`${tripEnd}T23:59:59+09:00`);
+
+                const existingCalEvent = await (prisma as any).calendarEvent.findFirst({
+                    where: {
+                        creatorId: request.requesterId,
+                        category: "FIELD_WORK",
+                        startTime: { gte: tripStartDate },
+                        endTime: { lte: new Date(tripEndDate.getTime() + 24 * 60 * 60 * 1000) },
+                    },
+                });
+
+                if (!existingCalEvent) {
+                    await createCalendarEvent({
+                        title: `[${label}] ${requesterName}${company ? ` - ${company}` : location ? ` - ${location}` : ""}`,
+                        description: request.content,
+                        category: "FIELD_WORK",
+                        startTime: tripStartDate.toISOString(),
+                        endTime: tripEndDate.toISOString(),
+                        isAllDay: true,
+                        location: location || company,
+                        creatorId: request.requesterId,
+                        attendeeIds: [],
+                        requiresRsvp: false,
+                    });
                 }
             }
             break;

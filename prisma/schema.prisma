@@ -477,6 +477,7 @@ enum ApprovalCategory {
   VACATION // 휴가
   OVERTIME // 시간외근무
   BUSINESS_TRIP // 출장
+  FIELD_WORK_PLAN // 외근/출장 계획서 (사전 보고)
   EXPENSE // 지출결의
   GENERAL // 일반기안
   GRANT_APPLICATION // 정부과제 지원 (gov-grant-assistant 연동)

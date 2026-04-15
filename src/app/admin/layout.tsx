@@ -6,6 +6,7 @@ import { useAdminStore } from "@/store/useAdminStore";
 import Link from "next/link";
 import { LogOut, BarChart3, Users, Activity, FileBarChart, CalendarClock } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { logoutAdmin } from "@/app/actions/admin";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
     const { isAdminAuthenticated, adminLogout, _hasHydrated } = useAdminStore();
@@ -34,7 +35,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         return <>{children}</>;
     }
 
-    const handleLogout = () => {
+    const handleLogout = async () => {
+        try { await logoutAdmin(); } catch { /* ignore */ }
         adminLogout();
         router.push("/admin/login");
     };

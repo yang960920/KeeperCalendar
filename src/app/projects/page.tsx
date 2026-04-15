@@ -61,9 +61,7 @@ export default function ProjectsPage() {
                     </h1>
                     <p className="text-muted-foreground mt-1 text-sm">참여 중인 프로젝트의 달력을 확인하고 업무를 관리하세요.</p>
                 </div>
-                {user.role === "CREATOR" && (
-                    <CreateProjectDialog />
-                )}
+                <CreateProjectDialog />
             </header>
 
             {/* 4x3 Grid Area */}
@@ -71,9 +69,7 @@ export default function ProjectsPage() {
                 {visibleProjects.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-64 border-2 border-dashed rounded-xl text-muted-foreground mt-8">
                         <p>현재 참여 중인 프로젝트가 없습니다.</p>
-                        {user.role === "CREATOR" && (
-                            <p className="text-sm mt-2">우측 상단의 버튼을 눌러 새 프로젝트를 생성해보세요.</p>
-                        )}
+                        <p className="text-sm mt-2">우측 상단의 버튼을 눌러 새 프로젝트를 생성해보세요.</p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 auto-rows-max">

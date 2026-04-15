@@ -21,6 +21,7 @@ import {
     File as FileIcon,
     ExternalLink,
     ClipboardCheck,
+    Navigation,
 } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
@@ -98,6 +99,7 @@ const CATEGORY_OPTIONS = [
     { value: "VACATION",      label: "휴가",       icon: Calendar },
     { value: "OVERTIME",      label: "시간외근무",  icon: Clock },
     { value: "BUSINESS_TRIP", label: "외근/출장",    icon: MapPin },
+    { value: "FIELD_WORK_PLAN", label: "외근/출장계획", icon: Navigation },
     { value: "EXPENSE",       label: "지출결의",    icon: DollarSign },
     { value: "GENERAL",           label: "품의서",      icon: FileText },
     { value: "GRANT_APPLICATION", label: "정부과제",    icon: FileText },
@@ -148,6 +150,20 @@ function FormDataDetail({ category, formData }: { category: string; formData?: R
             if (formData.tripEndDate && formData.tripEndDate !== formData.tripStartDate) items.push({ label: "종료일", value: formData.tripEndDate });
             if (formData.visitCompany) items.push({ label: "방문기관", value: formData.visitCompany });
             break;
+        case "FIELD_WORK_PLAN": {
+            const typeLabel = formData.tripType === "기타" && formData.tripTypeEtc
+                ? `기타 (${formData.tripTypeEtc})`
+                : formData.tripType;
+            if (typeLabel) items.push({ label: "구분", value: typeLabel });
+            if (formData.tripStartDate) items.push({ label: "시작일", value: formData.tripStartDate });
+            if (formData.tripEndDate && formData.tripEndDate !== formData.tripStartDate) items.push({ label: "종료일", value: formData.tripEndDate });
+            if (formData.visitCompany) items.push({ label: "방문처", value: formData.visitCompany });
+            if (formData.visitPlace) items.push({ label: "장소", value: formData.visitPlace });
+            const exp = formData.expenses || {};
+            const expTotal = ["transport", "lodging", "meal", "etc"].reduce((s: number, k: string) => s + (Number(exp[k]) || 0), 0);
+            if (expTotal > 0) items.push({ label: "예상경비", value: `${expTotal.toLocaleString()}원` });
+            break;
+        }
         case "EXPENSE":
             if (formData.expenseItem) items.push({ label: "항목", value: formData.expenseItem });
             if (formData.amount) items.push({ label: "금액", value: `${Number(formData.amount).toLocaleString()}원` });
