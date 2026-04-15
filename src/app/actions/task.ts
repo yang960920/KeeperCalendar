@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { calculateContribution } from "@/lib/contribution";
+import { getSession } from "@/lib/session";
 
 /**
  * 활동 로그를 안전하게 기록합니다 (실패해도 메인 로직에 영향 없음)
@@ -47,7 +48,13 @@ export async function createTask(data: {
     subTasks?: { title: string }[];
     isUrgent?: boolean;
     urgencyStatus?: "NONE" | "PENDING_CREATOR" | "PENDING_ADMIN";
+    createdById?: string; // 업무 생성자 (수정/삭제 권한 판정용). 미지정 시 session에서 자동 주입
 }) {
+    // 업무 생성자 결정: 우선순위 = (1) 명시적 createdById → (2) 세션 userId → (3) 첫번째 담당자
+    const session = await getSession();
+    const resolvedCreatorId = data.createdById || session?.userId || data.assigneeId
+        || (data.assigneeIds && data.assigneeIds.length > 0 ? data.assigneeIds[0] : undefined);
+
     // 1. 소속 프로젝트가 없는 경우 (개인 업무 캘린더 작성 시) 빈 개인용 프로젝트를 찾아 연결
     // (현재 스키마 구조상 Task는 항상 Project에 속해야 함 - projectId 필수)
     let targetProjectId = data.projectId;
@@ -102,8 +109,9 @@ export async function createTask(data: {
                     : undefined,
                 isUrgent: data.isUrgent || false,
                 urgencyStatus: data.urgencyStatus || "NONE",
+                createdById: resolvedCreatorId,
             },
-            include: { subTasks: true, assignees: true },
+            include: { subTasks: true, assignees: true, createdBy: { select: { id: true, name: true } } },
         });
 
         // 활동 로그 기록 (별도 try/catch로 메인 로직에 영향 없음)
@@ -196,18 +204,35 @@ export async function updateTaskStatus(taskId: string, data: { done: number, isC
 
 export async function deleteTask(taskId: string, userId?: string) {
     try {
-        // 삭제 전에 업무 정보를 가져와서 로그에 기록
+        // 세션 기반 신원 우선, 없으면 전달된 userId 폴백 (하위호환)
+        const session = await getSession();
+        const actingUserId = session?.userId || userId;
+
+        // 삭제 전에 업무 정보를 가져와서 로그에 기록 + 권한 검증
         const task = await prisma.task.findUnique({
             where: { id: taskId },
-            include: { assignee: true }
+            include: {
+                assignee: true,
+                project: { select: { creatorId: true } },
+            }
         });
 
         if (!task) {
             return { success: false, error: "해당 업무를 찾을 수 없습니다." };
         }
 
+        // 권한 검증: 책임자 OR 업무 생성자만 삭제 가능
+        // 레거시 업무(createdById=null)는 책임자만 삭제 가능
+        if (actingUserId) {
+            const isProjectCreator = task.project?.creatorId === actingUserId;
+            const isTaskCreator = task.createdById === actingUserId;
+            if (!isProjectCreator && !isTaskCreator) {
+                return { success: false, error: "이 업무를 삭제할 권한이 없습니다. (책임자 또는 업무 생성자만 가능)" };
+            }
+        }
+
         // 활동 로그 기록 (삭제 전에 기록 — 삭제 후에는 taskId 참조 불가)
-        const logUserId = userId || task.assigneeId;
+        const logUserId = actingUserId || task.assigneeId;
         if (logUserId) {
             await logActivity({
                 action: "업무 삭제",

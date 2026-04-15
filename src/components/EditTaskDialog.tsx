@@ -156,6 +156,16 @@ export const EditTaskDialog = ({ open, onOpenChange, task, readonly = false, edi
                                     </div>
                                 </div>
                             )}
+                            {/* 업무 생성자 표시 (프로젝트 책임자와 구분) */}
+                            {task?.createdByName && (
+                                <div className="grid gap-2">
+                                    <Label>업무 생성자</Label>
+                                    <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-muted text-foreground font-medium w-fit">
+                                        ✏️ {task.createdByName}
+                                        {user?.id === task.createdById && <span className="text-muted-foreground">· 본인</span>}
+                                    </span>
+                                </div>
+                            )}
                             <div className="grid gap-2">
                                 <Label htmlFor="edit-date">날짜 (YYYY-MM-DD)</Label>
                                 <Input

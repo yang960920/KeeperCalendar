@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { getEmployees } from "@/app/actions/employee";
 import { createTask } from "@/app/actions/task";
+import { useAuthStore } from "@/store/useAuthStore";
 
 interface ProjectTaskFormProps {
     projectId: string;
@@ -34,6 +35,7 @@ interface ProjectTaskFormProps {
 
 export const ProjectTaskForm = ({ projectId, participants, projectEndDate, userRole }: ProjectTaskFormProps) => {
     const addTask = useTaskStore((state) => state.addTask);
+    const currentUser = useAuthStore((s) => s.user);
     const [open, setOpen] = useState(false);
     const [date, setDate] = useState("");
     const [endDate, setEndDate] = useState("");
@@ -99,6 +101,7 @@ export const ProjectTaskForm = ({ projectId, participants, projectEndDate, userR
                 urgencyStatus: isUrgent
                     ? (userRole === "CREATOR" ? "PENDING_ADMIN" as const : "PENDING_CREATOR" as const)
                     : "NONE" as const,
+                createdById: currentUser?.id,
             });
 
             if (result.success && result.data) {
@@ -116,6 +119,8 @@ export const ProjectTaskForm = ({ projectId, participants, projectEndDate, userR
                     projectId,
                     assigneeId: assigneeIds[0],
                     assigneeIds,
+                    createdById: currentUser?.id,
+                    createdByName: currentUser?.name,
                 } as any);
 
                 // Reset and close

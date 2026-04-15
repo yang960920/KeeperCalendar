@@ -238,8 +238,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             </main>
 
 
-            {/* 업무 생성 버튼: CREATOR만 업무 할당 가능 */}
-            {user?.role === "CREATOR" && (
+            {/* 업무 생성 버튼: 프로젝트 책임자 + 참여자 모두 사용 가능
+                (참여자도 본인이 등록한 업무는 직접 수정·삭제 가능) */}
+            {user && (isProjectCreator || project.participantIds.includes(user.id)) && (
                 <ProjectTaskForm
                     projectId={projectId}
                     participants={[...new Set([project.creatorId, ...project.participantIds])]}
@@ -253,12 +254,19 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
             {/* 수정 컴포넌트 마운트 */}
             {selectedTask && (() => {
-                // 편집 모드 결정: 생성자 → full, 담당 참여자 → assignee, 그 외 → readonly
+                // 편집 모드 결정:
+                //  - 프로젝트 책임자 → full
+                //  - 업무 생성자(본인이 등록한 업무) → full (수정·삭제 가능)
+                //  - 담당 참여자 → assignee (결과 보고만 가능)
+                //  - 그 외 → readonly
+                const isTaskCreator = !!(user && selectedTask.createdById && selectedTask.createdById === user.id);
                 const isAssignedToTask = user && (
                     selectedTask.assigneeId === user.id ||
                     (selectedTask.assigneeIds && selectedTask.assigneeIds.includes(user.id))
                 );
-                const taskEditMode = isProjectCreator ? 'full' : isAssignedToTask ? 'assignee' : 'readonly';
+                const taskEditMode = (isProjectCreator || isTaskCreator)
+                    ? 'full'
+                    : isAssignedToTask ? 'assignee' : 'readonly';
 
                 return (
                     <EditTaskDialog

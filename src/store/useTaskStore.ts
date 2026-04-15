@@ -29,6 +29,8 @@ export interface Task {
     assigneeIds?: string[]; // 복수 담당자 (다대다)
     assigneeName?: string; // 담당자 이름 (표시용)
     assigneeNames?: string[]; // 복수 담당자 이름 (표시용)
+    createdById?: string; // 업무 생성자 ID (수정/삭제 권한 판정)
+    createdByName?: string; // 업무 생성자 이름 (표시용)
     endDate?: string; // "YYYY-MM-DD"
     completedAt?: string; // ISO DateTime string
     subTasks?: SubTask[];

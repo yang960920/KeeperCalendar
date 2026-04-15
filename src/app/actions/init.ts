@@ -37,6 +37,7 @@ export async function getInitialData(userId: string) {
             include: {
                 project: true,
                 assignees: true,  // 복수 담당자 포함
+                createdBy: { select: { id: true, name: true } }, // 업무 생성자
                 subTasks: {
                     orderBy: { createdAt: 'asc' },
                     include: { assignee: true },
@@ -87,6 +88,8 @@ export async function getInitialData(userId: string) {
                 ? t.assignees.map((u: any) => u.name)
                 : [],
             completedAt: t.completedAt ? t.completedAt.toISOString() : undefined,
+            createdById: (t as any).createdById || undefined,
+            createdByName: (t as any).createdBy?.name || undefined,
             subTasks: t.subTasks.map(st => ({
                 id: st.id,
                 title: st.title,
