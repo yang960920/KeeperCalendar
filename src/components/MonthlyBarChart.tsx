@@ -11,18 +11,20 @@ import {
     ResponsiveContainer,
     Cell,
 } from "recharts";
-import { useTaskStore } from "@/store/useTaskStore";
+import { useTaskStore, Task } from "@/store/useTaskStore";
 import { useStore } from "@/hooks/useStore";
 import { getMonthlyStats } from "@/lib/statistics";
 import { useTheme } from "next-themes";
 
 interface MonthlyBarChartProps {
     year?: string;
+    tasks?: Task[];
 }
 
-export const MonthlyBarChart = ({ year }: MonthlyBarChartProps) => {
+export const MonthlyBarChart = ({ year, tasks: tasksProp }: MonthlyBarChartProps) => {
     const { resolvedTheme } = useTheme();
-    const tasks = useStore(useTaskStore, (state) => state.tasks) || [];
+    const storeTasks = useStore(useTaskStore, (state) => state.tasks) || [];
+    const tasks = tasksProp ?? storeTasks;
 
     const data = useMemo(() => {
         return getMonthlyStats(tasks, year);

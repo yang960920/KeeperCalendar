@@ -430,7 +430,22 @@ export default function Home() {
     const user = useStore(useAuthStore, (s) => s.user);
     const tasks = useStore(useTaskStore, (state) => state.tasks) || [];
     const targetPrefix = `${selectedYear}-${selectedMonth.padStart(2, "0")}`;
-    const currentMonthTasks = tasks.filter(t => t.date.startsWith(targetPrefix));
+
+    // 월별 일지는 "내 담당 업무"만 집계. 관리자 전체 열람 권한이 있어도
+    // 여기서는 본인이 담당자로 지정된 Task만 보이도록 클라이언트 단에서 한번 더 거른다.
+    const myTasks = useMemo(() => {
+        if (!user) return [] as typeof tasks;
+        return tasks.filter((t) => {
+            if (t.assigneeId === user.id) return true;
+            if (t.assigneeIds && t.assigneeIds.includes(user.id)) return true;
+            // 개인 업무(프로젝트 없음)는 assigneeId가 반드시 세팅되지만,
+            // 과거 데이터 호환을 위해 생성자가 본인이면 포함.
+            if (!t.projectId && t.createdById === user.id) return true;
+            return false;
+        });
+    }, [tasks, user]);
+
+    const currentMonthTasks = myTasks.filter(t => t.date.startsWith(targetPrefix));
 
     const yearNum = parseInt(selectedYear);
     const monthNum = parseInt(selectedMonth);
@@ -491,13 +506,13 @@ export default function Home() {
                 {/* 차트 그리드 영역 */}
                 <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div className="col-span-1">
-                        <MonthlyBarChart year={selectedYear} />
+                        <MonthlyBarChart year={selectedYear} tasks={myTasks} />
                     </div>
                     <div className="col-span-1">
-                        <MonthlyLineChart year={selectedYear} />
+                        <MonthlyLineChart year={selectedYear} tasks={myTasks} />
                     </div>
                     <div className="col-span-1">
-                        <CategoryBarChart year={selectedYear} month={selectedMonth} />
+                        <CategoryBarChart year={selectedYear} month={selectedMonth} tasks={myTasks} />
                     </div>
                 </section>
 

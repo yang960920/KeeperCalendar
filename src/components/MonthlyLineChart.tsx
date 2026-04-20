@@ -11,16 +11,18 @@ import {
     ResponsiveContainer,
     ReferenceLine,
 } from "recharts";
-import { useTaskStore } from "@/store/useTaskStore";
+import { useTaskStore, Task } from "@/store/useTaskStore";
 import { useStore } from "@/hooks/useStore";
 import { getMonthlyStats } from "@/lib/statistics";
 
 interface MonthlyLineChartProps {
     year?: string;
+    tasks?: Task[];
 }
 
-export const MonthlyLineChart = ({ year }: MonthlyLineChartProps) => {
-    const tasks = useStore(useTaskStore, (state) => state.tasks) || [];
+export const MonthlyLineChart = ({ year, tasks: tasksProp }: MonthlyLineChartProps) => {
+    const storeTasks = useStore(useTaskStore, (state) => state.tasks) || [];
+    const tasks = tasksProp ?? storeTasks;
 
     const data = useMemo(() => {
         return getMonthlyStats(tasks, year);

@@ -11,17 +11,19 @@ import {
     ResponsiveContainer,
     Cell,
 } from "recharts";
-import { useTaskStore } from "@/store/useTaskStore";
+import { useTaskStore, Task } from "@/store/useTaskStore";
 import { useStore } from "@/hooks/useStore";
 import { getCategoryStats } from "@/lib/statistics";
 
 interface CategoryBarChartProps {
     year?: string;
     month?: string;
+    tasks?: Task[];
 }
 
-export const CategoryBarChart = ({ year, month }: CategoryBarChartProps) => {
-    const tasks = useStore(useTaskStore, (state) => state.tasks) || [];
+export const CategoryBarChart = ({ year, month, tasks: tasksProp }: CategoryBarChartProps) => {
+    const storeTasks = useStore(useTaskStore, (state) => state.tasks) || [];
+    const tasks = tasksProp ?? storeTasks;
 
     const data = useMemo(() => {
         return getCategoryStats(tasks, year, month).slice(0, 5); // 상위 5개만 표시
