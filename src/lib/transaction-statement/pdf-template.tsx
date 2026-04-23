@@ -218,8 +218,8 @@ const styles = StyleSheet.create({
     thText: { fontSize: 9, fontWeight: 700 },
     tr: {
         flexDirection: "row",
-        borderTopWidth: 1,
-        borderTopColor: "#e5e7eb",
+        borderTopWidth: 0.5,
+        borderTopColor: "#000",
     },
     td: {
         padding: 5,
@@ -325,7 +325,10 @@ const StatementCopy: React.FC<CopyProps> = ({ data, copyLabel, accent }) => {
                             </View>
                             {/* 2행: 공급자 연락처 */}
                             <View style={styles.metaStackRowLast}>
-                                <View style={[styles.metaLabelCell, { width: 58 }]}><Text style={styles.metaLabelText}>{"공급자\n연락처"}</Text></View>
+                                <View style={styles.metaLabelCell}>
+                                    <Text style={styles.metaLabelText}>공급자</Text>
+                                    <Text style={styles.metaLabelText}>연락처</Text>
+                                </View>
                                 <View style={styles.metaValueCellLast}><Text style={styles.partyValueText}>{COMPANY_PROFILE.contactPhone}</Text></View>
                             </View>
                         </View>
@@ -424,12 +427,18 @@ const StatementCopy: React.FC<CopyProps> = ({ data, copyLabel, accent }) => {
 
                     {/* 합계 */}
                     <View style={styles.totalRow}>
-                        <View style={[styles.totalLabel, { width: COLS.date + 1 }]}></View>
-                        <View style={[styles.totalLabel, { flex: 1 }]}><Text style={styles.totalLabelText}>합계</Text></View>
-                        <View style={[styles.totalLabel, { width: COLS.qty }]}></View>
-                        <View style={[styles.totalLabel, { width: COLS.unitPrice }]}></View>
-                        <View style={[styles.totalLabel, { width: COLS.supply }]}><Text style={[styles.tdTextRight, { fontWeight: 700 }]}>{fmt(data.totalSupply)}</Text></View>
-                        <View style={[styles.totalLabel, { width: COLS.vat }]}><Text style={[styles.tdTextRight, { fontWeight: 700 }]}>{fmt(data.totalVat)}</Text></View>
+                        <View style={{
+                            flex: 1,
+                            padding: 5,
+                            borderRightWidth: 1,
+                            borderRightColor: "#000",
+                            alignItems: "center",
+                            justifyContent: "center",
+                        }}>
+                            <Text style={styles.totalLabelText}>합 계</Text>
+                        </View>
+                        <View style={[styles.totalLabel, { width: COLS.supply, alignItems: "flex-end", paddingRight: 5 }]}><Text style={[styles.tdTextRight, { fontWeight: 700 }]}>{fmt(data.totalSupply)}</Text></View>
+                        <View style={[styles.totalLabel, { width: COLS.vat, alignItems: "flex-end", paddingRight: 5 }]}><Text style={[styles.tdTextRight, { fontWeight: 700 }]}>{fmt(data.totalVat)}</Text></View>
                         <View style={{ width: COLS.note, padding: 5, alignItems: "flex-end", justifyContent: "center" }}><Text style={[styles.tdTextRight, { fontWeight: 700 }]}>{fmt(data.totalSum)}</Text></View>
                     </View>
                 </View>
