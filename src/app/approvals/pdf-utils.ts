@@ -77,7 +77,7 @@ body, div, td, th, p, span { font-family: 'Malgun Gothic', '맑은 고딕', 'App
 .body { padding: 28px 40px 36px; }
 .sl { font-size: 14px; font-weight: 600; color: #334155; margin-bottom: 10px; padding-left: 10px; border-left: 3px solid #1e293b; }
 table.ft { width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 13px; }
-table.ft th, table.ft td { border: 1px solid #d1d5db; padding: 8px 14px; vertical-align: middle; }
+table.ft th, table.ft td { border: 1px solid #d1d5db; padding: 8px 14px; vertical-align: middle; word-break: keep-all; overflow-wrap: break-word; }
 table.ft th { background: #f8fafc; font-weight: 500; color: #475569; text-align: center; white-space: nowrap; }
 table.ft td { color: #1e293b; }
 .dth { background: #1e293b !important; color: #fff !important; font-weight: 500 !important; font-size: 11px !important; padding: 8px 10px !important; letter-spacing: 0.3px; }
@@ -487,10 +487,10 @@ function renderTaxInvoice(a: PdfApproval, emps: PdfEmployee[]): string {
         : "";
 
     // 품목 테이블
-    let itemsHtml = `<div class="sl">발행 내역</div><table class="ft"><thead><tr>
-        <th class="dth" style="width:36px">No.</th><th class="dth" style="width:110px">업체명</th><th class="dth" style="width:80px">날짜</th>
-        <th class="dth">제품명/모델명/단위</th><th class="dth" style="width:50px">수량</th><th class="dth" style="width:80px">단가(원)</th>
-        <th class="dth" style="width:90px">공급가액</th><th class="dth" style="width:80px">부가세</th><th class="dth" style="width:90px">합계</th><th class="dth" style="width:70px">비고</th>
+    let itemsHtml = `<div class="sl">발행 내역</div><table class="ft" style="table-layout:fixed;"><thead><tr>
+        <th class="dth" style="width:32px">No.</th><th class="dth" style="width:120px">업체명</th><th class="dth" style="width:56px">날짜</th>
+        <th class="dth">제품명/모델명/단위</th><th class="dth" style="width:46px">수량</th><th class="dth" style="width:70px">단가(원)</th>
+        <th class="dth" style="width:82px">공급가액</th><th class="dth" style="width:70px">부가세</th><th class="dth" style="width:82px">합계</th><th class="dth" style="width:82px">비고</th>
     </tr></thead><tbody>`;
     let totalSupply = 0;
     let totalVat = 0;
