@@ -11,8 +11,8 @@ interface DepartmentReportProps {
 
 const Footer = ({ period, deptName }: { period: ReportPeriod; deptName: string }) => (
     <View style={commonStyles.footer} fixed>
-        <Text>Keeper Calendar — {deptName} {period.type === "WEEKLY" ? "주간" : "월간"} 리포트</Text>
-        <Text>본 리포트는 Keeper Calendar 시스템에서 자동 생성되었습니다.</Text>
+        <Text>HanmirWorks — {deptName} {period.type === "WEEKLY" ? "주간" : "월간"} 리포트</Text>
+        <Text>본 리포트는 HanmirWorks 시스템에서 자동 생성되었습니다.</Text>
     </View>
 );
 

@@ -453,7 +453,14 @@ export default function Home() {
     return (
         <div className="min-h-screen bg-background text-foreground pb-20">
             <header className="border-b py-4 px-6 md:px-12 mb-6 shadow-sm flex items-center justify-between">
-                <h1 className="text-2xl font-bold tracking-tight text-primary">Keeper Calendar</h1>
+                <div className="flex items-center gap-2.5">
+                    <img src="/hanmir-logo.png" alt="HanmirWorks" className="h-7 w-7 drop-shadow-sm" />
+                    <h1 className="text-2xl font-bold tracking-tight">
+                        <span className="bg-gradient-to-r from-[#2563eb] to-[#f97316] bg-clip-text text-transparent">
+                            HanmirWorks
+                        </span>
+                    </h1>
+                </div>
                 <div className="flex gap-2">
                     <Select value={selectedYear} onValueChange={setSelectedYear}>
                         <SelectTrigger className="w-[100px]">

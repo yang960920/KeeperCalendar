@@ -34,7 +34,7 @@ export async function sendReportEmail(options: EmailOptions): Promise<{
     for (const recipient of options.recipients) {
         try {
             await transporter.sendMail({
-                from: process.env.EMAIL_FROM || `"Keeper Calendar" <${process.env.EMAIL_USER}>`,
+                from: process.env.EMAIL_FROM || `"HanmirWorks" <${process.env.EMAIL_USER}>`,
                 to: `"${recipient.name}" <${recipient.email}>`,
                 subject: options.subject,
                 html: options.htmlBody,
@@ -68,7 +68,7 @@ export function buildReportEmailHtml(periodLabel: string, type: string, stats: {
     return `
     <div style="font-family: 'Malgun Gothic', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background: #2563eb; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
-            <h1 style="margin: 0; font-size: 18px;">📊 Keeper Calendar ${type === "WEEKLY" ? "주간" : "월간"} 리포트</h1>
+            <h1 style="margin: 0; font-size: 18px;">📊 HanmirWorks ${type === "WEEKLY" ? "주간" : "월간"} 리포트</h1>
             <p style="margin: 5px 0 0; opacity: 0.9; font-size: 14px;">${periodLabel}</p>
         </div>
         <div style="background: #f8f9fa; padding: 20px; border: 1px solid #e9ecef;">
@@ -91,7 +91,7 @@ export function buildReportEmailHtml(periodLabel: string, type: string, stats: {
         </div>
         <div style="padding: 20px; border: 1px solid #e9ecef; border-top: 0; border-radius: 0 0 8px 8px;">
             <p style="color: #495057; font-size: 14px;">첨부된 PDF 파일에서 전사 종합 리포트를 확인하세요.</p>
-            <p style="color: #adb5bd; font-size: 11px; margin-top: 20px;">본 메일은 Keeper Calendar 시스템에서 자동 발송되었습니다.</p>
+            <p style="color: #adb5bd; font-size: 11px; margin-top: 20px;">본 메일은 HanmirWorks 시스템에서 자동 발송되었습니다.</p>
         </div>
     </div>`;
 }

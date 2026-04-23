@@ -52,7 +52,7 @@ export async function sendReportSetEmail(reportSetId: string): Promise<{
         const pdfBuffer = Buffer.from(await pdfRes.arrayBuffer());
 
         const typeLabel = reportSet.type === "WEEKLY" ? "주간" : "월간";
-        const subject = `[Keeper] 한미르(주) ${reportSet.periodLabel} 업무 리포트`;
+        const subject = `[HanmirWorks] 한미르(주) ${reportSet.periodLabel} 업무 리포트`;
 
         const htmlBody = buildReportEmailHtml(
             reportSet.periodLabel,

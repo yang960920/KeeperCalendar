@@ -70,7 +70,7 @@ export const AIChatAssistant = ({ projectId }: AIChatAssistantProps) => {
         if (isOpen && messages.length === 0) {
             setMessages([{
                 role: "assistant",
-                content: "안녕하세요! 🤖 **Keeper AI 어시스턴트**입니다.\n\n아래 버튼을 클릭하거나 자유롭게 질문해주세요!",
+                content: "안녕하세요! 🤖 **HanmirWorks AI 어시스턴트**입니다.\n\n아래 버튼을 클릭하거나 자유롭게 질문해주세요!",
                 timestamp: new Date(),
             }]);
         }
@@ -301,7 +301,7 @@ export const AIChatAssistant = ({ projectId }: AIChatAssistantProps) => {
                             <Bot className="h-4 w-4 text-white" />
                         </div>
                         <div className="flex-1">
-                            <h3 className="font-semibold text-sm">Keeper AI 어시스턴트</h3>
+                            <h3 className="font-semibold text-sm">HanmirWorks AI 어시스턴트</h3>
                             <p className="text-[10px] text-muted-foreground">Gemini 2.5 Flash · 업무 데이터 기반</p>
                         </div>
                         <button onClick={() => setIsOpen(false)} className="p-1.5 rounded-lg hover:bg-muted transition-colors">

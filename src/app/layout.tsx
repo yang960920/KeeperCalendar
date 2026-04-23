@@ -16,8 +16,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Keeper Calendar",
-  description: "Productivity tracking calendar app",
+  title: "HanmirWorks",
+  description: "한미르㈜ 사내 업무 관리 시스템",
+  icons: {
+    icon: "/hanmir-logo.png",
+    apple: "/hanmir-logo.png",
+  },
 };
 
 export default function RootLayout({

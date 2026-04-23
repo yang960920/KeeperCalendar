@@ -19,7 +19,7 @@ interface TaskContext {
 
 type PresetType = "weekly_report" | "deadline_alert" | "delayed_tasks" | "task_summary" | "free";
 
-const SYSTEM_PROMPT = `당신은 "Keeper" 업무 관리 어시스턴트입니다.
+const SYSTEM_PROMPT = `당신은 "HanmirWorks" 업무 관리 어시스턴트입니다.
 사용자의 업무 데이터를 분석하여 인사이트, 보고서, 알림을 제공합니다.
 
 규칙:

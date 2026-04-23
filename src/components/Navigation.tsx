@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, CalendarIcon, LayoutDashboardIcon, FolderKanbanIcon, Settings, UserCircle, LogOut, ShieldCheck, Columns3, CalendarCheck, FileText, FolderOpen, MessageCircle } from "lucide-react";
+import { Home, CalendarIcon, LayoutDashboardIcon, FolderKanbanIcon, Settings, UserCircle, LogOut, ShieldCheck, Columns3, CalendarCheck, FileText, FolderOpen, MessageCircle, Building2, Receipt } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useAdminStore } from "@/store/useAdminStore";
@@ -42,7 +42,18 @@ export const Navigation = () => {
     return (
         <nav className="w-64 border-r bg-card flex flex-col h-full flex-shrink-0">
             <div className="p-6 border-b">
-                <h1 className="text-xl font-extrabold tracking-tight text-primary">Keeper Calendar</h1>
+                <Link href="/" className="flex items-center gap-2.5 group">
+                    <img
+                        src="/hanmir-logo.png"
+                        alt="HanmirWorks"
+                        className="h-8 w-8 flex-shrink-0 drop-shadow-sm transition-transform group-hover:scale-105"
+                    />
+                    <h1 className="text-xl font-extrabold tracking-tight">
+                        <span className="bg-gradient-to-r from-[#2563eb] to-[#f97316] bg-clip-text text-transparent">
+                            HanmirWorks
+                        </span>
+                    </h1>
+                </Link>
             </div>
 
             <div className="flex-1 py-6 px-4 space-y-2 overflow-y-auto">
@@ -121,6 +132,28 @@ export const Navigation = () => {
                 >
                     <FileText className="h-4 w-4" />
                     <span>전자결재</span>
+                </Link>
+
+                <Link
+                    href="/transaction-statements"
+                    className={cn(
+                        "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
+                        pathname === "/transaction-statements" || pathname.startsWith("/transaction-statements") ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    )}
+                >
+                    <Receipt className="h-4 w-4" />
+                    <span>거래명세표</span>
+                </Link>
+
+                <Link
+                    href="/clients"
+                    className={cn(
+                        "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
+                        pathname === "/clients" || pathname.startsWith("/clients") ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    )}
+                >
+                    <Building2 className="h-4 w-4" />
+                    <span>거래처 관리</span>
                 </Link>
 
                 <Link

@@ -659,6 +659,62 @@ model ChatReaction {
   @@index([messageId])
 }
 
+// ── 거래명세표 문서 번호 채번 ──
+
+model TransactionStatementCounter {
+  year      Int      @id
+  lastSeq   Int      @default(0)
+  updatedAt DateTime @updatedAt
+}
+
+// ── 거래명세표 ──
+
+model TransactionStatement {
+  id               String    @id @default(cuid())
+  docNo            String    @unique // YYYY-NNNN
+  issueDate        DateTime // 일자
+  clientId         String // 공급받는자
+  clientPerson     String? // 인수자
+  items            Json // 행 배열 (품목/운임 혼재)
+  totalSupply      Int       @default(0)
+  totalVat         Int       @default(0)
+  totalSum         Int       @default(0)
+  memo             String?
+  createdById      String
+  emailSentAt      DateTime? // 이메일 발송 시각
+  emailSentTo      String? // 발송 수신자 목록 (쉼표 구분)
+  linkedApprovalId String? // 세금계산서 발행요청서 연결 ID (Phase 2)
+  pdfUrl           String? // 저장된 PDF URL (옵션)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([clientId])
+  @@index([createdById])
+  @@index([issueDate])
+}
+
+// ── 거래처 ──
+
+model Client {
+  id          String    @id @default(cuid())
+  name        String // 상호 (필수)
+  bizNo       String? // 사업자번호 (선택)
+  ceoName     String? // 대표자
+  contactName String? // 담당자
+  email       String? // 이메일
+  phone       String? // 전화
+  address     String? // 주소
+  memo        String? // 메모
+  deletedAt   DateTime? // 소프트 삭제
+  createdById String // 등록자 (User.id)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([name])
+  @@index([bizNo])
+  @@index([deletedAt])
+}
+
 // ── 월간 목표 ──
 
 model MonthlyGoal {

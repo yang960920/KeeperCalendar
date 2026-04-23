@@ -144,7 +144,7 @@ export default function OfficeDashboard() {
                         {editMode ? "오피스 홈 편집" : "오피스 홈"}
                     </h1>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                        {editMode ? "위젯 배치와 레이아웃을 설정합니다" : "Keeper Office Dashboard"}
+                        {editMode ? "위젯 배치와 레이아웃을 설정합니다" : "HanmirWorks Office Dashboard"}
                     </p>
                 </div>
                 <div className="flex items-center gap-2">

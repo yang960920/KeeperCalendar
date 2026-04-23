@@ -32,7 +32,7 @@ export async function GET(request: Request) {
 
                 await sendReportEmail({
                     recipients: recipients.map((r: any) => ({ email: r.email, name: r.name })),
-                    subject: `[Keeper] 한미르(주) ${reportSet.periodLabel} 주간 업무 리포트`,
+                    subject: `[HanmirWorks] 한미르(주) ${reportSet.periodLabel} 주간 업무 리포트`,
                     htmlBody: buildReportEmailHtml(reportSet.periodLabel, "WEEKLY", reportSet.stats || {}),
                     pdfBuffer,
                     pdfFilename: `한미르_주간리포트_${reportSet.periodLabel}.pdf`,

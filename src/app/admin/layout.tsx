@@ -54,8 +54,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             {/* Sidebar */}
             <aside className="w-64 bg-zinc-900 border-r border-zinc-800 flex flex-col">
                 <div className="p-6 border-b border-zinc-800">
-                    <h2 className="text-xl font-bold text-white tracking-tight">Keeper Admin</h2>
-                    <p className="text-xs text-zinc-400 mt-1">Management Dashboard</p>
+                    <div className="flex items-center gap-2.5">
+                        <img src="/hanmir-logo.png" alt="HanmirWorks" className="h-7 w-7 drop-shadow-sm" />
+                        <h2 className="text-xl font-bold text-white tracking-tight">
+                            HanmirWorks <span className="text-red-400/90 font-semibold">Admin</span>
+                        </h2>
+                    </div>
+                    <p className="text-xs text-zinc-400 mt-1 pl-9">Management Dashboard</p>
                 </div>
 
                 <nav className="flex-1 p-4 space-y-2 overflow-y-auto">

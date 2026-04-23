@@ -2053,7 +2053,7 @@ function ExpenseDocFormFields({
             const qty = Number(exp.qty) || 0;
             const up = Number(exp.unitPrice) || 0;
             const supply = qty * up;
-            const vat = Math.round(supply * 0.1);
+            const vat = exp.noVat ? 0 : Math.round(supply * 0.1);
             totalSupply += supply;
             totalVat += vat;
             return { supply, vat };
@@ -2064,13 +2064,13 @@ function ExpenseDocFormFields({
     const fmt = (n: number) => (n ? n.toLocaleString() : "");
 
     // ── 지출 내역 행 조작 ──
-    const updateExpense = (i: number, field: string, value: string) => {
+    const updateExpense = (i: number, field: string, value: string | boolean) => {
         const next = expenses.map((e: any, idx: number) => (idx === i ? { ...e, [field]: value } : e));
         onChange({ ...formData, expenses: next });
     };
     const addExpenseRow = () => {
         if (expenses.length >= 10) return;
-        onChange({ ...formData, expenses: [...expenses, { date: "", vendor: "", content: "", qty: "", unitPrice: "", note: "" }] });
+        onChange({ ...formData, expenses: [...expenses, { date: "", vendor: "", content: "", qty: "", unitPrice: "", note: "", noVat: false }] });
     };
     const removeExpenseRow = (i: number) => {
         if (expenses.length <= 1) return;
@@ -2267,7 +2267,7 @@ function ExpenseDocFormFields({
                                     <th className={`${DARK_TH} w-[88px]`}>단가</th>
                                     <th className={`${DARK_TH} w-[88px]`}>공급가액</th>
                                     <th className={`${DARK_TH} w-[78px]`}>세액</th>
-                                    <th className={`${DARK_TH} w-[68px]`}>비고</th>
+                                    <th className={`${DARK_TH} w-[78px]`}>세액없음</th>
                                     <th className={`${DARK_TH} w-[28px]`}></th>
                                 </tr>
                             </thead>
@@ -2294,10 +2294,16 @@ function ExpenseDocFormFields({
                                             {fmt(calc.rows[i]?.supply)}
                                         </td>
                                         <td className={`${TD} text-right text-xs text-slate-500 dark:text-slate-400 px-2 tabular-nums`}>
-                                            {fmt(calc.rows[i]?.vat)}
+                                            {exp.noVat ? <span className="text-slate-400">-</span> : fmt(calc.rows[i]?.vat)}
                                         </td>
-                                        <td className={TD}>
-                                            <input className={`${DOC_INPUT} text-xs`} placeholder="" value={exp.note || ""} onChange={(e) => updateExpense(i, "note", e.target.value)} />
+                                        <td className={`${TD} text-center`}>
+                                            <input
+                                                type="checkbox"
+                                                className="h-4 w-4 cursor-pointer accent-slate-700"
+                                                checked={!!exp.noVat}
+                                                onChange={(e) => updateExpense(i, "noVat", e.target.checked as any)}
+                                                aria-label="세액 없음"
+                                            />
                                         </td>
                                         <td className={`${TD} text-center`}>
                                             {expenses.length > 1 && (
@@ -2583,7 +2589,7 @@ export default function NewApprovalPage() {
                 setFormData({
                     position: "", periodStart: "", periodEnd: "", periodLabel: "", linkedDocs: "", remarks: "",
                     accounts: [{ vendor: "", bank: "", accountNo: "", holder: "", amount: "" }],
-                    expenses: [{ date: "", vendor: "", content: "", qty: "", unitPrice: "", note: "" }],
+                    expenses: [{ date: "", vendor: "", content: "", qty: "", unitPrice: "", note: "", noVat: false }],
                 });
                 break;
             case "GENERAL":
@@ -2853,10 +2859,11 @@ export default function NewApprovalPage() {
                 const qty = Number(exp.qty) || 0;
                 const up = Number(exp.unitPrice) || 0;
                 const supply = qty * up;
-                const vat = Math.round(supply * 0.1);
+                const vat = exp.noVat ? 0 : Math.round(supply * 0.1);
                 totalSupply += supply;
                 totalVat += vat;
-                lines.push(`${i + 1}. ${exp.date || ""} ${exp.vendor || ""} - ${exp.content} (${qty}×${up.toLocaleString()} = 공급가 ${supply.toLocaleString()} + 세액 ${vat.toLocaleString()})`);
+                const vatPart = exp.noVat ? "세액없음" : `세액 ${vat.toLocaleString()}`;
+                lines.push(`${i + 1}. ${exp.date || ""} ${exp.vendor || ""} - ${exp.content} (${qty}×${up.toLocaleString()} = 공급가 ${supply.toLocaleString()} + ${vatPart})`);
             }
         });
         lines.push(`\n소계: 공급가 ${totalSupply.toLocaleString()} + 세액 ${totalVat.toLocaleString()}`);

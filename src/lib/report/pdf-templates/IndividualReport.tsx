@@ -108,7 +108,7 @@ export const IndividualReport = ({ data, departmentName, period, insight }: Indi
 
             {/* 푸터 */}
             <View style={commonStyles.footer} fixed>
-                <Text>Keeper Calendar — {data.name} 개인 리포트</Text>
+                <Text>HanmirWorks — {data.name} 개인 리포트</Text>
                 <Text>본 리포트는 관리자 전용입니다.</Text>
             </View>
         </Page>

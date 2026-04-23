@@ -190,12 +190,15 @@ function renderExpense(a: PdfApproval, emps: PdfEmployee[]): string {
         const qty = Number(exp.qty) || 0;
         const up = Number(exp.unitPrice) || 0;
         const supply = qty * up;
-        const vat = Math.round(supply * 0.1);
+        const vat = exp.noVat ? 0 : Math.round(supply * 0.1);
         totalSupply += supply;
         totalVat += vat;
         return { supply, vat };
     });
     const grandTotal = totalSupply + totalVat;
+
+    // 기존 데이터 호환: note 값이 하나라도 있으면 비고 열 유지, 아니면 세액없음 열로 표시
+    const hasLegacyNote = expenses.some((ex: any) => (ex.note || "").toString().trim());
 
     // 구형 데이터 호환
     if (expenses.length === 0 && fd.expenseItem) {
@@ -234,14 +237,21 @@ function renderExpense(a: PdfApproval, emps: PdfEmployee[]): string {
 
     let expenseHtml = "";
     if (expenses.some((ex: any) => ex.content)) {
+        const lastHeader = hasLegacyNote
+            ? `<th class="dth" style="width:60px">비고</th>`
+            : `<th class="dth" style="width:70px">세액없음</th>`;
         expenseHtml = `<div class="sl">지출 내역</div><table class="ft"><thead><tr>
             <th class="dth" style="width:36px">No.</th><th class="dth" style="width:70px">일자</th><th class="dth" style="width:90px">거래처</th>
             <th class="dth">내용</th><th class="dth" style="width:40px">수량</th><th class="dth" style="width:80px">단가</th>
-            <th class="dth" style="width:80px">공급가액</th><th class="dth" style="width:70px">세액</th><th class="dth" style="width:60px">비고</th>
+            <th class="dth" style="width:80px">공급가액</th><th class="dth" style="width:70px">세액</th>${lastHeader}
         </tr></thead><tbody>`;
         expenses.forEach((ex: any, i: number) => {
             if (ex.content) {
-                expenseHtml += `<tr><td class="c">${i + 1}</td><td class="c">${ex.date || ""}</td><td>${ex.vendor || ""}</td><td>${ex.content}</td><td class="c">${ex.qty || ""}</td><td class="r">${fmtNum(ex.unitPrice)}</td><td class="r bold">${fmtNum(calcRows[i]?.supply)}</td><td class="r">${fmtNum(calcRows[i]?.vat)}</td><td>${ex.note || ""}</td></tr>`;
+                const vatCell = ex.noVat ? `<td class="c" style="color:#94a3b8;">-</td>` : `<td class="r">${fmtNum(calcRows[i]?.vat)}</td>`;
+                const lastCell = hasLegacyNote
+                    ? `<td>${ex.note || ""}</td>`
+                    : `<td class="c">${ex.noVat ? "✓" : ""}</td>`;
+                expenseHtml += `<tr><td class="c">${i + 1}</td><td class="c">${ex.date || ""}</td><td>${ex.vendor || ""}</td><td>${ex.content}</td><td class="c">${ex.qty || ""}</td><td class="r">${fmtNum(ex.unitPrice)}</td><td class="r bold">${fmtNum(calcRows[i]?.supply)}</td>${vatCell}${lastCell}</tr>`;
             }
         });
         expenseHtml += `<tr class="sub"><td colspan="6" class="r" style="padding-right:14px;">소 계</td><td class="r">${fmtNum(totalSupply)}</td><td class="r">${fmtNum(totalVat)}</td><td></td></tr></tbody></table>`;

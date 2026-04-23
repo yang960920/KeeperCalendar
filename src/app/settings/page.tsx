@@ -155,7 +155,7 @@ export default function SettingsPage() {
     return (
         <div className="min-h-screen bg-background text-foreground p-6 md:p-10 max-w-4xl mx-auto">
             <div className="mb-8">
-                <h1 className="text-3xl font-bold tracking-tight">Keeper Settings</h1>
+                <h1 className="text-3xl font-bold tracking-tight">HanmirWorks 설정</h1>
                 <p className="text-muted-foreground mt-1">계정, 알림, 근무, 화면 설정을 관리합니다.</p>
             </div>
 

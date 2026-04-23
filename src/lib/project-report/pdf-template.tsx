@@ -10,7 +10,7 @@ interface Props {
 
 const Footer = ({ name }: { name: string }) => (
     <View style={s.footer} fixed>
-        <Text>Keeper Calendar -- {name} 성과 보고서</Text>
+        <Text>HanmirWorks -- {name} 성과 보고서</Text>
         <Text>본 보고서는 시스템에서 자동 생성되었습니다.</Text>
     </View>
 );

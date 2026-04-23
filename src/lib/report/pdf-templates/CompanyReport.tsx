@@ -12,8 +12,8 @@ interface CompanyReportProps {
 
 const Footer = ({ period }: { period: ReportPeriod }) => (
     <View style={commonStyles.footer} fixed>
-        <Text>Keeper Calendar — 한미르(주) {period.type === "WEEKLY" ? "주간" : "월간"} 리포트</Text>
-        <Text>본 리포트는 Keeper Calendar 시스템에서 자동 생성되었습니다.</Text>
+        <Text>HanmirWorks — 한미르(주) {period.type === "WEEKLY" ? "주간" : "월간"} 리포트</Text>
+        <Text>본 리포트는 HanmirWorks 시스템에서 자동 생성되었습니다.</Text>
     </View>
 );
 

@@ -120,7 +120,14 @@ export default function LoginPage() {
                 </div>
 
                 <div className="text-center mb-8">
-                    <h1 className="text-2xl font-bold text-primary mb-2">Keeper Calendar</h1>
+                    <div className="flex items-center justify-center gap-3 mb-2">
+                        <img src="/hanmir-logo.png" alt="HanmirWorks" className="h-10 w-10 drop-shadow-sm" />
+                        <h1 className="text-2xl font-bold">
+                            <span className="bg-gradient-to-r from-[#2563eb] to-[#f97316] bg-clip-text text-transparent">
+                                HanmirWorks
+                            </span>
+                        </h1>
+                    </div>
                     <p className="text-sm text-muted-foreground">업무일지 시스템 로그인이 필요합니다</p>
                 </div>
 
