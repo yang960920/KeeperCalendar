@@ -214,7 +214,7 @@ export default function NewStatementPage() {
     };
 
     return (
-        <div className="p-6 sm:p-8 max-w-5xl mx-auto pb-24">
+        <div className="p-6 sm:p-8 max-w-5xl mx-auto">
             <header className="mb-6">
                 <h1 className="text-2xl font-bold tracking-tight">거래명세표 작성</h1>
                 <p className="text-sm text-muted-foreground mt-1">
@@ -473,7 +473,7 @@ export default function NewStatementPage() {
                 </div>
             )}
 
-            <div className="fixed bottom-0 left-64 right-0 bg-background/95 backdrop-blur border-t px-6 py-4 flex justify-between items-center z-10">
+            <div className="mt-8 border-t pt-6 flex flex-wrap gap-3 justify-between items-center">
                 <div className="text-sm">
                     <span className="text-muted-foreground">합계 (VAT 포함): </span>
                     <span className="text-lg font-bold tabular-nums">₩{totals.sum.toLocaleString()}</span>
