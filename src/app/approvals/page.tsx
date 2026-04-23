@@ -2,26 +2,13 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-    CheckCircle2,
-    Clock4,
-    FileText,
-    XCircle,
-    ChevronRight,
     ChevronDown,
-    X,
     Loader2,
     FilePlus,
     Search,
-    Calendar,
-    MapPin,
-    DollarSign,
-    Clock,
     Download,
-    Paperclip,
-    File as FileIcon,
-    ExternalLink,
-    ClipboardCheck,
-    Navigation,
+    FileText,
+    X,
 } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
@@ -29,13 +16,6 @@ import { ko } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from "@/components/ui/dialog";
 import {
     Select,
     SelectContent,
@@ -46,400 +26,20 @@ import {
 import { useAuthStore } from "@/store/useAuthStore";
 import { useStore } from "@/hooks/useStore";
 import {
-    processApprovalStep,
-    withdrawApprovalRequest,
     getMyApprovals,
     getDepartmentApprovals,
 } from "@/app/actions/approval";
 import { getEmployees } from "@/app/actions/employee";
 import { downloadApprovals } from "./pdf-utils";
+import {
+    CATEGORY_OPTIONS,
+    STATUS_CONFIG,
+    APPROVAL_ADMIN_IDS,
+    type ApprovalData,
+    type Employee,
+} from "./_shared";
 
-// ─── 타입 ─────────────────────────────────────────────────────────────────────
-
-interface ApprovalStep {
-    id: string;
-    approverId: string;
-    stepOrder: number;
-    status: "WAITING" | "PENDING" | "APPROVED" | "REJECTED";
-    comment?: string;
-    actedAt?: string;
-}
-
-interface ApprovalAttachmentData {
-    id: string;
-    name: string;
-    url: string;
-    size: number;
-    type: string;
-}
-
-interface ApprovalData {
-    id: string;
-    title: string;
-    content: string;
-    category: string;
-    status: "PENDING" | "IN_PROGRESS" | "APPROVED" | "REJECTED" | "WITHDRAWN";
-    requesterId: string;
-    projectId?: string;
-    formData?: Record<string, any>;
-    steps: ApprovalStep[];
-    attachments?: ApprovalAttachmentData[];
-    createdAt: string;
-}
-
-interface Employee {
-    id: string;
-    name: string;
-    departmentName: string;
-}
-
-// ─── 상수 ─────────────────────────────────────────────────────────────────────
-
-const CATEGORY_OPTIONS = [
-    { value: "VACATION",      label: "휴가",       icon: Calendar },
-    { value: "OVERTIME",      label: "시간외근무",  icon: Clock },
-    { value: "BUSINESS_TRIP", label: "외근/출장",    icon: MapPin },
-    { value: "FIELD_WORK_PLAN", label: "외근/출장계획", icon: Navigation },
-    { value: "EXPENSE",       label: "지출결의",    icon: DollarSign },
-    { value: "GENERAL",           label: "품의서",      icon: FileText },
-    { value: "GRANT_APPLICATION", label: "정부과제",    icon: FileText },
-    { value: "INSPECTION",        label: "납품/검수",    icon: ClipboardCheck },
-    { value: "TAX_INVOICE",       label: "세금계산서",   icon: FileText },
-    { value: "EXPENDITURE_PLAN", label: "지출계획",     icon: DollarSign },
-    { value: "PERSONAL_EXPENSE", label: "개인경비",    icon: DollarSign },
-];
-
-const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-    PENDING:     { label: "대기 중",    color: "text-slate-400",   icon: Clock4 },
-    IN_PROGRESS: { label: "결재 중",    color: "text-blue-400",    icon: Clock4 },
-    APPROVED:    { label: "승인 완료",  color: "text-emerald-400", icon: CheckCircle2 },
-    REJECTED:    { label: "반려",       color: "text-red-400",     icon: XCircle },
-    WITHDRAWN:   { label: "철회",       color: "text-slate-500",   icon: XCircle },
-};
-
-const APPROVAL_ADMIN_IDS = ["양현준", "유경성", "김권찬", "한승우", "진호열"];
-
-const STEP_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-    WAITING:  { label: "대기",   color: "text-slate-400" },
-    PENDING:  { label: "결재 중", color: "text-blue-400" },
-    APPROVED: { label: "승인",   color: "text-emerald-400" },
-    REJECTED: { label: "반려",   color: "text-red-400" },
-};
-
-// ─── formData 상세 표시 ──────────────────────────────────────────────────────
-
-function FormDataDetail({ category, formData }: { category: string; formData?: Record<string, any> | null }) {
-    if (!formData) return null;
-
-    const items: { label: string; value: string }[] = [];
-
-    switch (category) {
-        case "VACATION":
-            if (formData.vacationType) items.push({ label: "유형", value: formData.vacationType });
-            if (formData.startDate) items.push({ label: "시작일", value: formData.startDate });
-            if (formData.endDate) items.push({ label: "종료일", value: formData.endDate });
-            break;
-        case "OVERTIME":
-            if (formData.overtimeDate) items.push({ label: "근무일", value: formData.overtimeDate });
-            if (formData.startTime) items.push({ label: "시작", value: formData.startTime });
-            if (formData.endTime) items.push({ label: "종료", value: formData.endTime });
-            break;
-        case "BUSINESS_TRIP":
-            if (formData.location) items.push({ label: "장소", value: formData.location });
-            if (formData.tripStartDate) items.push({ label: "시작일", value: formData.tripStartDate });
-            if (formData.tripEndDate && formData.tripEndDate !== formData.tripStartDate) items.push({ label: "종료일", value: formData.tripEndDate });
-            if (formData.visitCompany) items.push({ label: "방문기관", value: formData.visitCompany });
-            break;
-        case "FIELD_WORK_PLAN": {
-            const typeLabel = formData.tripType === "기타" && formData.tripTypeEtc
-                ? `기타 (${formData.tripTypeEtc})`
-                : formData.tripType;
-            if (typeLabel) items.push({ label: "구분", value: typeLabel });
-            if (formData.tripStartDate) items.push({ label: "시작일", value: formData.tripStartDate });
-            if (formData.tripEndDate && formData.tripEndDate !== formData.tripStartDate) items.push({ label: "종료일", value: formData.tripEndDate });
-            if (formData.visitCompany) items.push({ label: "방문처", value: formData.visitCompany });
-            if (formData.visitPlace) items.push({ label: "장소", value: formData.visitPlace });
-            const exp = formData.expenses || {};
-            const expTotal = ["transport", "lodging", "meal", "etc"].reduce((s: number, k: string) => s + (Number(exp[k]) || 0), 0);
-            if (expTotal > 0) items.push({ label: "예상경비", value: `${expTotal.toLocaleString()}원` });
-            break;
-        }
-        case "EXPENSE":
-            if (formData.expenseItem) items.push({ label: "항목", value: formData.expenseItem });
-            if (formData.amount) items.push({ label: "금액", value: `${Number(formData.amount).toLocaleString()}원` });
-            if (formData.expenseDate) items.push({ label: "사용일", value: formData.expenseDate });
-            if (formData.receiptType) items.push({ label: "증빙", value: formData.receiptType });
-            break;
-        case "GRANT_APPLICATION":
-            if (formData.project_name) items.push({ label: "과제명", value: formData.project_name });
-            if (formData.funding_agency) items.push({ label: "주관기관", value: formData.funding_agency });
-            if (formData.deadline) items.push({ label: "마감일", value: formData.deadline });
-            if (formData.product_line) items.push({ label: "제품라인", value: formData.product_line });
-            if (formData.url) items.push({ label: "공고링크", value: "원문 보기" });
-            break;
-        case "INSPECTION":
-            if (formData.docTitle) items.push({ label: "과제명", value: formData.docTitle });
-            if (formData.vendor) items.push({ label: "납품업체", value: formData.vendor });
-            if (formData.inspectionDate) items.push({ label: "검수일", value: formData.inspectionDate });
-            if (formData.inspector) items.push({ label: "검수자", value: formData.inspector });
-            break;
-        case "TAX_INVOICE":
-            if (formData.issueDate) items.push({ label: "발행일", value: formData.issueDate });
-            if (formData.manager) items.push({ label: "담당자", value: formData.manager });
-            if (formData.managerContact) items.push({ label: "연락처", value: formData.managerContact });
-            break;
-        case "EXPENDITURE_PLAN":
-            if (formData.planDate) items.push({ label: "작성일", value: formData.planDate });
-            break;
-        case "PERSONAL_EXPENSE":
-            if (formData.bankAccount) items.push({ label: "계좌", value: formData.bankAccount });
-            break;
-    }
-
-    if (items.length === 0) return null;
-
-    return (
-        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 bg-muted/30 rounded-lg p-3 text-xs">
-            {items.map((item) => (
-                <div key={item.label} className="flex items-center gap-1.5">
-                    <span className="text-muted-foreground">{item.label}:</span>
-                    <span className="font-medium">{item.value}</span>
-                </div>
-            ))}
-        </div>
-    );
-}
-
-// ─── 결재 상세 다이얼로그 ─────────────────────────────────────────────────────
-
-function ApprovalDetailDialog({
-    approval,
-    currentUserId,
-    employees,
-    onAction,
-}: {
-    approval: ApprovalData;
-    currentUserId: string;
-    employees: Employee[];
-    onAction: () => void;
-}) {
-    const [open, setOpen] = useState(false);
-    const [comment, setComment] = useState("");
-    const [isLoading, setIsLoading] = useState(false);
-    const [toastMsg, setToastMsg] = useState<string | null>(null);
-
-    const isRequester = approval.requesterId === currentUserId;
-    const currentStep = approval.steps.find(
-        (s) => s.approverId === currentUserId && s.status === "PENDING"
-    );
-    const canWithdraw = isRequester && ["PENDING", "IN_PROGRESS"].includes(approval.status);
-
-    const statusConf = STATUS_CONFIG[approval.status];
-    const StatusIcon = statusConf.icon;
-
-    useEffect(() => {
-        if (!toastMsg) return;
-        const t = setTimeout(() => setToastMsg(null), 3000);
-        return () => clearTimeout(t);
-    }, [toastMsg]);
-
-    const handleProcess = async (action: "APPROVED" | "REJECTED") => {
-        setIsLoading(true);
-        try {
-            const result = await processApprovalStep(approval.id, currentUserId, action, comment || undefined);
-            if (result.success) {
-                setToastMsg(action === "APPROVED" ? "승인되었습니다." : "반려되었습니다.");
-                setComment("");
-                onAction();
-                setTimeout(() => setOpen(false), 500);
-            } else {
-                setToastMsg(result.error || "처리 실패");
-            }
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleWithdraw = async () => {
-        setIsLoading(true);
-        try {
-            const result = await withdrawApprovalRequest(approval.id, currentUserId);
-            if (result.success) {
-                setToastMsg("결재가 철회되었습니다.");
-                onAction();
-                setTimeout(() => setOpen(false), 500);
-            }
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const requesterName = employees.find((e) => e.id === approval.requesterId)?.name || approval.requesterId;
-
-    return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                <button className="w-full text-left">
-                    <ApprovalCard approval={approval} employees={employees} />
-                </button>
-            </DialogTrigger>
-            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2">
-                        <FileText className="h-5 w-5" />
-                        {approval.title}
-                    </DialogTitle>
-                </DialogHeader>
-
-                <div className="space-y-4 mt-2">
-                    {/* 상태 + 분류 + 기안자 */}
-                    <div className="flex items-center gap-2 flex-wrap">
-                        <Badge className={`${statusConf.color} bg-transparent border-current text-xs`}>
-                            <StatusIcon className="h-3 w-3 mr-1 inline" />
-                            {statusConf.label}
-                        </Badge>
-                        <Badge variant="outline" className="text-xs">
-                            {CATEGORY_OPTIONS.find((c) => c.value === (approval.formData?.source === "GRANT_APPLICATION" ? "GRANT_APPLICATION" : approval.category))?.label || approval.category}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">기안: {requesterName}</span>
-                        <span className="text-xs text-muted-foreground ml-auto">
-                            {format(new Date(approval.createdAt), "yyyy.MM.dd", { locale: ko })}
-                        </span>
-                    </div>
-
-                    {/* 카테고리별 상세 정보 */}
-                    <FormDataDetail category={approval.formData?.source === "GRANT_APPLICATION" ? "GRANT_APPLICATION" : approval.category} formData={approval.formData} />
-
-                    {/* 내용 */}
-                    <div className="bg-muted/40 rounded-xl p-4 text-sm whitespace-pre-wrap">
-                        {approval.content}
-                    </div>
-
-                    {/* 첨부파일 */}
-                    {approval.attachments && approval.attachments.length > 0 && (
-                        <div>
-                            <h4 className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
-                                <Paperclip className="h-3 w-3" />
-                                첨부파일 ({approval.attachments.length})
-                            </h4>
-                            <div className="space-y-1.5">
-                                {approval.attachments.map((att) => (
-                                    <a
-                                        key={att.id}
-                                        href={att.url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        download={att.name}
-                                        className="flex items-center gap-2.5 p-2.5 bg-muted/40 rounded-lg border hover:bg-muted/60 transition-colors group"
-                                    >
-                                        <FileIcon className="h-4 w-4 text-blue-500 shrink-0" />
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">
-                                                {att.name}
-                                            </p>
-                                            <p className="text-[10px] text-muted-foreground">
-                                                {att.size < 1024
-                                                    ? `${att.size} B`
-                                                    : att.size < 1024 * 1024
-                                                    ? `${(att.size / 1024).toFixed(1)} KB`
-                                                    : `${(att.size / (1024 * 1024)).toFixed(1)} MB`}
-                                            </p>
-                                        </div>
-                                        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0" />
-                                    </a>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* 결재 흐름 */}
-                    <div>
-                        <h4 className="text-xs font-semibold text-muted-foreground mb-2">결재 진행 현황</h4>
-                        <div className="flex items-center gap-1 flex-wrap">
-                            {approval.steps.map((step, idx) => {
-                                const approverName = employees.find((e) => e.id === step.approverId)?.name || step.approverId;
-                                const sc = STEP_STATUS_CONFIG[step.status];
-                                return (
-                                    <React.Fragment key={step.id}>
-                                        <div className="flex flex-col items-center gap-1">
-                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 ${
-                                                step.status === "APPROVED" ? "border-emerald-400 bg-emerald-400/10 text-emerald-400" :
-                                                step.status === "REJECTED" ? "border-red-400 bg-red-400/10 text-red-400" :
-                                                step.status === "PENDING" ? "border-blue-400 bg-blue-400/10 text-blue-400" :
-                                                "border-slate-400/40 text-slate-500"
-                                            }`}>
-                                                {idx + 1}
-                                            </div>
-                                            <span className="text-[9px] text-muted-foreground">{approverName}</span>
-                                            <span className={`text-[9px] ${sc.color}`}>{sc.label}</span>
-                                            {step.comment && (
-                                                <span className="text-[8px] text-muted-foreground italic max-w-[60px] text-center truncate" title={step.comment}>
-                                                    &quot;{step.comment}&quot;
-                                                </span>
-                                            )}
-                                        </div>
-                                        {idx < approval.steps.length - 1 && (
-                                            <ChevronRight className="h-3 w-3 text-muted-foreground/50 mb-5" />
-                                        )}
-                                    </React.Fragment>
-                                );
-                            })}
-                        </div>
-                    </div>
-
-                    {/* 결재 처리 (결재자) */}
-                    {currentStep && (
-                        <div className="border-t pt-4 space-y-2">
-                            <h4 className="text-xs font-semibold">결재 처리</h4>
-                            <textarea
-                                placeholder="결재 의견 (선택)"
-                                value={comment}
-                                onChange={(e) => setComment(e.target.value)}
-                                className="w-full text-sm bg-background border rounded-md px-3 py-2 h-16 resize-none focus:outline-none focus:ring-2 focus:ring-ring"
-                            />
-                            <div className="flex gap-2">
-                                <Button
-                                    onClick={() => handleProcess("APPROVED")}
-                                    disabled={isLoading}
-                                    className="flex-1 bg-emerald-600 hover:bg-emerald-700"
-                                >
-                                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "승인"}
-                                </Button>
-                                <Button
-                                    onClick={() => handleProcess("REJECTED")}
-                                    variant="destructive"
-                                    disabled={isLoading}
-                                    className="flex-1"
-                                >
-                                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "반려"}
-                                </Button>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* 철회 (기안자) */}
-                    {canWithdraw && (
-                        <Button
-                            variant="outline"
-                            className="w-full text-muted-foreground"
-                            onClick={handleWithdraw}
-                            disabled={isLoading}
-                        >
-                            결재 철회
-                        </Button>
-                    )}
-
-                    {/* 토스트 */}
-                    {toastMsg && (
-                        <div className="bg-primary text-primary-foreground text-sm px-4 py-2 rounded-lg text-center">
-                            {toastMsg}
-                        </div>
-                    )}
-                </div>
-            </DialogContent>
-        </Dialog>
-    );
-}
+// ─── (타입·상수·FormDataDetail·Dialog 로직은 ./_shared 또는 /approvals/[id]/page.tsx 로 이동) ──
 
 // ─── ApprovalCard ─────────────────────────────────────────────────────────────
 
@@ -891,12 +491,9 @@ export default function ApprovalsPage() {
                                 </button>
                             )}
                             <div className="flex-1 min-w-0">
-                                <ApprovalDetailDialog
-                                    approval={approval}
-                                    currentUserId={user.id}
-                                    employees={employees}
-                                    onAction={loadData}
-                                />
+                                <Link href={`/approvals/${approval.id}`} className="block">
+                                    <ApprovalCard approval={approval} employees={employees} />
+                                </Link>
                             </div>
                         </div>
                     ))}

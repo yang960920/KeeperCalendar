@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/select";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useStore } from "@/hooks/useStore";
-import { createApprovalRequest } from "@/app/actions/approval";
+import { createApprovalRequest, getApprovalRequestById, updateApprovalRequest } from "@/app/actions/approval";
 import { getEmployees } from "@/app/actions/employee";
 
 // ─── 타입 ─────────────────────────────────────────────────────────────────────
@@ -2512,12 +2512,14 @@ function ApproverPicker({
 
 // ─── 메인 페이지 ─────────────────────────────────────────────────────────────
 
-export default function NewApprovalPage() {
+export default function NewApprovalPage({ forcedEditId }: { forcedEditId?: string } = {}) {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const editId = forcedEditId ?? searchParams.get("editId") ?? null;
     const user = useStore(useAuthStore, (s) => s.user);
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [isEditLoading, setIsEditLoading] = useState(!!editId);
     const [approverIds, setApproverIds] = useState<string[]>([]);
     const [categoryOpen, setCategoryOpen] = useState(true);
     const [form, setForm] = useState({
@@ -2548,6 +2550,38 @@ export default function NewApprovalPage() {
             }
         })();
     }, []);
+
+    // 편집 모드: 기존 결재 로드
+    useEffect(() => {
+        if (!editId) return;
+        (async () => {
+            try {
+                const res = await getApprovalRequestById(editId);
+                if (res.success && res.data) {
+                    const a: any = res.data;
+                    setForm({
+                        title: a.title || "",
+                        content: a.content || "",
+                        category: a.category || "GENERAL",
+                    });
+                    setFormData(a.formData || {});
+                    setApproverIds((a.steps || []).map((s: any) => s.approverId));
+                    if (Array.isArray(a.attachments)) {
+                        setAttachments(a.attachments.map((att: any) => ({
+                            name: att.name, url: att.url, size: att.size, type: att.type,
+                        })));
+                    }
+                    setCategoryOpen(false); // 편집 시 카테고리 섹션 접어둠
+                } else {
+                    alert(res.error || "기존 결재를 불러오지 못했습니다.");
+                    router.push("/approvals");
+                }
+            } finally {
+                setIsEditLoading(false);
+            }
+        })();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [editId]);
 
     // 카테고리 변경 시 formData 초기화
     const handleCategoryChange = (cat: string) => {
@@ -3086,17 +3120,32 @@ export default function NewApprovalPage() {
 
         setIsLoading(true);
         try {
-            const result = await createApprovalRequest({
-                title: submitTitle,
-                content: submitContent,
-                category: form.category as any,
-                requesterId: user.id,
-                approverIds,
-                formData,
-                attachments: attachments.length > 0 ? attachments : undefined,
-            });
-            if (result.success) {
-                router.push("/approvals");
+            if (editId) {
+                const result = await updateApprovalRequest(editId, {
+                    title: submitTitle,
+                    content: submitContent,
+                    approverIds,
+                    formData,
+                    attachments,
+                });
+                if (result.success) {
+                    router.push(`/approvals/${editId}`);
+                } else {
+                    alert(result.error || "수정에 실패했습니다.");
+                }
+            } else {
+                const result = await createApprovalRequest({
+                    title: submitTitle,
+                    content: submitContent,
+                    category: form.category as any,
+                    requesterId: user.id,
+                    approverIds,
+                    formData,
+                    attachments: attachments.length > 0 ? attachments : undefined,
+                });
+                if (result.success) {
+                    router.push("/approvals");
+                }
             }
         } finally {
             setIsLoading(false);
@@ -3104,6 +3153,9 @@ export default function NewApprovalPage() {
     };
 
     if (!user) return null;
+    if (isEditLoading) {
+        return <div className="p-10 text-center text-sm text-muted-foreground">기존 결재를 불러오는 중…</div>;
+    }
 
     const currentEmployee = employees.find((e) => e.id === user.id);
     const userName = currentEmployee?.name || "";
@@ -3119,14 +3171,14 @@ export default function NewApprovalPage() {
                         <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => router.push("/approvals")}
+                            onClick={() => router.push(editId ? `/approvals/${editId}` : "/approvals")}
                             className="gap-1.5"
                         >
                             <ArrowLeft className="h-4 w-4" />
                             돌아가기
                         </Button>
                         <div className="h-5 w-px bg-border" />
-                        <h1 className="text-lg font-bold">기안 작성</h1>
+                        <h1 className="text-lg font-bold">{editId ? "기안 수정" : "기안 작성"}</h1>
                     </div>
                     <Button
                         onClick={handleSubmit}
@@ -3136,12 +3188,12 @@ export default function NewApprovalPage() {
                         {isLoading ? (
                             <>
                                 <Loader2 className="h-4 w-4 animate-spin" />
-                                제출 중...
+                                {editId ? "수정 중..." : "제출 중..."}
                             </>
                         ) : (
                             <>
                                 <FilePlus className="h-4 w-4" />
-                                결재 상신
+                                {editId ? "수정 완료" : "결재 상신"}
                             </>
                         )}
                     </Button>

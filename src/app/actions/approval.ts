@@ -676,3 +676,146 @@ async function sendWebhookToGrantAssistant(
         return false;
     }
 }
+
+// ─── 단건 조회 ────────────────────────────────────────────────────────────────
+
+export async function getApprovalRequestById(id: string) {
+    try {
+        const req = await (prisma as any).approvalRequest.findUnique({
+            where: { id },
+            include: {
+                steps: { orderBy: { stepOrder: "asc" } },
+                attachments: true,
+            },
+        });
+        if (!req) return { success: false, error: "결재 요청을 찾을 수 없습니다." };
+
+        const serialized = {
+            ...req,
+            formData: req.formData ? JSON.parse(req.formData) : null,
+            createdAt: req.createdAt.toISOString(),
+            updatedAt: req.updatedAt.toISOString(),
+            steps: req.steps.map((s: any) => ({
+                ...s,
+                actedAt: s.actedAt ? s.actedAt.toISOString() : null,
+            })),
+            attachments: req.attachments.map((a: any) => ({
+                ...a,
+                createdAt: a.createdAt.toISOString(),
+            })),
+        };
+        return { success: true, data: serialized };
+    } catch (error: any) {
+        console.error("Failed to get approval:", error);
+        return { success: false, error: "결재 요청 조회에 실패했습니다." };
+    }
+}
+
+// ─── 결재 수정 ────────────────────────────────────────────────────────────────
+
+export async function updateApprovalRequest(id: string, data: {
+    title: string;
+    content: string;
+    approverIds: string[];           // 결재자 목록
+    formData?: Record<string, any>;
+    attachments?: { name: string; url: string; size: number; type: string }[];
+}) {
+    try {
+        const session = await requireSession();
+        if (session.isAdmin) {
+            return { success: false, error: "관리자 세션으로는 결재 수정이 불가합니다." };
+        }
+
+        const existing = await (prisma as any).approvalRequest.findUnique({
+            where: { id },
+            include: { steps: { orderBy: { stepOrder: "asc" } } },
+        });
+        if (!existing) return { success: false, error: "결재 요청을 찾을 수 없습니다." };
+        if (existing.requesterId !== session.userId) {
+            return { success: false, error: "수정 권한이 없습니다. (기안자만 가능)" };
+        }
+        if (existing.status !== "PENDING" && existing.status !== "IN_PROGRESS") {
+            return { success: false, error: "이미 완료된 결재는 수정할 수 없습니다." };
+        }
+        if (!data.approverIds || data.approverIds.length === 0) {
+            return { success: false, error: "결재자를 1명 이상 지정해야 합니다." };
+        }
+
+        // 이미 승인된 step이 있으면 재요청 간주 (전 단계 리셋)
+        const hasAnyApproved = existing.steps.some((s: any) => s.status === "APPROVED");
+
+        // 결재자 명단이 실제 변경됐는지 체크 (순서 포함)
+        const existingApproverIds = existing.steps.map((s: any) => s.approverId);
+        const approverIdsChanged =
+            data.approverIds.length !== existingApproverIds.length ||
+            data.approverIds.some((aid, i) => aid !== existingApproverIds[i]);
+
+        const shouldResetSteps = hasAnyApproved || approverIdsChanged;
+
+        await (prisma as any).$transaction(async (tx: any) => {
+            // 본문/폼 업데이트
+            await tx.approvalRequest.update({
+                where: { id },
+                data: {
+                    title: data.title,
+                    content: data.content,
+                    formData: data.formData ? JSON.stringify(data.formData) : null,
+                    status: shouldResetSteps ? "PENDING" : existing.status,
+                },
+            });
+
+            if (shouldResetSteps) {
+                // 기존 steps 삭제 후 재생성
+                await tx.approvalStep.deleteMany({ where: { requestId: id } });
+                await tx.approvalStep.createMany({
+                    data: data.approverIds.map((approverId, idx) => ({
+                        requestId: id,
+                        approverId,
+                        stepOrder: idx + 1,
+                        status: idx === 0 ? "PENDING" : "WAITING",
+                    })),
+                });
+            }
+            // 결재자도 그대로, 승인도 없던 경우(status=PENDING이거나 IN_PROGRESS지만 아무도 승인 안 한 상태) →
+            // steps 유지. 단, IN_PROGRESS지만 승인 0건인 경우는 실제로는 PENDING과 동일한 상태라 리셋 불필요.
+
+            // 첨부파일: 전달된 경우만 전체 교체
+            if (data.attachments) {
+                await tx.approvalAttachment.deleteMany({ where: { requestId: id } });
+                if (data.attachments.length > 0) {
+                    await tx.approvalAttachment.createMany({
+                        data: data.attachments.map((att) => ({
+                            requestId: id,
+                            name: att.name,
+                            url: att.url,
+                            size: att.size,
+                            type: att.type,
+                        })),
+                    });
+                }
+            }
+        });
+
+        // steps가 리셋된 경우, 새 첫 결재자에게 알림
+        if (shouldResetSteps) {
+            try {
+                await prisma.notification.create({
+                    data: {
+                        userId: data.approverIds[0],
+                        type: "SYSTEM",
+                        title: hasAnyApproved ? "📋 결재 재요청" : "📋 결재 요청",
+                        message: `"${data.title}" 결재가 ${hasAnyApproved ? "재" : ""}요청되었습니다.`,
+                        senderId: session.userId,
+                    },
+                });
+            } catch (e) { /* ignore */ }
+        }
+
+        revalidatePath("/approvals");
+        revalidatePath(`/approvals/${id}`);
+        return { success: true, data: { id, reset: shouldResetSteps } };
+    } catch (error: any) {
+        console.error("Failed to update approval:", error);
+        return { success: false, error: "결재 수정에 실패했습니다." };
+    }
+}
