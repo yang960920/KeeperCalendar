@@ -2,9 +2,9 @@
 
 import React from "react";
 import { useParams } from "next/navigation";
-import NewApprovalPage from "../../new/page";
+import { NewApprovalForm } from "../../new/ApprovalForm";
 
 export default function EditApprovalPage() {
     const params = useParams<{ id: string }>();
-    return <NewApprovalPage forcedEditId={params.id} />;
+    return <NewApprovalForm forcedEditId={params.id} />;
 }
