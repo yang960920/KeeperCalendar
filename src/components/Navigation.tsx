@@ -3,7 +3,12 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, CalendarIcon, LayoutDashboardIcon, FolderKanbanIcon, Settings, UserCircle, LogOut, ShieldCheck, Columns3, CalendarCheck, FileText, FolderOpen, MessageCircle, Building2, Receipt } from "lucide-react";
+import {
+    Home, CalendarIcon, LayoutDashboardIcon, FolderKanbanIcon, Settings, UserCircle, LogOut,
+    ShieldCheck, Columns3, CalendarCheck, FileText, FolderOpen, MessageCircle, Building2, Receipt,
+    Briefcase, Users, ClipboardList, ChevronRight,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useAdminStore } from "@/store/useAdminStore";
@@ -13,6 +18,74 @@ import { getUnreadChatCount } from "@/app/actions/chat";
 import { logoutUser } from "@/app/actions/employee";
 import { NotificationBell } from "@/components/NotificationBell";
 
+type NavItem = {
+    href: string;
+    label: string;
+    icon: LucideIcon;
+};
+
+type NavGroup = {
+    id: string;
+    label: string;
+    icon: LucideIcon;
+    items: NavItem[];
+};
+
+type NavEntry = { kind: "item"; item: NavItem } | { kind: "group"; group: NavGroup };
+
+const STORAGE_KEY = "nav.openGroups.v1";
+const DEFAULT_OPEN: string[] = ["work"];
+
+function isActive(href: string, pathname: string): boolean {
+    if (href === "/") return pathname === "/";
+    return pathname === href || pathname.startsWith(href + "/");
+}
+
+const ENTRIES: NavEntry[] = [
+    { kind: "item", item: { href: "/", label: "오피스 홈", icon: Home } },
+    {
+        kind: "group",
+        group: {
+            id: "work",
+            label: "내 업무",
+            icon: Briefcase,
+            items: [
+                { href: "/monthly", label: "월별 일지", icon: LayoutDashboardIcon },
+                { href: "/yearly", label: "연간 히트맵", icon: CalendarIcon },
+                { href: "/projects", label: "프로젝트", icon: FolderKanbanIcon },
+                { href: "/kanban", label: "칸반 보드", icon: Columns3 },
+            ],
+        },
+    },
+    {
+        kind: "group",
+        group: {
+            id: "collab",
+            label: "협업",
+            icon: Users,
+            items: [
+                { href: "/calendar", label: "공유 캘린더", icon: CalendarCheck },
+                { href: "/chat", label: "메신저", icon: MessageCircle },
+            ],
+        },
+    },
+    {
+        kind: "group",
+        group: {
+            id: "finance",
+            label: "결재 & 거래",
+            icon: ClipboardList,
+            items: [
+                { href: "/approvals", label: "전자결재", icon: FileText },
+                { href: "/transaction-statements", label: "거래명세표", icon: Receipt },
+                { href: "/clients", label: "거래처 관리", icon: Building2 },
+            ],
+        },
+    },
+    { kind: "item", item: { href: "/documents", label: "자료실", icon: FolderOpen } },
+    { kind: "item", item: { href: "/settings", label: "Settings", icon: Settings } },
+];
+
 export const Navigation = () => {
     const pathname = usePathname() || "/";
     const user = useStore(useAuthStore, (state) => state.user);
@@ -21,6 +94,9 @@ export const Navigation = () => {
 
     // 메신저 미읽음 카운트
     const [unreadChatCount, setUnreadChatCount] = useState(0);
+
+    // 사용자가 토글한 그룹 펼침 상태 (localStorage 영속화)
+    const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         if (!user) return;
@@ -36,8 +112,72 @@ export const Navigation = () => {
         return () => clearInterval(interval);
     }, [user]);
 
+    // 펼침 상태 복원: 저장값이 있으면 그것을, 없으면 DEFAULT_OPEN 사용
+    useEffect(() => {
+        try {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved !== null) {
+                const arr = JSON.parse(saved);
+                if (Array.isArray(arr)) setOpenGroups(new Set(arr.filter((v): v is string => typeof v === "string")));
+            } else {
+                setOpenGroups(new Set(DEFAULT_OPEN));
+            }
+        } catch {
+            // localStorage 접근 실패는 무시 — 기본 닫힘 상태로 진행
+        }
+    }, []);
+
+    const toggleGroup = (id: string) => {
+        setOpenGroups(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify([...next]));
+            } catch {
+                // ignore
+            }
+            return next;
+        });
+    };
+
     // 로그인 및 관리자 페이지에서는 네비게이션을 숨김
     if (pathname === "/login" || pathname.startsWith("/admin")) return null;
+
+    const isGroupActive = (group: NavGroup) =>
+        group.items.some(it => isActive(it.href, pathname));
+
+    // 현재 경로가 그룹 내부면 강제 펼침 (사용자 토글 상태와 OR)
+    const isGroupOpen = (group: NavGroup) =>
+        openGroups.has(group.id) || isGroupActive(group);
+
+    const renderItem = (item: NavItem, badge?: number) => {
+        const active = isActive(item.href, pathname);
+        const Icon = item.icon;
+        return (
+            <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
+                    active
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                )}
+            >
+                <Icon className="h-4 w-4" />
+                <span>{item.label}</span>
+                {badge !== undefined && badge > 0 && (
+                    <span className="ml-auto flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[10px] font-bold rounded-full bg-red-500 text-white">
+                        {badge > 99 ? '99+' : badge}
+                    </span>
+                )}
+            </Link>
+        );
+    };
+
+    const itemBadge = (href: string): number | undefined =>
+        href === "/chat" ? unreadChatCount : undefined;
 
     return (
         <nav className="w-64 border-r bg-card flex flex-col h-full flex-shrink-0">
@@ -56,143 +196,51 @@ export const Navigation = () => {
                 </Link>
             </div>
 
-            <div className="flex-1 py-6 px-4 space-y-2 overflow-y-auto">
-                <Link
-                    href="/"
-                    className={cn(
-                        "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
-                        pathname === "/" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                    )}
-                >
-                    <Home className="h-4 w-4" />
-                    <span>오피스 홈</span>
-                </Link>
-
-                <Link
-                    href="/monthly"
-                    className={cn(
-                        "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
-                        pathname === "/monthly" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                    )}
-                >
-                    <LayoutDashboardIcon className="h-4 w-4" />
-                    <span>월별 일지</span>
-                </Link>
-
-                <Link
-                    href="/projects"
-                    className={cn(
-                        "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
-                        pathname.startsWith("/projects") ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                    )}
-                >
-                    <FolderKanbanIcon className="h-4 w-4" />
-                    <span>프로젝트</span>
-                </Link>
-
-                <Link
-                    href="/yearly"
-                    className={cn(
-                        "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
-                        pathname === "/yearly" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                    )}
-                >
-                    <CalendarIcon className="h-4 w-4" />
-                    <span>연간 히트맵</span>
-                </Link>
-
-                <Link
-                    href="/kanban"
-                    className={cn(
-                        "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
-                        pathname === "/kanban" || pathname.startsWith("/kanban") ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                    )}
-                >
-                    <Columns3 className="h-4 w-4" />
-                    <span>칸반 보드</span>
-                </Link>
-
-                <Link
-                    href="/calendar"
-                    className={cn(
-                        "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
-                        pathname === "/calendar" || pathname.startsWith("/calendar") ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                    )}
-                >
-                    <CalendarCheck className="h-4 w-4" />
-                    <span>공유 캘린더</span>
-                </Link>
-
-                <Link
-                    href="/approvals"
-                    className={cn(
-                        "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
-                        pathname === "/approvals" || pathname.startsWith("/approvals") ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                    )}
-                >
-                    <FileText className="h-4 w-4" />
-                    <span>전자결재</span>
-                </Link>
-
-                <Link
-                    href="/transaction-statements"
-                    className={cn(
-                        "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
-                        pathname === "/transaction-statements" || pathname.startsWith("/transaction-statements") ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                    )}
-                >
-                    <Receipt className="h-4 w-4" />
-                    <span>거래명세표</span>
-                </Link>
-
-                <Link
-                    href="/clients"
-                    className={cn(
-                        "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
-                        pathname === "/clients" || pathname.startsWith("/clients") ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                    )}
-                >
-                    <Building2 className="h-4 w-4" />
-                    <span>거래처 관리</span>
-                </Link>
-
-                <Link
-                    href="/documents"
-                    className={cn(
-                        "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
-                        pathname === "/documents" || pathname.startsWith("/documents") ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                    )}
-                >
-                    <FolderOpen className="h-4 w-4" />
-                    <span>자료실</span>
-                </Link>
-
-                <Link
-                    href="/chat"
-                    className={cn(
-                        "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
-                        pathname === "/chat" || pathname.startsWith("/chat") ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                    )}
-                >
-                    <MessageCircle className="h-4 w-4" />
-                    <span>메신저</span>
-                    {unreadChatCount > 0 && (
-                        <span className="ml-auto flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[10px] font-bold rounded-full bg-red-500 text-white">
-                            {unreadChatCount > 99 ? '99+' : unreadChatCount}
-                        </span>
-                    )}
-                </Link>
-
-                <Link
-                    href="/settings"
-                    className={cn(
-                        "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
-                        pathname === "/settings" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                    )}
-                >
-                    <Settings className="h-4 w-4" />
-                    <span>Settings</span>
-                </Link>
+            <div className="flex-1 py-6 px-4 space-y-1 overflow-y-auto">
+                {ENTRIES.map((entry) => {
+                    if (entry.kind === "item") {
+                        return renderItem(entry.item, itemBadge(entry.item.href));
+                    }
+                    const group = entry.group;
+                    const open = isGroupOpen(group);
+                    const GroupIcon = group.icon;
+                    // 그룹이 닫혀 있을 때 헤더에 합산 배지 노출 (현재는 메신저만 해당)
+                    const collapsedBadge = !open
+                        ? group.items.reduce((sum, it) => sum + (itemBadge(it.href) ?? 0), 0)
+                        : 0;
+                    return (
+                        <div key={group.id} className="space-y-1">
+                            <button
+                                type="button"
+                                onClick={() => toggleGroup(group.id)}
+                                aria-expanded={open}
+                                className={cn(
+                                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
+                                    "text-muted-foreground hover:bg-muted hover:text-foreground"
+                                )}
+                            >
+                                <GroupIcon className="h-4 w-4" />
+                                <span className="flex-1 text-left">{group.label}</span>
+                                {collapsedBadge > 0 && (
+                                    <span className="flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[10px] font-bold rounded-full bg-red-500 text-white">
+                                        {collapsedBadge > 99 ? '99+' : collapsedBadge}
+                                    </span>
+                                )}
+                                <ChevronRight
+                                    className={cn(
+                                        "h-4 w-4 transition-transform duration-200",
+                                        open && "rotate-90"
+                                    )}
+                                />
+                            </button>
+                            {open && (
+                                <div className="ml-3.5 pl-3 border-l border-border/60 space-y-1">
+                                    {group.items.map(it => renderItem(it, itemBadge(it.href)))}
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
 
                 {/* Admin 탭 — admin 인증 상태일 때만 노출 */}
                 {isAdminAuth && (
