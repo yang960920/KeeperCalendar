@@ -1481,8 +1481,10 @@ function TaxInvoiceLargeDialog({
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent
-                className="max-w-[95vw] w-[95vw] max-h-[92vh] overflow-y-auto p-0 sm:p-0 gap-0"
-                style={{ width: "min(95vw, 1400px)" }}
+                // shadcn DialogContent 기본의 sm:max-w-lg(512px)를 덮으려면 sm prefix가 같은 카테고리여야 함.
+                // inline maxWidth로 한 번 더 보장 (tailwind-merge 우회 안전망)
+                className="w-[95vw] sm:max-w-[1400px] max-h-[92vh] overflow-y-auto p-0 sm:p-0 gap-0"
+                style={{ width: "min(95vw, 1400px)", maxWidth: "min(95vw, 1400px)" }}
             >
                 <DialogHeader className="sticky top-0 z-10 bg-background border-b px-6 py-4">
                     <DialogTitle className="text-lg flex items-center gap-2">
