@@ -22,6 +22,7 @@ import {
     File as FileIcon,
     ClipboardCheck,
     Navigation,
+    Maximize2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +33,12 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useStore } from "@/hooks/useStore";
 import { createApprovalRequest, getApprovalRequestById, updateApprovalRequest } from "@/app/actions/approval";
@@ -1014,7 +1021,8 @@ function FieldWorkPlanFormFields({
 
 // ─── 납품/검수확인서 (INSPECTION) 문서형 폼 ──────────────────────────────────
 
-const DOC_INPUT = "w-full border-0 border-b border-dashed border-slate-300 dark:border-slate-600 bg-transparent px-1 py-1 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:border-primary focus:outline-none transition-colors";
+export const DOC_INPUT = "w-full border-0 border-b border-dashed border-slate-300 dark:border-slate-600 bg-transparent px-1 py-1 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:border-primary focus:outline-none transition-colors";
+export const DOC_INPUT_LARGE = "w-full border-0 border-b-2 border-dashed border-slate-400 dark:border-slate-500 bg-transparent px-2 py-2.5 text-lg text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:border-primary focus:outline-none transition-colors";
 const DOC_SELECT = `${DOC_INPUT} cursor-pointer [&>option]:bg-white [&>option]:text-slate-900 dark:[&>option]:bg-slate-800 dark:[&>option]:text-slate-100`;
 
 function InspectionFormFields({
@@ -1232,26 +1240,36 @@ function InspectionFormFields({
 
 // ─── 세금계산서 발행 요청서 (TAX_INVOICE) 문서형 폼 ─────────────────────────
 
-function TaxInvoiceFormFields({
+export function TaxInvoiceFormFields({
     formData,
     onChange,
     userName,
     userDepartment,
+    size = "compact",
 }: {
     formData: Record<string, any>;
     onChange: (data: Record<string, any>) => void;
     userName: string;
     userDepartment: string;
+    size?: "compact" | "large";
 }) {
     const today = new Date();
     const dateStr = `${today.getFullYear()}. ${String(today.getMonth() + 1).padStart(2, "0")}. ${String(today.getDate()).padStart(2, "0")}`;
 
     const items: any[] = formData.taxItems || [];
 
-    const TH = "border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 px-4 py-2.5 text-center font-medium text-slate-600 dark:text-slate-400";
-    const TD = "border border-slate-300 dark:border-slate-600 px-1 py-0.5";
-    const DARK_TH = "bg-slate-800 dark:bg-slate-900 text-white text-xs font-medium px-2 py-2.5 border border-slate-700";
-    const SL = "text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 pl-3 border-l-[3px] border-slate-800 dark:border-slate-400";
+    // 큰 보기 모드: 셀 폰트/패딩 확대 (어르신 가독성). 로직/state는 동일
+    const isLarge = size === "large";
+    const TH = `border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 ${isLarge ? "px-5 py-4 text-base" : "px-4 py-2.5"} text-center font-medium text-slate-600 dark:text-slate-400`;
+    const TD = `border border-slate-300 dark:border-slate-600 ${isLarge ? "px-2 py-2" : "px-1 py-0.5"}`;
+    const DARK_TH = `bg-slate-800 dark:bg-slate-900 text-white font-medium border border-slate-700 ${isLarge ? "text-sm px-3 py-4" : "text-xs px-2 py-2.5"}`;
+    const SL = `${isLarge ? "text-base" : "text-sm"} font-semibold text-slate-700 dark:text-slate-300 mb-3 pl-3 border-l-[3px] border-slate-800 dark:border-slate-400`;
+    const cellInput = isLarge ? DOC_INPUT_LARGE : DOC_INPUT;
+    const cellText = isLarge ? "text-base" : "text-xs";
+    const cellRowSeq = isLarge ? "text-sm" : "text-xs";
+    const totalText = isLarge ? "text-base" : "text-sm";
+    const iconSize = isLarge ? "h-4 w-4" : "h-3 w-3";
+    const minTableW = isLarge ? "min-w-[1100px]" : "min-w-[900px]";
 
     const updateItem = (i: number, field: string, value: string) => {
         const next = items.map((it: any, idx: number) => (idx === i ? { ...it, [field]: value } : it));
@@ -1291,9 +1309,9 @@ function TaxInvoiceFormFields({
     return (
         <div className="rounded-xl border overflow-hidden shadow-sm">
             {/* ── 문서 헤더 ── */}
-            <div className="bg-slate-800 text-white px-6 sm:px-8 py-6 flex justify-between items-center">
-                <h2 className="text-2xl font-bold tracking-[0.15em]">세금계산서 발행 요청서</h2>
-                <div className="text-right text-sm text-slate-400 leading-relaxed">
+            <div className={`bg-slate-800 text-white px-6 sm:px-8 ${isLarge ? "py-8" : "py-6"} flex justify-between items-center`}>
+                <h2 className={`${isLarge ? "text-3xl" : "text-2xl"} font-bold tracking-[0.15em]`}>세금계산서 발행 요청서</h2>
+                <div className={`text-right ${isLarge ? "text-base" : "text-sm"} text-slate-400 leading-relaxed`}>
                     기 안 일 : <span className="text-white font-medium">{dateStr}</span>
                 </div>
             </div>
@@ -1301,12 +1319,12 @@ function TaxInvoiceFormFields({
             <div className="bg-background">
                 {/* ── 발행 일자 ── */}
                 <div className="px-6 sm:px-8 pt-6 mb-6">
-                    <table className="w-full border-collapse text-sm max-w-sm">
+                    <table className={`w-full border-collapse ${isLarge ? "text-base max-w-md" : "text-sm max-w-sm"}`}>
                         <tbody>
                             <tr>
-                                <th className={`${TH} w-[100px]`}>발행 일자</th>
-                                <td className="border border-slate-300 dark:border-slate-600 px-4 py-2.5">
-                                    <input type="date" className={DOC_INPUT} value={formData.issueDate || ""} onChange={(e) => onChange({ ...formData, issueDate: e.target.value })} />
+                                <th className={`${TH} ${isLarge ? "w-[140px]" : "w-[100px]"}`}>발행 일자</th>
+                                <td className={`border border-slate-300 dark:border-slate-600 ${isLarge ? "px-5 py-3.5" : "px-4 py-2.5"}`}>
+                                    <input type="date" className={cellInput} value={formData.issueDate || ""} onChange={(e) => onChange({ ...formData, issueDate: e.target.value })} />
                                 </td>
                             </tr>
                         </tbody>
@@ -1318,63 +1336,63 @@ function TaxInvoiceFormFields({
                     <div className="flex items-center justify-between mb-3">
                         <div className={SL.replace("mb-3", "mb-0")}>발행 내역</div>
                         {items.length < 12 && (
-                            <button type="button" onClick={addItemRow} className="flex items-center gap-1 text-xs text-primary hover:underline">
-                                <Plus className="h-3 w-3" /> 행 추가
+                            <button type="button" onClick={addItemRow} className={`flex items-center gap-1.5 ${isLarge ? "text-base font-medium px-4 py-2 rounded-md bg-primary/10 hover:bg-primary/20" : "text-xs hover:underline"} text-primary`}>
+                                <Plus className={iconSize} /> 행 추가
                             </button>
                         )}
                     </div>
                     <div className="overflow-x-auto -mx-6 px-6 sm:-mx-8 sm:px-8">
-                        <table className="w-full border-collapse text-sm min-w-[900px]">
+                        <table className={`w-full border-collapse ${isLarge ? "text-base" : "text-sm"} ${minTableW}`}>
                             <thead>
                                 <tr>
-                                    <th className={`${DARK_TH} w-[40px]`}>No.</th>
-                                    <th className={`${DARK_TH} w-[120px]`}>업체명</th>
-                                    <th className={`${DARK_TH} w-[90px]`}>날짜</th>
+                                    <th className={`${DARK_TH} ${isLarge ? "w-[50px]" : "w-[40px]"}`}>No.</th>
+                                    <th className={`${DARK_TH} ${isLarge ? "w-[160px]" : "w-[120px]"}`}>업체명</th>
+                                    <th className={`${DARK_TH} ${isLarge ? "w-[110px]" : "w-[90px]"}`}>날짜</th>
                                     <th className={DARK_TH}>제품명/모델명/단위</th>
-                                    <th className={`${DARK_TH} w-[60px]`}>수량</th>
-                                    <th className={`${DARK_TH} w-[90px]`}>단가(원)</th>
-                                    <th className={`${DARK_TH} w-[100px]`}>공급가액</th>
-                                    <th className={`${DARK_TH} w-[90px]`}>부가세</th>
-                                    <th className={`${DARK_TH} w-[100px]`}>합계</th>
-                                    <th className={`${DARK_TH} w-[80px]`}>비고</th>
-                                    <th className={`${DARK_TH} w-[28px]`}></th>
+                                    <th className={`${DARK_TH} ${isLarge ? "w-[80px]" : "w-[60px]"}`}>수량</th>
+                                    <th className={`${DARK_TH} ${isLarge ? "w-[110px]" : "w-[90px]"}`}>단가(원)</th>
+                                    <th className={`${DARK_TH} ${isLarge ? "w-[120px]" : "w-[100px]"}`}>공급가액</th>
+                                    <th className={`${DARK_TH} ${isLarge ? "w-[110px]" : "w-[90px]"}`}>부가세</th>
+                                    <th className={`${DARK_TH} ${isLarge ? "w-[120px]" : "w-[100px]"}`}>합계</th>
+                                    <th className={`${DARK_TH} ${isLarge ? "w-[100px]" : "w-[80px]"}`}>비고</th>
+                                    <th className={`${DARK_TH} ${isLarge ? "w-[40px]" : "w-[28px]"}`}></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {items.map((it: any, i: number) => (
                                     <tr key={i} className={i % 2 === 1 ? "bg-slate-50/50 dark:bg-slate-800/30" : ""}>
-                                        <td className={`${TD} text-center text-xs font-semibold text-slate-500 px-2`}>{i + 1}</td>
+                                        <td className={`${TD} text-center ${cellRowSeq} font-semibold text-slate-500 px-2`}>{i + 1}</td>
                                         <td className={TD}>
-                                            <input className={`${DOC_INPUT} text-xs`} placeholder="업체명" value={it.company || ""} onChange={(e) => updateItem(i, "company", e.target.value)} />
+                                            <input className={`${cellInput} ${cellText}`} placeholder="업체명" value={it.company || ""} onChange={(e) => updateItem(i, "company", e.target.value)} />
                                         </td>
                                         <td className={TD}>
-                                            <input className={`${DOC_INPUT} text-xs text-center`} placeholder="MM/DD" value={it.date || ""} onChange={(e) => updateItem(i, "date", e.target.value)} />
+                                            <input className={`${cellInput} ${cellText} text-center`} placeholder="MM/DD" value={it.date || ""} onChange={(e) => updateItem(i, "date", e.target.value)} />
                                         </td>
                                         <td className={TD}>
-                                            <input className={`${DOC_INPUT} text-xs`} placeholder="제품명/모델명/단위" value={it.product || ""} onChange={(e) => updateItem(i, "product", e.target.value)} />
+                                            <input className={`${cellInput} ${cellText}`} placeholder="제품명/모델명/단위" value={it.product || ""} onChange={(e) => updateItem(i, "product", e.target.value)} />
                                         </td>
                                         <td className={TD}>
-                                            <input className={`${DOC_INPUT} text-xs text-right`} type="number" placeholder="" value={it.qty || ""} onChange={(e) => updateItem(i, "qty", e.target.value)} />
+                                            <input className={`${cellInput} ${cellText} text-right`} type="number" placeholder="" value={it.qty || ""} onChange={(e) => updateItem(i, "qty", e.target.value)} />
                                         </td>
                                         <td className={TD}>
-                                            <input className={`${DOC_INPUT} text-xs text-right`} type="number" placeholder="" value={it.unitPrice || ""} onChange={(e) => updateItem(i, "unitPrice", e.target.value)} />
+                                            <input className={`${cellInput} ${cellText} text-right`} type="number" placeholder="" value={it.unitPrice || ""} onChange={(e) => updateItem(i, "unitPrice", e.target.value)} />
                                         </td>
-                                        <td className={`${TD} text-right text-xs font-medium text-slate-700 dark:text-slate-300 px-2 tabular-nums`}>
+                                        <td className={`${TD} text-right ${cellText} font-medium text-slate-700 dark:text-slate-300 px-2 tabular-nums`}>
                                             {fmt(calc.rows[i]?.supply, calc.rows[i]?.hasValue)}
                                         </td>
-                                        <td className={`${TD} text-right text-xs text-slate-500 dark:text-slate-400 px-2 tabular-nums`}>
+                                        <td className={`${TD} text-right ${cellText} text-slate-500 dark:text-slate-400 px-2 tabular-nums`}>
                                             {fmt(calc.rows[i]?.vat, calc.rows[i]?.hasValue)}
                                         </td>
-                                        <td className={`${TD} text-right text-xs font-semibold tabular-nums px-2`}>
+                                        <td className={`${TD} text-right ${cellText} font-semibold tabular-nums px-2`}>
                                             {fmt(calc.rows[i]?.sum, calc.rows[i]?.hasValue)}
                                         </td>
                                         <td className={TD}>
-                                            <input className={`${DOC_INPUT} text-xs`} placeholder="" value={it.note || ""} onChange={(e) => updateItem(i, "note", e.target.value)} />
+                                            <input className={`${cellInput} ${cellText}`} placeholder="" value={it.note || ""} onChange={(e) => updateItem(i, "note", e.target.value)} />
                                         </td>
                                         <td className={`${TD} text-center`}>
                                             {items.length > 1 && (
                                                 <button type="button" onClick={() => removeItemRow(i)} className="text-slate-400 hover:text-red-500 transition-colors">
-                                                    <Trash2 className="h-3 w-3" />
+                                                    <Trash2 className={iconSize} />
                                                 </button>
                                             )}
                                         </td>
@@ -1382,16 +1400,16 @@ function TaxInvoiceFormFields({
                                 ))}
                                 {/* 합계 행 */}
                                 <tr className="bg-slate-100 dark:bg-slate-800">
-                                    <td colSpan={6} className="border border-slate-300 dark:border-slate-600 text-right px-4 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-400">
+                                    <td colSpan={6} className={`border border-slate-300 dark:border-slate-600 text-right ${isLarge ? "px-5 py-4" : "px-4 py-2.5"} ${totalText} font-medium text-slate-600 dark:text-slate-400`}>
                                         합 계
                                     </td>
-                                    <td className="border border-slate-300 dark:border-slate-600 text-right px-2 py-2.5 text-sm font-bold tabular-nums">
+                                    <td className={`border border-slate-300 dark:border-slate-600 text-right ${isLarge ? "px-3 py-4" : "px-2 py-2.5"} ${totalText} font-bold tabular-nums`}>
                                         {calc.hasTotal ? calc.totalSupply.toLocaleString() : ""}
                                     </td>
-                                    <td className="border border-slate-300 dark:border-slate-600 text-right px-2 py-2.5 text-sm font-bold tabular-nums">
+                                    <td className={`border border-slate-300 dark:border-slate-600 text-right ${isLarge ? "px-3 py-4" : "px-2 py-2.5"} ${totalText} font-bold tabular-nums`}>
                                         {calc.hasTotal ? calc.totalVat.toLocaleString() : ""}
                                     </td>
-                                    <td className="border border-slate-300 dark:border-slate-600 text-right px-2 py-2.5 text-sm font-bold tabular-nums">
+                                    <td className={`border border-slate-300 dark:border-slate-600 text-right ${isLarge ? "px-3 py-4" : "px-2 py-2.5"} ${totalText} font-bold tabular-nums`}>
                                         {calc.hasTotal ? calc.totalSum.toLocaleString() : ""}
                                     </td>
                                     <td colSpan={2} className="border border-slate-300 dark:border-slate-600"></td>
@@ -1404,18 +1422,18 @@ function TaxInvoiceFormFields({
                 {/* ── 담당자 / 연락처 ── */}
                 <div className="px-6 sm:px-8 mb-6">
                     <div className={SL}>담당자 정보</div>
-                    <table className="w-full border-collapse text-sm max-w-md">
+                    <table className={`w-full border-collapse ${isLarge ? "text-base max-w-lg" : "text-sm max-w-md"}`}>
                         <tbody>
                             <tr>
-                                <th className={`${TH} w-[100px]`}>담당자</th>
-                                <td className="border border-slate-300 dark:border-slate-600 px-4 py-2.5">
-                                    <input className={DOC_INPUT} placeholder="담당자 성명" value={formData.manager || ""} onChange={(e) => onChange({ ...formData, manager: e.target.value })} />
+                                <th className={`${TH} ${isLarge ? "w-[140px]" : "w-[100px]"}`}>담당자</th>
+                                <td className={`border border-slate-300 dark:border-slate-600 ${isLarge ? "px-5 py-3.5" : "px-4 py-2.5"}`}>
+                                    <input className={cellInput} placeholder="담당자 성명" value={formData.manager || ""} onChange={(e) => onChange({ ...formData, manager: e.target.value })} />
                                 </td>
                             </tr>
                             <tr>
-                                <th className={`${TH} w-[100px]`}>연락처</th>
-                                <td className="border border-slate-300 dark:border-slate-600 px-4 py-2.5">
-                                    <input className={DOC_INPUT} placeholder="연락처" value={formData.managerContact || ""} onChange={(e) => onChange({ ...formData, managerContact: e.target.value })} />
+                                <th className={`${TH} ${isLarge ? "w-[140px]" : "w-[100px]"}`}>연락처</th>
+                                <td className={`border border-slate-300 dark:border-slate-600 ${isLarge ? "px-5 py-3.5" : "px-4 py-2.5"}`}>
+                                    <input className={cellInput} placeholder="연락처" value={formData.managerContact || ""} onChange={(e) => onChange({ ...formData, managerContact: e.target.value })} />
                                 </td>
                             </tr>
                         </tbody>
@@ -1423,7 +1441,7 @@ function TaxInvoiceFormFields({
                 </div>
 
                 {/* ── 하단 서명 미리보기 ── */}
-                <div className="text-center px-6 sm:px-8 pb-8 text-sm text-slate-500 dark:text-slate-400 leading-loose">
+                <div className={`text-center px-6 sm:px-8 pb-8 ${isLarge ? "text-base" : "text-sm"} text-slate-500 dark:text-slate-400 leading-loose`}>
                     <p>위와 같이 세금계산서 발행을 요청하오니 처리하여 주시기 바랍니다.</p>
                     <p className="font-medium text-slate-700 dark:text-slate-300 mt-2">
                         {dateStr.replace(/\. /g, "년 ").replace(/\.$/, "") + "일"}
@@ -1431,7 +1449,7 @@ function TaxInvoiceFormFields({
                     <p className="mt-1">
                         <span className="text-slate-400">{userDepartment}</span>
                         &nbsp;&nbsp;
-                        <span className="font-semibold text-slate-800 dark:text-slate-200 text-base">
+                        <span className={`font-semibold text-slate-800 dark:text-slate-200 ${isLarge ? "text-lg" : "text-base"}`}>
                             {userName.split("").join(" ")}
                         </span>
                         <span className="text-slate-400 ml-2">(인)</span>
@@ -1439,6 +1457,62 @@ function TaxInvoiceFormFields({
                 </div>
             </div>
         </div>
+    );
+}
+
+// ─── 세금계산서 발행 요청서 — 크게 보기 다이얼로그 ──────────────────────────
+// 부모의 formData/onChange를 그대로 양방향 바인딩 (별도 state 분리 X)
+
+function TaxInvoiceLargeDialog({
+    open,
+    onOpenChange,
+    formData,
+    onChange,
+    userName,
+    userDepartment,
+}: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    formData: Record<string, any>;
+    onChange: (data: Record<string, any>) => void;
+    userName: string;
+    userDepartment: string;
+}) {
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent
+                className="max-w-[95vw] w-[95vw] max-h-[92vh] overflow-y-auto p-0 sm:p-0 gap-0"
+                style={{ width: "min(95vw, 1400px)" }}
+            >
+                <DialogHeader className="sticky top-0 z-10 bg-background border-b px-6 py-4">
+                    <DialogTitle className="text-lg flex items-center gap-2">
+                        <Maximize2 className="h-5 w-5 text-primary" />
+                        세금계산서 발행 요청서 — 크게 보기
+                    </DialogTitle>
+                </DialogHeader>
+
+                <div className="px-2 py-4 sm:px-4">
+                    <TaxInvoiceFormFields
+                        formData={formData}
+                        onChange={onChange}
+                        userName={userName}
+                        userDepartment={userDepartment}
+                        size="large"
+                    />
+                </div>
+
+                <div className="sticky bottom-0 z-10 bg-background border-t px-6 py-4 flex justify-end">
+                    <Button
+                        type="button"
+                        size="lg"
+                        onClick={() => onOpenChange(false)}
+                        className="text-base px-8 h-12"
+                    >
+                        닫기
+                    </Button>
+                </div>
+            </DialogContent>
+        </Dialog>
     );
 }
 
@@ -2534,6 +2608,7 @@ export function NewApprovalForm({ forcedEditId }: { forcedEditId?: string } = {}
     });
     const [attachments, setAttachments] = useState<{ name: string; url: string; size: number; type: string }[]>([]);
     const [uploadingFiles, setUploadingFiles] = useState(false);
+    const [taxInvoiceLargeOpen, setTaxInvoiceLargeOpen] = useState(false);
 
     // 직원 목록 로드
     useEffect(() => {
@@ -3339,7 +3414,27 @@ export function NewApprovalForm({ forcedEditId }: { forcedEditId?: string } = {}
                     {/* 2-f. 세금계산서 발행 요청서 (TAX_INVOICE) */}
                     {form.category === "TAX_INVOICE" && (
                         <section>
+                            <div className="flex justify-end mb-3">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="lg"
+                                    onClick={() => setTaxInvoiceLargeOpen(true)}
+                                    className="gap-2 text-base h-11 px-5 border-primary/40 text-primary hover:bg-primary/5"
+                                >
+                                    <Maximize2 className="h-5 w-5" />
+                                    크게 보기 / 편집
+                                </Button>
+                            </div>
                             <TaxInvoiceFormFields
+                                formData={formData}
+                                onChange={setFormData}
+                                userName={userName}
+                                userDepartment={userDepartment}
+                            />
+                            <TaxInvoiceLargeDialog
+                                open={taxInvoiceLargeOpen}
+                                onOpenChange={setTaxInvoiceLargeOpen}
                                 formData={formData}
                                 onChange={setFormData}
                                 userName={userName}
