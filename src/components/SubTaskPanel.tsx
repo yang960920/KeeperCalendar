@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { SubTask } from "@/store/useTaskStore";
 import { SubTaskFormPanel } from "@/components/SubTaskFormPanel";
 import { useAuthStore } from "@/store/useAuthStore";
-import { addSubTaskComment, getSubTaskComments, deleteSubTaskComment } from "@/app/actions/subtask-comment";
+import { addSubTaskComment, getSubTaskComments, deleteSubTaskComment, getSubTaskCommentCounts } from "@/app/actions/subtask-comment";
 
 interface SubTaskPanelProps {
     taskId: string;
@@ -49,12 +49,16 @@ interface Comment {
     createdAt: string;
 }
 
-function CommentSection({ subTaskId }: { subTaskId: string }) {
+function CommentSection({ subTaskId, initialCount = 0 }: { subTaskId: string; initialCount?: number }) {
     const user = useAuthStore((state) => state.user);
     const [comments, setComments] = useState<Comment[]>([]);
     const [newComment, setNewComment] = useState("");
     const [loading, setLoading] = useState(false);
     const [expanded, setExpanded] = useState(false);
+    const [hasLoaded, setHasLoaded] = useState(false);
+
+    // 펼친 적 없으면 prop으로 받은 prefetch 카운트, 펼친 후엔 실제 목록 길이
+    const displayCount = hasLoaded ? comments.length : initialCount;
 
     useEffect(() => {
         if (expanded) {
@@ -66,6 +70,7 @@ function CommentSection({ subTaskId }: { subTaskId: string }) {
         const res = await getSubTaskComments(subTaskId);
         if (res.success && res.data) {
             setComments(res.data);
+            setHasLoaded(true);
         }
     };
 
@@ -99,7 +104,7 @@ function CommentSection({ subTaskId }: { subTaskId: string }) {
                 className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors mt-1"
             >
                 <MessageSquare className="h-3 w-3" />
-                코멘트
+                코멘트 ({displayCount})
             </button>
         );
     }
@@ -108,7 +113,7 @@ function CommentSection({ subTaskId }: { subTaskId: string }) {
         <div className="mt-2 border-t pt-2 space-y-2">
             <div className="flex items-center justify-between">
                 <span className="text-[10px] font-semibold text-muted-foreground flex items-center gap-1">
-                    <MessageSquare className="h-3 w-3" /> 코멘트 ({comments.length})
+                    <MessageSquare className="h-3 w-3" /> 코멘트 ({displayCount})
                 </span>
                 <button onClick={() => setExpanded(false)} className="text-muted-foreground hover:text-foreground">
                     <X className="h-3 w-3" />
@@ -189,6 +194,22 @@ export function SubTaskPanel({
     const completedCount = subTasks.filter(st => st.isCompleted).length;
     const totalCount = subTasks.length;
     const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
+    // 코멘트 갯수 prefetch — 클릭 전에도 표시되도록 batch 1회 조회
+    const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
+    const subTaskIdsKey = subTasks.map(st => st.id).sort().join(",");
+    useEffect(() => {
+        const ids = subTaskIdsKey ? subTaskIdsKey.split(",") : [];
+        if (ids.length === 0) {
+            setCommentCounts({});
+            return;
+        }
+        let cancelled = false;
+        getSubTaskCommentCounts(ids).then(res => {
+            if (!cancelled && res.success && res.data) setCommentCounts(res.data);
+        });
+        return () => { cancelled = true; };
+    }, [subTaskIdsKey]);
 
     // Phase 2: 필터링된 하위업무
     const filteredSubTasks = useMemo(() => {
@@ -415,7 +436,7 @@ export function SubTaskPanel({
                                     </div>
 
                                     {/* Phase 4: 코멘트 섹션 */}
-                                    <CommentSection subTaskId={st.id} />
+                                    <CommentSection subTaskId={st.id} initialCount={commentCounts[st.id] ?? 0} />
                                 </div>
 
                                 {/* 수정/삭제 */}

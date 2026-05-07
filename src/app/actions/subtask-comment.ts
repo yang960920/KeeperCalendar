@@ -68,6 +68,33 @@ export async function getSubTaskComments(subTaskId: string) {
 }
 
 /**
+ * 여러 하위업무의 코멘트 갯수를 한 번에 조회합니다.
+ * 클릭 전에도 코멘트 갯수를 표시하기 위해 사용.
+ */
+export async function getSubTaskCommentCounts(subTaskIds: string[]) {
+    if (subTaskIds.length === 0) {
+        return { success: true, data: {} as Record<string, number> };
+    }
+
+    try {
+        const grouped = await prisma.subTaskComment.groupBy({
+            by: ["subTaskId"],
+            where: { subTaskId: { in: subTaskIds } },
+            _count: { _all: true },
+        });
+
+        const counts: Record<string, number> = {};
+        for (const id of subTaskIds) counts[id] = 0;
+        for (const g of grouped) counts[g.subTaskId] = g._count._all;
+
+        return { success: true, data: counts };
+    } catch (error) {
+        console.error("Failed to get sub-task comment counts:", error);
+        return { success: false, error: "코멘트 갯수 조회에 실패했습니다." };
+    }
+}
+
+/**
  * 코멘트를 삭제합니다 (작성자만 가능).
  */
 export async function deleteSubTaskComment(commentId: string, userId: string) {
