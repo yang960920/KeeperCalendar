@@ -42,6 +42,12 @@ class EmitPrismaEnginePlugin {
 
 const nextConfig: NextConfig = {
     reactCompiler: true,
+    // Server Action 본문 한도 (기본 1MB) — 거래처 OCR에서 핸드폰 사진(2~5MB)을 base64로 보내야 하므로 상향
+    experimental: {
+        serverActions: {
+            bodySizeLimit: "10mb",
+        },
+    },
     outputFileTracingIncludes: {
         "/**/*": [
             "./src/generated/prisma/**/*",
